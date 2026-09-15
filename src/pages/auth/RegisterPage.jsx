@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import logo from "../../assets/logo.jpg";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -28,13 +29,12 @@ export default function RegisterPage() {
   return (
     <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center overflow-hidden bg-background px-container-margin py-10">
       <div className="mb-8 flex flex-col items-center">
-        <div className="w-16 h-16 bg-primary-container rounded-lg flex items-center justify-center mb-4 soft-shadow">
-          <span
-            className="material-symbols-outlined text-on-primary-container"
-            style={{ fontSize: 36, fontVariationSettings: "'FILL' 1" }}
-          >
-            person_add
-          </span>
+        <div className="w-16 h-16 rounded-lg overflow-hidden mb-4 soft-shadow bg-white">
+          <img
+            src={logo}
+            alt="LocalMate AI"
+            className="w-full h-full object-cover object-top"
+          />
         </div>
         <h1 className="text-headline-xl font-bold text-primary mb-1">
           Tạo tài khoản
