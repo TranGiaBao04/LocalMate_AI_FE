@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import MobileLayout from "../../components/layout/MobileLayout";
-import { mockPlaces } from "../../data/places.mock";
+import { placeService } from "../../services/placeService";
 
 const HERO_FIELDS = [
   {
@@ -63,21 +63,18 @@ const FILTERS = [
   "Ga 04 Tân Cảng",
 ];
 
-const NEARBY_CONFIG = [
-  { id: "place-001", tag: "Cửa số 1" },
-  { id: "place-003", tag: "Cửa số 2" },
-  { id: "place-004", tag: "Cửa số 3" },
-  { id: "place-013", tag: "Ga Tân Cảng" },
-];
-const NEARBY = NEARBY_CONFIG.map((cfg) => {
-  const place = mockPlaces.find((p) => p.id === cfg.id);
-  return place ? { ...place, tag: cfg.tag } : null;
-}).filter(Boolean);
-
 export default function HomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [activeFilter, setActiveFilter] = useState(0);
+  const [nearby, setNearby] = useState([]);
+
+  useEffect(() => {
+    placeService
+      .getPlaces({ metroFriendly: true, limit: 4 })
+      .then((places) => setNearby(places ?? []))
+      .catch(() => setNearby([]));
+  }, []);
 
   const firstName = user?.fullName?.split(" ").pop() || "bạn";
   const initial = (user?.fullName || "K").charAt(0).toUpperCase();
@@ -302,7 +299,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {NEARBY.map((place) => (
+            {nearby.map((place) => (
               <div
                 key={place.id}
                 onClick={() => navigate(`/place/${place.id}`)}
@@ -315,7 +312,7 @@ export default function HomePage() {
                     className="h-full w-full object-cover"
                   />
                   <span className="absolute left-2 top-2 rounded-full bg-navy-dark px-2 py-[3px] text-[10.5px] font-bold text-white">
-                    {place.tag}
+                    {place.nearestMetroStation ?? "Gần ga"}
                   </span>
                 </div>
                 <div className="truncate text-[13.5px] font-bold text-[#111726]">

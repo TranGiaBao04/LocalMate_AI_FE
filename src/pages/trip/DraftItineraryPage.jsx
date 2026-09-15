@@ -8,8 +8,9 @@ import {
 
 export default function DraftItineraryPage() {
   const navigate = useNavigate();
-  const { currentTrip, finalizeTrip, saveTrip } = useTrip();
+  const { currentTrip, finalizeTrip } = useTrip();
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
 
   if (!currentTrip) {
     return (
@@ -35,15 +36,15 @@ export default function DraftItineraryPage() {
     );
   }
 
-  const handleFinalize = () => {
-    finalizeTrip(currentTrip.id);
-    saveTrip({
-      ...currentTrip,
-      status: "finalized",
-      finalizedAt: new Date().toISOString(),
-    });
-    setShowFinalizeModal(false);
-    navigate("/finalized");
+  const handleFinalize = async () => {
+    setFinalizing(true);
+    try {
+      await finalizeTrip(currentTrip.id);
+      setShowFinalizeModal(false);
+      navigate("/finalized");
+    } finally {
+      setFinalizing(false);
+    }
   };
 
   return (
@@ -244,9 +245,10 @@ export default function DraftItineraryPage() {
               </button>
               <button
                 onClick={handleFinalize}
-                className="flex-1 py-3 bg-primary text-on-primary rounded-full font-semibold active:scale-95 transition-all shadow-lg shadow-primary/30"
+                disabled={finalizing}
+                className="flex-1 py-3 bg-primary text-on-primary rounded-full font-semibold active:scale-95 transition-all shadow-lg shadow-primary/30 disabled:opacity-60"
               >
-                Chốt lịch trình
+                {finalizing ? "Đang chốt..." : "Chốt lịch trình"}
               </button>
             </div>
           </div>

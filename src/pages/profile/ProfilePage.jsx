@@ -17,7 +17,7 @@ export default function ProfilePage() {
   const completedTrips = savedTrips.filter(
     (t) => t.status === "completed",
   ).length;
-  const favInterests = user?.preferences.favoriteTags ?? [];
+  const favInterests = user?.preferences?.favoriteTags ?? [];
 
   return (
     <MobileLayout>

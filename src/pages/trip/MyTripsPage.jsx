@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useTrip } from "../../context/TripContext";
 import MobileLayout from "../../components/layout/MobileLayout";
-import { mockPlaces } from "../../data/places.mock";
 import {
   formatCurrencyShort,
   formatRelativeTime,
@@ -68,9 +67,7 @@ export default function MyTripsPage() {
             <div className="grid gap-stack-md lg:grid-cols-2">
             {savedTrips.map((trip) => {
               const statusCfg = STATUS_CONFIG[trip.status];
-              const coverPlace = mockPlaces.find(
-                (place) => place.id === trip.items[0]?.placeId,
-              );
+              const coverImage = trip.items[0]?.placeImageUrl;
 
               return (
                 <div
@@ -78,10 +75,10 @@ export default function MyTripsPage() {
                   className="card space-y-stack-sm active:scale-[0.98] transition-transform cursor-pointer"
                   onClick={() => navigate(`/trips/${trip.id}`)}
                 >
-                  {coverPlace?.imageUrl && (
+                  {coverImage && (
                     <img
-                      src={coverPlace.imageUrl}
-                      alt={coverPlace.name}
+                      src={coverImage}
+                      alt={trip.title}
                       className="h-40 w-full rounded-lg object-cover"
                     />
                   )}
@@ -152,7 +149,9 @@ export default function MyTripsPage() {
                       </button>
 
                       <button
-                        onClick={() => deleteTrip(trip.id)}
+                        onClick={() => {
+                          deleteTrip(trip.id).catch(() => {});
+                        }}
                         className="px-3 py-1.5 border border-error/30 text-error rounded-full text-label-md font-bold active:scale-95 transition-all hover:bg-error-container"
                       >
                         Xóa

@@ -16,10 +16,14 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const ok = await login(email, password);
-    if (ok) navigate("/home");
-    else setError("Email hoặc mật khẩu không đúng.");
-    setLoading(false);
+    try {
+      await login(email, password);
+      navigate("/home");
+    } catch (err) {
+      setError(err.message || "Email hoặc mật khẩu không đúng.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

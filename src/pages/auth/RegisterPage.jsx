@@ -20,10 +20,14 @@ export default function RegisterPage() {
     if (password.length < 6) return setError("Mật khẩu tối thiểu 6 ký tự.");
     if (password !== confirm) return setError("Mật khẩu xác nhận không khớp.");
     setLoading(true);
-    const ok = await register(fullName, email, password);
-    if (ok) navigate("/home");
-    else setError("Hiện tại chỉ hỗ trợ đăng nhập bằng tài khoản mẫu.");
-    setLoading(false);
+    try {
+      await register(fullName, email, password);
+      navigate("/home");
+    } catch (err) {
+      setError(err.message || "Không thể tạo tài khoản. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
