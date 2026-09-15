@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { mockPlaces } from "../../data/places.mock";
+import { placeService } from "../../services/placeService";
 import {
   formatCurrencyShort,
   formatDuration,
@@ -8,8 +9,29 @@ import {
 
 export default function PlacePreviewPage() {
   const { placeId } = useParams();
+  return <PlaceDetail key={placeId} placeId={placeId} />;
+}
+
+function PlaceDetail({ placeId }) {
   const navigate = useNavigate();
-  const place = mockPlaces.find((p) => p.id === placeId);
+  const [place, setPlace] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    placeService
+      .getPlaceById(placeId)
+      .then(setPlace)
+      .catch(() => setPlace(null))
+      .finally(() => setLoading(false));
+  }, [placeId]);
+
+  if (loading) {
+    return (
+      <div className="app-shell flex items-center justify-center">
+        <p className="text-body-lg text-on-surface-variant">Đang tải...</p>
+      </div>
+    );
+  }
 
   if (!place) {
     return (
