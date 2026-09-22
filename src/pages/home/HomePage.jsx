@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import MobileLayout from "../../components/layout/MobileLayout";
+import GuestTourCard from "../../components/home/GuestTourCard";
 import { placeService } from "../../services/placeService";
+import { STORAGE_KEYS } from "../../constants";
 
 const HERO_FIELDS = [
   {
@@ -69,12 +71,29 @@ export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState(0);
   const [nearby, setNearby] = useState([]);
 
+  const [showGuestTour, setShowGuestTour] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.GUEST_TOUR_DISMISSED) !== "true";
+    } catch {
+      return true;
+    }
+  });
+
   useEffect(() => {
     placeService
       .getPlaces({ metroFriendly: true, limit: 4 })
       .then((places) => setNearby(places ?? []))
       .catch(() => setNearby([]));
   }, []);
+
+  const handleDismissTour = () => {
+    setShowGuestTour(false);
+    try {
+      localStorage.setItem(STORAGE_KEYS.GUEST_TOUR_DISMISSED, "true");
+    } catch {
+      // ignore
+    }
+  };
 
   const firstName = user?.fullName?.split(" ").pop() || "bạn";
   const initial = (user?.fullName || "K").charAt(0).toUpperCase();
@@ -128,6 +147,9 @@ export default function HomePage() {
             </button>
           </div>
         </div>
+
+        {/* Guest Tour banner / quick guide */}
+        {showGuestTour && <GuestTourCard onDismiss={handleDismissTour} />}
 
         {/* Hero — AI trip planner */}
         <section className="hero-gradient relative flex flex-col gap-4 overflow-hidden rounded-[20px] p-6 sm:p-8">

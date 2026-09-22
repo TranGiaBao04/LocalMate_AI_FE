@@ -130,4 +130,5 @@ export const STORAGE_KEYS = {
   TOKEN: "localmate_token",
   TRIP_DRAFT: "localmate_trip_draft",
   TRIP_REQUEST: "localmate_trip_request",
+  GUEST_TOUR_DISMISSED: "localmate_guest_tour_dismissed",
 };
