@@ -9,5 +9,6 @@ export const authService = {
       { fullName, email, password },
       { auth: false },
     ),
-  getProfile: () => apiClient.get("/auth/me"),
+  demo: () => apiClient.post("/auth/demo", {}, { auth: false }),
+  getProfile: () => apiClient.get("/users/me"),
 };

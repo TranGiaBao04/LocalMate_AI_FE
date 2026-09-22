@@ -128,6 +128,7 @@ export const REPLACE_REASONS = [
 
 export const STORAGE_KEYS = {
   TOKEN: "localmate_token",
+  IS_DEMO: "localmate_is_demo",
   TRIP_DRAFT: "localmate_trip_draft",
   TRIP_REQUEST: "localmate_trip_request",
 };
