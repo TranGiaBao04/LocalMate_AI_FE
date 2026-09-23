@@ -12,7 +12,7 @@ function toQueryString(params = {}) {
 }
 
 export const placeService = {
-  getNearby: ({ latitude, longitude, category } = {}) =>
+  getPlaces: ({ latitude, longitude, category } = {}) =>
     apiClient.get(`/places/nearby${toQueryString({ latitude, longitude, category })}`),
   getPlaceById: (placeId) => apiClient.get(`/places/${placeId}`),
 };

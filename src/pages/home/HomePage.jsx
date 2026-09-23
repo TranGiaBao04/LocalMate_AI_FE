@@ -82,7 +82,7 @@ export default function HomePage() {
   useEffect(() => {
     placeService
       .getPlaces({ metroFriendly: true, limit: 4 })
-      .then((places) => setNearby(places ?? []))
+      .then((data) => setNearby(data?.places ?? []))
       .catch(() => setNearby([]));
   }, []);
 
@@ -152,66 +152,75 @@ export default function HomePage() {
         {showGuestTour && <GuestTourCard onDismiss={handleDismissTour} />}
 
         {/* Hero — AI trip planner */}
-        <section className="hero-gradient relative flex flex-col gap-4 overflow-hidden rounded-[20px] p-6 sm:p-8">
-          <div className="pointer-events-none absolute -right-[50px] -top-[70px] h-60 w-60 rounded-full bg-accent/10" />
-          <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/[0.12] px-3 py-[5px] text-xs font-bold text-[#FFD98A]">
-            ★ AI Metro Trip Planner v2.4
+        <section className="relative flex flex-col gap-4 overflow-hidden rounded-3xl border border-slate-700/50 bg-navy-darkest p-6 shadow-2xl sm:p-8">
+          <div className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
+
+          <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide text-amber-300 backdrop-blur-md">
+              ★ AI Metro Trip Planner v2.4
+            </div>
+            <div className="flex items-center gap-1.5 text-xs font-medium text-blue-200">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              Đồng bộ dữ liệu giờ tàu và điểm đến mới nhất hôm nay
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-extrabold tracking-tight text-white">
-              Xin chào, {firstName} 👋
+
+          <div className="relative z-10">
+            <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+              Xin chào, {firstName} <span className="text-2xl">👋</span>
             </h2>
-            <p className="mt-1 max-w-[520px] text-sm leading-relaxed text-white/75">
+            <p className="mt-1 max-w-[520px] text-sm text-slate-300 sm:text-base">
               Hôm nay bạn muốn khám phá đâu quanh tuyến Metro Bến Thành – Suối
               Tiên?
             </p>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-[20px] border border-white/[0.12] bg-white/[0.08] p-4 backdrop-blur-[2px] sm:p-5">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {HERO_FIELDS.map((field) => (
-                <div key={field.label} className="min-w-0">
-                  <div className="mb-1.5 text-[10.5px] font-bold tracking-wide text-white/55">
-                    {field.label}
-                  </div>
-                  <div className="flex items-center gap-2 rounded-xl bg-white/[0.94] px-3 py-2.5">
-                    <span className="material-symbols-outlined flex-none text-sm text-navy">
-                      {field.icon}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-navy-dark">
-                      {field.value}
-                    </span>
-                    <span className="material-symbols-outlined flex-none text-xs text-text-faint">
-                      expand_more
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-3.5">
-              <div className="flex items-center gap-2 text-xs text-white/70">
-                <span className="h-[7px] w-[7px] flex-none rounded-full bg-[#4ADE80]" />
-                Tối ưu hoá khoảng cách đi bộ &lt;500m từ ga Metro
-              </div>
-              <div className="flex items-center gap-3.5">
-                <a
-                  href="#"
-                  onClick={(e) => e.preventDefault()}
-                  className="text-[13px] font-semibold text-white/85"
-                >
-                  Lịch trình mẫu
-                </a>
-                <button
-                  onClick={() => navigate("/create")}
-                  className="flex items-center gap-[7px] whitespace-nowrap rounded-xl bg-white px-5 py-[11px] text-[13.5px] font-bold text-navy-dark transition-colors hover:bg-[#EEF1FA] active:scale-95"
-                >
-                  Thiết kế lịch trình với AI
-                  <span className="material-symbols-outlined text-sm">
-                    arrow_forward
+          <div className="relative z-10 grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+            {HERO_FIELDS.map((field) => (
+              <div
+                key={field.label}
+                className="rounded-2xl border border-white/15 bg-white/10 p-3.5 transition-all hover:bg-white/15"
+              >
+                <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-blue-200">
+                  <span className="material-symbols-outlined text-[16px] text-blue-300">
+                    {field.icon}
                   </span>
-                </button>
+                  {field.label}
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-medium text-white">
+                    {field.value}
+                  </span>
+                  <span className="material-symbols-outlined flex-none text-[16px] text-slate-400">
+                    expand_more
+                  </span>
+                </div>
               </div>
+            ))}
+          </div>
+
+          <div className="relative z-10 flex flex-col gap-4 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 text-xs text-emerald-300">
+              <span className="h-2 w-2 flex-none rounded-full bg-emerald-400" />
+              Tối ưu hoá khoảng cách đi bộ &lt;500m từ ga Metro
+            </div>
+            <div className="flex items-center gap-3.5">
+              <a
+                href="#"
+                onClick={(e) => e.preventDefault()}
+                className="text-[13px] font-semibold text-slate-300 underline-offset-4 hover:text-white hover:underline"
+              >
+                Lịch trình mẫu
+              </a>
+              <button
+                onClick={() => navigate("/create")}
+                className="group flex items-center gap-[7px] whitespace-nowrap rounded-xl bg-white px-5 py-3 text-[13.5px] font-bold text-navy-darkest shadow-lg transition-all hover:bg-slate-100 hover:shadow-xl active:scale-95"
+              >
+                Thiết kế lịch trình với AI
+                <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-1">
+                  arrow_forward
+                </span>
+              </button>
             </div>
           </div>
         </section>
@@ -282,9 +291,7 @@ export default function HomePage() {
                       </span>
                       {exp.duration}
                     </div>
-                    <div className="font-bold text-navy-dark">
-                      {exp.price}
-                    </div>
+                    <div className="font-bold text-navy-dark">{exp.price}</div>
                   </div>
                 </div>
               </div>

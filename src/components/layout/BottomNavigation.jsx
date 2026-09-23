@@ -11,18 +11,21 @@ const NAV_ITEMS = [
 ];
 
 const SIDEBAR_NAV_ITEMS = [
-  { path: "/home", icon: "home", label: "Trang chủ" },
-  { path: "/trips", icon: "confirmation_number", label: "Lịch trình của tôi", badgeKey: "trips" },
-  { path: "/create", icon: "train", label: "Khám phá 14 ga Metro" },
-  { path: "/create", icon: "location_on", label: "Điểm check-in Hot" },
-  { path: "/profile", icon: "person", label: "Tài khoản cá nhân" },
+  { path: "/home", icon: "home", label: "Home" },
+  {
+    path: "/trips",
+    icon: "confirmation_number",
+    label: "My Trips",
+    badgeKey: "trips",
+  },
+  { path: "/create", icon: "train", label: "Metro Stations" },
+  { path: "/create", icon: "location_on", label: "Hot Check-in Spots" },
+  { path: "/profile", icon: "person", label: "My Account" },
 ];
 
 function NavigationItem({ item, isActive, onClick, variant = "bottom" }) {
   const activeClass =
-    variant === "side"
-      ? "bg-navy text-white"
-      : "text-navy bg-navy/10";
+    variant === "side" ? "bg-navy text-white" : "text-navy bg-navy/10";
   const idleClass =
     variant === "side"
       ? "text-[#3A4256] hover:bg-[#E8ECF7]"
@@ -72,7 +75,7 @@ export function SideNavigation() {
 
   const navItems = SIDEBAR_NAV_ITEMS.map((item) => ({
     ...item,
-    badge: item.badgeKey === "trips" ? `${savedTrips.length} lưu` : null,
+    badge: item.badgeKey === "trips" ? `${savedTrips.length} saved` : null,
   }));
 
   const displayName = user?.fullName || "Khách";
