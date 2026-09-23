@@ -74,11 +74,72 @@ export function TripProvider({ children }) {
     return updated;
   };
 
+  const sumBudget = (items) =>
+    items.reduce((sum, it) => sum + (it.estimatedCost ?? 0), 0);
+
   const replaceItem = async (tripId, itemId, newPlaceId) => {
-    const updated = await tripService.replaceItem(tripId, itemId, newPlaceId);
-    if (currentTrip?.id === tripId) setCurrentTrip(updated);
-    upsertSavedTrip(updated);
-    return updated;
+    const result = await tripService.replaceItem(tripId, itemId, newPlaceId);
+
+    const mergeReplaced = (items) =>
+      items.map((it) =>
+        it.id === itemId
+          ? {
+              ...it,
+              time: result.scheduledTime,
+              durationMinutes: result.estimatedDurationMinutes,
+              estimatedCost: result.estimatedBudget,
+              placeId: result.place.id,
+              placeName: result.place.name,
+              placeCategory: result.place.category,
+            }
+          : it,
+      );
+
+    if (currentTrip?.id === tripId) {
+      const items = mergeReplaced(currentTrip.items);
+      setCurrentTrip({ ...currentTrip, items, estimatedBudget: sumBudget(items) });
+    }
+    setSavedTrips((prev) =>
+      prev.map((t) => {
+        if (t.id !== tripId) return t;
+        const items = mergeReplaced(t.items);
+        return { ...t, items, estimatedBudget: sumBudget(items) };
+      }),
+    );
+
+    return result;
+  };
+
+  const deleteItem = async (tripId, itemId) => {
+    const remaining = await tripService.deleteItem(tripId, itemId);
+
+    const mergeTimeline = (items) =>
+      remaining.map((r) => {
+        const existing = items.find((it) => it.id === r.itemId);
+        return {
+          ...existing,
+          id: r.itemId,
+          time: r.scheduledTime,
+          durationMinutes: r.estimatedDurationMinutes,
+          estimatedCost: r.estimatedBudget,
+          placeId: r.placeId,
+          placeName: r.placeName,
+        };
+      });
+
+    if (currentTrip?.id === tripId) {
+      const items = mergeTimeline(currentTrip.items);
+      setCurrentTrip({ ...currentTrip, items, estimatedBudget: sumBudget(items) });
+    }
+    setSavedTrips((prev) =>
+      prev.map((t) => {
+        if (t.id !== tripId) return t;
+        const items = mergeTimeline(t.items);
+        return { ...t, items, estimatedBudget: sumBudget(items) };
+      }),
+    );
+
+    return remaining;
   };
 
   const markVisited = async (tripId, itemId) => {
@@ -101,6 +162,7 @@ export function TripProvider({ children }) {
         generateTrip,
         finalizeTrip,
         replaceItem,
+        deleteItem,
         markVisited,
       }}
     >

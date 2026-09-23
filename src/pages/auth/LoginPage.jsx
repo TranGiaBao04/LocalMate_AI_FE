@@ -1,28 +1,73 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import logo from "../../assets/logo.jpg";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
-  const [email, setEmail] = useState("");
+  const location = useLocation();
+  const { login, loginDemo } = useAuth();
+
+  const [email, setEmail] = useState(
+    () => location.state?.registeredEmail || "",
+  );
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingDemo, setLoadingDemo] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(
+    () => location.state?.message || "",
+  );
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError("Vui lòng nhập địa chỉ email.");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setError("Định dạng email không hợp lệ.");
+      return;
+    }
+    if (!password) {
+      setError("Vui lòng nhập mật khẩu.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await login(email, password);
+      await login(trimmedEmail, password);
       navigate("/home");
     } catch (err) {
-      setError(err.message || "Email hoặc mật khẩu không đúng.");
+      if (err.code === "invalid_credentials" || err.status === 401) {
+        setError("Email hoặc mật khẩu không chính xác.");
+      } else {
+        setError(err.message || "Đăng nhập không thành công. Vui lòng thử lại.");
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setError("");
+    setSuccess("");
+    setLoadingDemo(true);
+    try {
+      await loginDemo();
+      navigate("/home");
+    } catch (err) {
+      setError(
+        err.message || "Không thể khởi tạo phiên demo. Vui lòng thử lại.",
+      );
+    } finally {
+      setLoadingDemo(false);
     }
   };
 
@@ -47,6 +92,12 @@ export default function LoginPage() {
 
       {/* Form */}
       <div className="w-full rounded-lg border border-white/40 bg-surface-container-lowest/80 p-8 soft-shadow blur-bg">
+        {success && (
+          <div className="mb-6 rounded-lg bg-primary-container/20 border border-primary/30 p-3.5 text-center text-body-md text-primary font-medium">
+            {success}
+          </div>
+        )}
+
         <form onSubmit={handleLogin} className="space-y-stack-md">
           <div>
             <label className="block text-label-md text-on-surface-variant mb-2 ml-1">
@@ -103,7 +154,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || loadingDemo}
             className="btn-primary mt-stack-lg"
           >
             {loading ? "Đang đăng nhập..." : "Đăng nhập"}
@@ -111,9 +162,29 @@ export default function LoginPage() {
               arrow_forward
             </span>
           </button>
+
           {error && (
             <p className="text-center text-body-md text-error">{error}</p>
           )}
+
+          <div className="relative my-4 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-outline-variant/30" />
+            </div>
+            <div className="relative bg-surface-container-lowest px-3 text-label-md text-on-surface-variant">
+              hoặc
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDemoLogin}
+            disabled={loading || loadingDemo}
+            className="btn-secondary flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-[20px]">explore</span>
+            {loadingDemo ? "Đang vào demo..." : "Trải nghiệm nhanh (Demo)"}
+          </button>
         </form>
       </div>
 
