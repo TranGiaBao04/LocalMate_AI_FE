@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTrip } from "../../context/TripContext";
 import {
   formatCurrencyShort,
@@ -8,9 +8,19 @@ import {
 
 export default function DraftItineraryPage() {
   const navigate = useNavigate();
-  const { currentTrip, finalizeTrip } = useTrip();
+  const location = useLocation();
+  const { currentTrip, finalizeTrip, deleteItem } = useTrip();
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [deletingItemId, setDeletingItemId] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
+  const [toastMessage, setToastMessage] = useState(location.state?.toast ?? "");
+
+  useEffect(() => {
+    if (!toastMessage) return undefined;
+    const timer = setTimeout(() => setToastMessage(""), 2600);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
 
   if (!currentTrip) {
     return (
@@ -44,6 +54,19 @@ export default function DraftItineraryPage() {
       navigate("/finalized");
     } finally {
       setFinalizing(false);
+    }
+  };
+
+  const handleDeleteItem = async (itemId) => {
+    setDeleteError("");
+    setDeletingItemId(itemId);
+    try {
+      await deleteItem(currentTrip.id, itemId);
+      setToastMessage("Đã xoá địa điểm khỏi lịch trình");
+    } catch (err) {
+      setDeleteError(err.message);
+    } finally {
+      setDeletingItemId(null);
     }
   };
 
@@ -187,12 +210,28 @@ export default function DraftItineraryPage() {
                       </span>
                       Thay thế
                     </button>
+                    <button
+                      onClick={() => handleDeleteItem(item.id)}
+                      disabled={deletingItemId === item.id}
+                      aria-label="Xoá địa điểm"
+                      className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full border border-error/40 text-error active:scale-95 transition-all disabled:opacity-60"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">
+                        delete
+                      </span>
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
           ))}
         </div>
+
+        {deleteError && (
+          <p className="text-label-md text-error bg-error-container/10 rounded-lg px-3 py-2">
+            {deleteError}
+          </p>
+        )}
       </main>
 
       <div className="app-footer flex gap-3 border-t border-outline-variant/20 px-container-margin py-stack-md lg:px-8">
@@ -213,6 +252,15 @@ export default function DraftItineraryPage() {
           </span>
         </button>
       </div>
+
+      {toastMessage && (
+        <div className="fixed bottom-24 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-3 rounded-full bg-inverse-surface px-6 py-3 text-inverse-on-surface shadow-2xl">
+          <span className="material-symbols-outlined text-primary-container">
+            check_circle
+          </span>
+          <span className="text-label-md font-medium">{toastMessage}</span>
+        </div>
+      )}
 
       {showFinalizeModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">

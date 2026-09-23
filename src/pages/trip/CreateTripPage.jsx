@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTrip } from "../../context/TripContext";
+import { tagService } from "../../services/tagService";
 import {
-  INTERESTS,
-  TRAVEL_STYLES,
   DURATION_OPTIONS,
   TIME_OF_DAY_OPTIONS,
   BUDGET_OPTIONS,
@@ -25,8 +24,17 @@ export default function CreateTripPage() {
   const [timeOfDay, setTimeOfDay] = useState("afternoon");
   const [budgetPerPerson, setBudgetPerPerson] = useState(300000);
   const [peopleCount, setPeopleCount] = useState(2);
-  const [interests, setInterests] = useState(["cafe", "check-in"]);
-  const [travelStyles, setTravelStyles] = useState(["chill"]);
+  const [tags, setTags] = useState([]);
+  const [interests, setInterests] = useState([]);
+  const [travelStyles, setTravelStyles] = useState([]);
+
+  useEffect(() => {
+    tagService.getTags().then(setTags).catch(() => setTags([]));
+  }, []);
+
+  const interestTags = tags.filter((t) => t.type === "Interest");
+  const styleTags = tags.filter((t) => t.type === "TravelStyle");
+  const canContinue = step !== 2 || interests.length > 0;
 
   const toggleInterest = (id) =>
     setInterests((prev) =>
@@ -52,6 +60,9 @@ export default function CreateTripPage() {
         startArea: trimmed,
         metroFriendly,
       });
+    }
+    if (step === 2 && interests.length === 0) {
+      return;
     }
     setStep((s) => s + 1);
   };
@@ -364,25 +375,22 @@ export default function CreateTripPage() {
                 Bạn thích gì?
               </h2>
               <p className="text-body-md text-on-surface-variant mt-1">
-                Chọn một hoặc nhiều sở thích
+                Chọn ít nhất 1 sở thích
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {INTERESTS.map((item) => (
+              {interestTags.map((tag) => (
                 <button
-                  key={item.id}
-                  onClick={() => toggleInterest(item.id)}
+                  key={tag.id}
+                  onClick={() => toggleInterest(tag.id)}
                   className={`px-4 py-2 rounded-full flex items-center gap-1.5 transition-all active:scale-95 text-body-md ${
-                    interests.includes(item.id)
+                    interests.includes(tag.id)
                       ? "bg-primary text-on-primary shadow-md"
                       : "bg-primary-container/10 border border-primary-container/20 text-on-primary-container hover:bg-primary-container/20"
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[16px]">
-                    {item.icon}
-                  </span>
-                  {item.label}
+                  {tag.name}
                 </button>
               ))}
             </div>
@@ -401,28 +409,20 @@ export default function CreateTripPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-gutter lg:grid-cols-4">
-              {TRAVEL_STYLES.map((style) => (
+              {styleTags.map((tag) => (
                 <button
-                  key={style.id}
-                  onClick={() => toggleStyle(style.id)}
+                  key={tag.id}
+                  onClick={() => toggleStyle(tag.id)}
                   className={`p-stack-md rounded-lg border-2 flex flex-col items-start gap-1 transition-all active:scale-95 ${
-                    travelStyles.includes(style.id)
+                    travelStyles.includes(tag.id)
                       ? "border-primary bg-primary-container/10"
                       : "border-surface-container-highest bg-white hover:border-primary-container"
                   }`}
                 >
                   <span
-                    className={`material-symbols-outlined ${travelStyles.includes(style.id) ? "text-primary" : "text-outline"}`}
+                    className={`font-semibold text-body-md ${travelStyles.includes(tag.id) ? "text-primary" : "text-on-surface"}`}
                   >
-                    {style.icon}
-                  </span>
-                  <span
-                    className={`font-semibold text-body-md ${travelStyles.includes(style.id) ? "text-primary" : "text-on-surface"}`}
-                  >
-                    {style.label}
-                  </span>
-                  <span className="text-label-md text-on-surface-variant">
-                    {style.desc}
+                    {tag.name}
                   </span>
                 </button>
               ))}
@@ -476,7 +476,8 @@ export default function CreateTripPage() {
         {step < STEPS.length - 1 ? (
           <button
             onClick={handleNextStep}
-            className="flex items-center bg-primary text-on-primary rounded-full px-8 py-3 font-semibold text-button active:scale-95 transition-all shadow-lg shadow-primary/30"
+            disabled={!canContinue}
+            className="flex items-center bg-primary text-on-primary rounded-full px-8 py-3 font-semibold text-button active:scale-95 transition-all shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
           >
             Tiếp tục
             <span className="material-symbols-outlined ml-2">
