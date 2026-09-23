@@ -7,13 +7,13 @@ import {
   formatDuration,
   buildGoogleMapsDirectionUrl,
 } from "../../utils/formatCurrency";
-import { mockPlaces } from "../../data/places.mock";
 
 export default function FinalizedItineraryPage() {
   const navigate = useNavigate();
   const { currentTrip, saveTrip } = useTrip();
   const { isLoggedIn } = useAuth();
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -27,15 +27,20 @@ export default function FinalizedItineraryPage() {
     );
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!isLoggedIn) {
       navigate("/login");
       return;
     }
 
-    saveTrip(currentTrip);
-    setSaved(true);
-    setShowSaveModal(true);
+    setSaving(true);
+    try {
+      await saveTrip(currentTrip);
+      setSaved(true);
+      setShowSaveModal(true);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleShare = () => {
@@ -103,8 +108,6 @@ export default function FinalizedItineraryPage() {
 
         <div className="space-y-0">
           {currentTrip.items.map((item, idx) => {
-            const place = mockPlaces.find((p) => p.id === item.placeId);
-
             return (
               <div key={item.id} className="flex gap-3">
                 <div className="flex flex-col items-center">
@@ -162,11 +165,11 @@ export default function FinalizedItineraryPage() {
                     </div>
 
                     <div className="flex gap-2 pt-1">
-                      {place && (
+                      {item.latitude && item.longitude && (
                         <a
                           href={buildGoogleMapsDirectionUrl(
-                            place.latitude,
-                            place.longitude,
+                            item.latitude,
+                            item.longitude,
                           )}
                           target="_blank"
                           rel="noreferrer"
@@ -211,13 +214,13 @@ export default function FinalizedItineraryPage() {
 
           <button
             onClick={handleSave}
-            disabled={saved}
-            className={`flex-1 py-3 rounded-full font-semibold text-button active:scale-95 transition-all shadow-lg flex items-center justify-center gap-1 ${saved ? "bg-primary-container text-on-primary-container" : "bg-primary text-on-primary shadow-primary/30"}`}
+            disabled={saved || saving}
+            className={`flex-1 py-3 rounded-full font-semibold text-button active:scale-95 transition-all shadow-lg flex items-center justify-center gap-1 disabled:opacity-70 ${saved ? "bg-primary-container text-on-primary-container" : "bg-primary text-on-primary shadow-primary/30"}`}
           >
             <span className="material-symbols-outlined text-[18px]">
               {saved ? "bookmark" : "bookmark_add"}
             </span>
-            {saved ? "Đã lưu" : "Lưu lịch trình"}
+            {saved ? "Đã lưu" : saving ? "Đang lưu..." : "Lưu lịch trình"}
           </button>
         </div>
       </div>

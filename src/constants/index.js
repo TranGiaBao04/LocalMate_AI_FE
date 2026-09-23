@@ -127,10 +127,8 @@ export const REPLACE_REASONS = [
 ];
 
 export const STORAGE_KEYS = {
-  USER: "localmate_user",
+  TOKEN: "localmate_token",
+  IS_DEMO: "localmate_is_demo",
   TRIP_DRAFT: "localmate_trip_draft",
   TRIP_REQUEST: "localmate_trip_request",
-  SAVED_TRIPS: "localmate_saved_trips",
-  PLACE_REVIEWS: "localmate_place_reviews",
-  PREFERENCES: "localmate_preferences",
 };

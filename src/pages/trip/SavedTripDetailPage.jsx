@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { REVIEW_TAGS, STORAGE_KEYS } from "../../constants";
+import { REVIEW_TAGS } from "../../constants";
 import { useTrip } from "../../context/TripContext";
-import { mockPlaces } from "../../data/places.mock";
+import { reviewService } from "../../services/reviewService";
 import {
   buildGoogleMapsDirectionUrl,
   formatCurrencyShort,
@@ -34,12 +34,8 @@ export default function SavedTripDetailPage() {
   const [selectedTags, setSelectedTags] = useState([]);
   const [comment, setComment] = useState("");
   const [reviewDone, setReviewDone] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
   const [showToast, setShowToast] = useState(false);
-
-  const placeById = useMemo(
-    () => new Map(mockPlaces.map((place) => [place.id, place])),
-    [],
-  );
 
   useEffect(() => {
     if (!showToast) return undefined;
@@ -63,13 +59,14 @@ export default function SavedTripDetailPage() {
     (sum, item) => sum + item.durationMinutes,
     0,
   );
-  const firstPlace = placeById.get(trip.items[0]?.placeId);
-  const mapHref = firstPlace
-    ? buildGoogleMapsDirectionUrl(firstPlace.latitude, firstPlace.longitude)
-    : "https://www.google.com/maps/search/?api=1&query=Ho%20Chi%20Minh%20City";
+  const firstItem = trip.items[0];
+  const mapHref =
+    firstItem?.latitude && firstItem?.longitude
+      ? buildGoogleMapsDirectionUrl(firstItem.latitude, firstItem.longitude)
+      : "https://www.google.com/maps/search/?api=1&query=Ho%20Chi%20Minh%20City";
 
-  const handleMarkVisited = (itemId, placeId) => {
-    markVisited(trip.id, itemId);
+  const handleMarkVisited = async (itemId, placeId) => {
+    await markVisited(trip.id, itemId);
     setRating(0);
     setSelectedTags([]);
     setComment("");
@@ -78,27 +75,21 @@ export default function SavedTripDetailPage() {
     setShowToast(true);
   };
 
-  const handleSubmitReview = () => {
-    const review = {
-      id: `review-${Date.now()}`,
-      placeId: reviewModal.placeId,
-      tripId: trip.id,
-      userId: "demo-user-001",
-      rating,
-      tags: selectedTags,
-      comment,
-      visitedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-
-    const existing = JSON.parse(
-      localStorage.getItem(STORAGE_KEYS.PLACE_REVIEWS) || "[]",
-    );
-    localStorage.setItem(
-      STORAGE_KEYS.PLACE_REVIEWS,
-      JSON.stringify([...existing, review]),
-    );
-    setReviewDone(true);
+  const handleSubmitReview = async () => {
+    setSubmittingReview(true);
+    try {
+      await reviewService.submitReview({
+        placeId: reviewModal.placeId,
+        tripId: trip.id,
+        rating,
+        tags: selectedTags,
+        comment,
+        visitedAt: new Date().toISOString(),
+      });
+      setReviewDone(true);
+    } finally {
+      setSubmittingReview(false);
+    }
   };
 
   const toggleTag = (tag) => {
@@ -133,7 +124,7 @@ export default function SavedTripDetailPage() {
       <main className="content-shell flex-1 pb-10 pt-16">
         <section className="relative h-[265px] overflow-hidden md:h-[400px] lg:rounded-b-lg">
           <img
-            src={firstPlace?.imageUrl ?? HERO_IMAGE}
+            src={firstItem?.placeImageUrl ?? HERO_IMAGE}
             alt="Ho Chi Minh City skyline"
             className="h-full w-full object-cover"
           />
@@ -170,7 +161,6 @@ export default function SavedTripDetailPage() {
 
             <div className="space-y-gutter">
               {trip.items.map((item, idx) => {
-                const place = placeById.get(item.placeId);
                 const isLast = idx === trip.items.length - 1;
 
                 return (
@@ -232,9 +222,9 @@ export default function SavedTripDetailPage() {
                         <h4 className="mb-1 text-body-lg font-bold text-on-surface">
                           {item.placeName}
                         </h4>
-                        {place?.imageUrl && (
+                        {item.placeImageUrl && (
                           <img
-                            src={place.imageUrl}
+                            src={item.placeImageUrl}
                             alt={item.placeName}
                             className="mb-stack-md h-40 w-full rounded-lg object-cover"
                           />
@@ -256,22 +246,22 @@ export default function SavedTripDetailPage() {
                             </span>
                             {formatCurrencyShort(item.estimatedCost)}
                           </span>
-                          {place?.nearestMetroStation && (
+                          {item.nearestMetroStation && (
                             <span className="flex items-center gap-1">
                               <span className="material-symbols-outlined text-[14px]">
                                 train
                               </span>
-                              {place.nearestMetroStation}
+                              {item.nearestMetroStation}
                             </span>
                           )}
                         </div>
 
                         <div className="flex gap-3">
-                          {place && (
+                          {item.latitude && item.longitude && (
                             <a
                               href={buildGoogleMapsDirectionUrl(
-                                place.latitude,
-                                place.longitude,
+                                item.latitude,
+                                item.longitude,
                               )}
                               target="_blank"
                               rel="noreferrer"
@@ -478,10 +468,10 @@ export default function SavedTripDetailPage() {
 
                   <button
                     onClick={handleSubmitReview}
-                    disabled={rating === 0}
+                    disabled={rating === 0 || submittingReview}
                     className="flex-1 rounded-full bg-primary py-3 font-semibold text-on-primary transition-transform active:scale-95 disabled:opacity-50"
                   >
-                    Gửi đánh giá
+                    {submittingReview ? "Đang gửi..." : "Gửi đánh giá"}
                   </button>
                 </div>
               </>

@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { mockPlaces } from "../../data/places.mock";
+import { placeService } from "../../services/placeService";
 import { useTrip } from "../../context/TripContext";
 import { formatCurrencyShort } from "../../utils/formatCurrency";
 
@@ -7,16 +8,27 @@ export default function ReplacePlacePage() {
   const { itemId } = useParams();
   const navigate = useNavigate();
   const { currentTrip, replaceItem } = useTrip();
+  const [alternatives, setAlternatives] = useState([]);
+  const [replacing, setReplacing] = useState(false);
 
   const currentItem = currentTrip?.items.find((i) => i.id === itemId);
-  const alternatives = mockPlaces
-    .filter((p) => p.id !== currentItem?.placeId && p.isActive)
-    .slice(0, 5);
 
-  const handleReplace = (placeId) => {
-    if (currentTrip && itemId) {
-      replaceItem(currentTrip.id, itemId, placeId);
+  useEffect(() => {
+    if (!currentItem) return;
+    placeService
+      .getPlaces({ excludePlaceId: currentItem.placeId, limit: 5 })
+      .then((places) => setAlternatives(places ?? []))
+      .catch(() => setAlternatives([]));
+  }, [currentItem]);
+
+  const handleReplace = async (placeId) => {
+    if (!currentTrip || !itemId) return;
+    setReplacing(true);
+    try {
+      await replaceItem(currentTrip.id, itemId, placeId);
       navigate("/draft");
+    } finally {
+      setReplacing(false);
     }
   };
 
@@ -104,7 +116,8 @@ export default function ReplacePlacePage() {
 
               <button
                 onClick={() => handleReplace(place.id)}
-                className="flex-1 py-2 bg-primary text-on-primary rounded-full text-label-md font-bold active:scale-95 transition-all"
+                disabled={replacing}
+                className="flex-1 py-2 bg-primary text-on-primary rounded-full text-label-md font-bold active:scale-95 transition-all disabled:opacity-60"
               >
                 Chọn địa điểm này
               </button>

@@ -1,14 +1,31 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function WelcomePage() {
   const navigate = useNavigate();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, loginDemo } = useAuth();
+  const [loadingDemo, setLoadingDemo] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (isLoggedIn) navigate("/home");
   }, [isLoggedIn, navigate]);
+
+  const handleDemo = async () => {
+    setError("");
+    setLoadingDemo(true);
+    try {
+      await loginDemo();
+      navigate("/home");
+    } catch (err) {
+      setError(
+        err.message || "Không thể khởi tạo phiên demo. Vui lòng thử lại.",
+      );
+    } finally {
+      setLoadingDemo(false);
+    }
+  };
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center overflow-x-hidden bg-background">
@@ -62,18 +79,38 @@ export default function WelcomePage() {
         </section>
 
         {/* CTAs */}
-        <section className="mb-12 mt-stack-lg flex w-full max-w-md flex-col gap-4">
+        <section className="mb-12 mt-stack-lg flex w-full max-w-md flex-col gap-3">
           <button onClick={() => navigate("/login")} className="btn-primary">
-            Đăng nhập để bắt đầu
+            Đăng nhập
+            <span className="material-symbols-outlined text-[20px]">
+              arrow_forward
+            </span>
           </button>
+
+          <button
+            type="button"
+            onClick={handleDemo}
+            disabled={loadingDemo}
+            className="btn-secondary flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-[20px]">explore</span>
+            {loadingDemo ? "Đang chuẩn bị..." : "Trải nghiệm ngay (Demo)"}
+          </button>
+
+          {error && (
+            <p className="text-center text-body-md text-error">{error}</p>
+          )}
+
           <div className="text-center mt-2">
-            <button
-              onClick={() => navigate("/login")}
-              className="text-label-md text-on-surface-variant hover:text-primary transition-colors"
-            >
-              Đã có tài khoản?{" "}
-              <span className="font-bold text-primary">Đăng nhập</span>
-            </button>
+            <p className="text-body-md text-on-surface-variant">
+              Chưa có tài khoản?{" "}
+              <button
+                onClick={() => navigate("/register")}
+                className="font-bold text-primary hover:underline ml-1"
+              >
+                Đăng ký ngay
+              </button>
+            </p>
           </div>
         </section>
       </main>

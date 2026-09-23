@@ -51,9 +51,13 @@ export default function CreateTripPage() {
 
     setRequest(req);
     navigate("/loading");
-    const trip = await generateTrip(req);
-    setCurrentTrip(trip);
-    navigate("/draft");
+    try {
+      const trip = await generateTrip(req);
+      setCurrentTrip(trip);
+      navigate("/draft");
+    } catch {
+      navigate("/create");
+    }
   };
 
   const progress = ((step + 1) / STEPS.length) * 100;
