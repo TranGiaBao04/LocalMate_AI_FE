@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTrip } from "../../context/TripContext";
 import { useAuth } from "../../context/AuthContext";
@@ -10,12 +10,15 @@ import {
 
 export default function FinalizedItineraryPage() {
   const navigate = useNavigate();
-  const { currentTrip, saveTrip } = useTrip();
-  const { isLoggedIn } = useAuth();
+  const { currentTrip, savedTrips, saveTrip } = useTrip();
+  const { isLoggedIn, isDemo } = useAuth();
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const savePending = useRef(false);
+  const alreadySaved = saved || savedTrips.some((trip) => trip.id === currentTrip?.id);
 
   if (!currentTrip) {
     return (
@@ -28,17 +31,31 @@ export default function FinalizedItineraryPage() {
   }
 
   const handleSave = async () => {
+    if (savePending.current || alreadySaved) return;
+    if (isDemo) {
+      setSaveError("Đăng nhập bằng tài khoản để lưu chuyến đi.");
+      return;
+    }
     if (!isLoggedIn) {
       navigate("/login");
       return;
     }
 
+    savePending.current = true;
     setSaving(true);
+    setSaveError("");
     try {
       await saveTrip(currentTrip);
       setSaved(true);
       setShowSaveModal(true);
+    } catch (err) {
+      setSaveError(err.status === 404
+        ? "Không tìm thấy lịch trình để lưu. Vui lòng tạo lại lịch trình."
+        : err.status === 401 || err.status === 403
+          ? "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại."
+          : "Không thể lưu lịch trình lúc này. Vui lòng thử lại.");
     } finally {
+      savePending.current = false;
       setSaving(false);
     }
   };
@@ -201,6 +218,12 @@ export default function FinalizedItineraryPage() {
       </main>
 
       <div className="app-footer space-y-2 border-t border-outline-variant/20 px-container-margin py-stack-md lg:px-8">
+        {saveError && (
+          <div role="alert" className="flex items-center justify-between gap-3 text-label-md text-error">
+            <span>{saveError}</span>
+            {isDemo && <button type="button" onClick={() => navigate("/login")} className="shrink-0 font-bold underline">Đăng nhập</button>}
+          </div>
+        )}
         <div className="flex gap-3">
           <button
             onClick={handleShare}
@@ -214,19 +237,19 @@ export default function FinalizedItineraryPage() {
 
           <button
             onClick={handleSave}
-            disabled={saved || saving}
-            className={`flex-1 py-3 rounded-full font-semibold text-button active:scale-95 transition-all shadow-lg flex items-center justify-center gap-1 disabled:opacity-70 ${saved ? "bg-primary-container text-on-primary-container" : "bg-primary text-on-primary shadow-primary/30"}`}
+            disabled={alreadySaved || saving}
+            className={`flex-1 py-3 rounded-full font-semibold text-button active:scale-95 transition-all shadow-lg flex items-center justify-center gap-1 disabled:opacity-70 ${alreadySaved ? "bg-primary-container text-on-primary-container" : "bg-primary text-on-primary shadow-primary/30"}`}
           >
             <span className="material-symbols-outlined text-[18px]">
-              {saved ? "bookmark" : "bookmark_add"}
+              {alreadySaved ? "bookmark" : "bookmark_add"}
             </span>
-            {saved ? "Đã lưu" : saving ? "Đang lưu..." : "Lưu lịch trình"}
+            {alreadySaved ? "Đã lưu" : saving ? "Đang lưu..." : "Lưu lịch trình"}
           </button>
         </div>
       </div>
 
       {showSaveModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">
+        <div role="dialog" aria-modal="true" aria-labelledby="save-trip-title" className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">
           <div className="w-full max-w-md bg-surface rounded-t-lg p-stack-lg space-y-stack-md animate-fade-in-up lg:rounded-lg">
             <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
 
@@ -239,7 +262,7 @@ export default function FinalizedItineraryPage() {
                   bookmark
                 </span>
               </div>
-              <h3 className="text-title-md font-bold text-on-surface">
+              <h3 id="save-trip-title" className="text-title-md font-bold text-on-surface">
                 Đã lưu vào My Trips!
               </h3>
               <p className="text-body-md text-on-surface-variant mt-1">
