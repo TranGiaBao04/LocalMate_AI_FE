@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import GoogleSignInButton from "../../components/auth/GoogleSignInButton";
 import logo from "../../assets/logo.jpg";
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loginDemo } = useAuth();
+  const { login, loginWithGoogle, loginDemo } = useAuth();
 
   const [email, setEmail] = useState(
     () => location.state?.registeredEmail || "",
@@ -15,6 +16,8 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingDemo, setLoadingDemo] = useState(false);
+  const [loadingGoogle, setLoadingGoogle] = useState(false);
+  const googleLoginInFlight = useRef(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(
     () => location.state?.message || "",
@@ -68,6 +71,33 @@ export default function LoginPage() {
       );
     } finally {
       setLoadingDemo(false);
+    }
+  };
+
+  const handleGoogleCredential = async (idToken) => {
+    if (googleLoginInFlight.current || loading || loadingDemo) return;
+    googleLoginInFlight.current = true;
+    setLoadingGoogle(true);
+    setError("");
+    setSuccess("");
+    try {
+      await loginWithGoogle(idToken);
+      navigate("/home");
+    } catch (err) {
+      if (err.code === "account_link_required") {
+        setError("Email này đã có tài khoản LocalMate. Vui lòng đăng nhập bằng email và mật khẩu.");
+      } else if (err.code === "account_conflict") {
+        setError("Không thể liên kết tài khoản Google. Vui lòng thử lại sau.");
+      } else if (err.code === "invalid_google_token" || err.status === 400 || err.status === 401) {
+        setError("Xác thực Google không hợp lệ. Vui lòng thử lại.");
+      } else if (!err.status) {
+        setError("Không kết nối được máy chủ. Vui lòng thử lại.");
+      } else {
+        setError("Đăng nhập Google không thành công. Vui lòng thử lại.");
+      }
+    } finally {
+      googleLoginInFlight.current = false;
+      setLoadingGoogle(false);
     }
   };
 
@@ -154,7 +184,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading || loadingDemo}
+            disabled={loading || loadingDemo || loadingGoogle}
             className="btn-primary mt-stack-lg"
           >
             {loading ? "Đang đăng nhập..." : "Đăng nhập"}
@@ -176,10 +206,16 @@ export default function LoginPage() {
             </div>
           </div>
 
+          <GoogleSignInButton
+            disabled={loading || loadingDemo || loadingGoogle}
+            onCredential={handleGoogleCredential}
+            onError={setError}
+          />
+
           <button
             type="button"
             onClick={handleDemoLogin}
-            disabled={loading || loadingDemo}
+            disabled={loading || loadingDemo || loadingGoogle}
             className="btn-secondary flex items-center justify-center gap-2"
           >
             <span className="material-symbols-outlined text-[20px]">explore</span>
