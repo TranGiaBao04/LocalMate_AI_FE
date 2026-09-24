@@ -53,8 +53,7 @@ export function AuthProvider({ children }) {
       .finally(() => setInitializing(false));
   }, []);
 
-  const login = async (email, password) => {
-    const session = await authService.login(email, password);
+  const completePersistedLogin = async (session) => {
     const token = session?.accessToken || session?.token;
     if (!token) {
       throw new Error("Không nhận được access token từ máy chủ.");
@@ -73,6 +72,12 @@ export function AuthProvider({ children }) {
       throw profileErr;
     }
   };
+
+  const login = async (email, password) =>
+    completePersistedLogin(await authService.login(email, password));
+
+  const loginWithGoogle = async (idToken) =>
+    completePersistedLogin(await authService.googleLogin(idToken));
 
   const loginDemo = async () => {
     const session = await authService.demo();
@@ -112,6 +117,7 @@ export function AuthProvider({ children }) {
         isLoggedIn: !!user,
         initializing,
         login,
+        loginWithGoogle,
         loginDemo,
         register,
         logout,

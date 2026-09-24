@@ -3,6 +3,8 @@ import { apiClient } from "../api/apiClient";
 export const authService = {
   login: (email, password) =>
     apiClient.post("/auth/login", { email, password }, { auth: false }),
+  googleLogin: (idToken) =>
+    apiClient.post("/auth/google", { idToken }, { auth: false }),
   register: (fullName, email, password) =>
     apiClient.post(
       "/auth/register",
