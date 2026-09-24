@@ -1,13 +1,156 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTrip } from "../../context/TripContext";
 import MobileLayout from "../../components/layout/MobileLayout";
-import { INTERESTS } from "../../constants";
+import { tagService } from "../../services/tagService";
+import { userService } from "../../services/userService";
+
+const PREFERENCE_GROUPS = [
+  { key: "interestTagIds", type: "Interest", label: "Sở thích" },
+  { key: "travelStyleTagIds", type: "TravelStyle", label: "Phong cách trải nghiệm" },
+];
+
+function sameIds(left, right) {
+  return left.length === right.length && left.every((id) => right.includes(id));
+}
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, isDemo, logout, applyUserProfile } = useAuth();
   const { savedTrips } = useTrip();
+  const [tags, setTags] = useState([]);
+  const [tagsLoading, setTagsLoading] = useState(true);
+  const [tagsError, setTagsError] = useState(false);
+  const [tagsReload, setTagsReload] = useState(0);
+  const [draft, setDraft] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState("");
+  const [formError, setFormError] = useState("");
+  const [success, setSuccess] = useState("");
+  const userId = user?.id;
+
+  useEffect(() => {
+    if (isDemo || !userId) return undefined;
+
+    let active = true;
+    tagService
+      .getTags()
+      .then((result) => {
+        if (active) {
+          setTags(result);
+          setTagsError(false);
+        }
+      })
+      .catch(() => {
+        if (active) setTagsError(true);
+      })
+      .finally(() => {
+        if (active) setTagsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isDemo, userId, tagsReload]);
+
+  const reloadTags = () => {
+    setTagsLoading(true);
+    setTagsReload((value) => value + 1);
+  };
+
+  const startEditing = () => {
+    setDraft({
+      fullName: user.fullName,
+      interestTagIds: [...(user.preferences?.interestTagIds ?? [])],
+      travelStyleTagIds: [...(user.preferences?.travelStyleTagIds ?? [])],
+    });
+    setNameError("");
+    setFormError("");
+    setSuccess("");
+  };
+
+  const cancelEditing = () => {
+    setDraft(null);
+    setNameError("");
+    setFormError("");
+  };
+
+  const toggleTag = (group, tagId) => {
+    const activeIds = new Set(
+      tags.filter((tag) => tag.type === group.type).map((tag) => tag.id),
+    );
+    setDraft((current) => {
+      const selected = current[group.key].filter((id) => activeIds.has(id));
+      return {
+        ...current,
+        [group.key]: selected.includes(tagId)
+          ? selected.filter((id) => id !== tagId)
+          : [...selected, tagId],
+      };
+    });
+    setFormError("");
+  };
+
+  const nameChanged = draft && draft.fullName.trim() !== user?.fullName;
+  const changedGroups = draft
+    ? PREFERENCE_GROUPS.filter(
+        (group) =>
+          !sameIds(
+            draft[group.key],
+            user?.preferences?.[group.key] ?? [],
+          ),
+      )
+    : [];
+  const hasChanges = Boolean(nameChanged || changedGroups.length);
+
+  const handleSave = async (event) => {
+    event.preventDefault();
+    if (saving || isDemo || !draft || !hasChanges) return;
+
+    setNameError("");
+    setFormError("");
+    const fullName = draft.fullName.trim();
+    if (nameChanged && !fullName) {
+      setNameError("Vui lòng nhập họ và tên.");
+      return;
+    }
+    if (nameChanged && fullName.length > 200) {
+      setNameError("Họ và tên không được quá 200 ký tự.");
+      return;
+    }
+
+    const payload = {};
+    if (nameChanged) payload.fullName = fullName;
+    if (changedGroups.length) {
+      payload.preferences = Object.fromEntries(
+        changedGroups.map((group) => [group.key, draft[group.key]]),
+      );
+    }
+
+    setSaving(true);
+    try {
+      const updatedProfile = await userService.updateProfile(payload);
+      applyUserProfile(updatedProfile);
+      setDraft(null);
+      setSuccess("Đã cập nhật hồ sơ.");
+    } catch (err) {
+      if (err.errors?.fullName || err.errors?.FullName) {
+        setNameError("Họ và tên không hợp lệ. Vui lòng kiểm tra lại.");
+      } else if (err.code === "no_changes") {
+        setFormError("Không có thay đổi để lưu.");
+      } else if (err.code === "invalid_preference") {
+        setFormError("Sở thích đã thay đổi trên máy chủ. Vui lòng tải lại trang.");
+      } else if (err.status === 401 || err.status === 403) {
+        setFormError("Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại.");
+      } else if (!err.status) {
+        setFormError("Không kết nối được máy chủ. Vui lòng thử lại.");
+      } else {
+        setFormError("Không thể cập nhật hồ sơ. Vui lòng thử lại.");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -17,7 +160,6 @@ export default function ProfilePage() {
   const completedTrips = savedTrips.filter(
     (t) => t.status === "completed",
   ).length;
-  const favInterests = user?.preferences?.favoriteTags ?? [];
 
   return (
     <MobileLayout>
@@ -26,9 +168,17 @@ export default function ProfilePage() {
           Hồ sơ
         </h1>
         <div className="flex items-center gap-stack-md">
-          <button className="material-symbols-outlined text-primary p-2">
-            settings
-          </button>
+          {!isDemo && !draft && (
+            <button
+              type="button"
+              onClick={startEditing}
+              aria-label="Chỉnh sửa hồ sơ"
+              title="Chỉnh sửa hồ sơ"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-primary hover:bg-surface-container-high focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              <span className="material-symbols-outlined">edit</span>
+            </button>
+          )}
           <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container bg-primary-container/20 flex items-center justify-center">
             <span
               className="material-symbols-outlined text-primary"
@@ -51,9 +201,24 @@ export default function ProfilePage() {
             </span>
           </div>
           <h2 className="text-headline-lg-mobile font-bold text-on-surface">
-            {user?.fullName ?? "Demo User"}
+            {user?.fullName}
           </h2>
-          <p className="text-body-md text-on-surface-variant">{user?.email}</p>
+          <p className="max-w-full break-all text-body-md text-on-surface-variant">
+            {user?.email}
+          </p>
+          <p className="text-label-md text-on-surface-variant">
+            {isDemo ? "Phiên Demo" : `Vai trò: ${user?.role}`}
+          </p>
+          {isDemo && (
+            <p className="text-body-md text-on-surface-variant">
+              Phiên Demo chỉ cho phép xem hồ sơ.
+            </p>
+          )}
+          {success && (
+            <p role="status" className="text-body-md text-primary">
+              {success}
+            </p>
+          )}
 
           <div className="mt-stack-sm flex flex-wrap justify-center gap-8 lg:justify-start">
             {[
@@ -77,35 +242,162 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <section className="card space-y-stack-md">
-          <h3 className="text-title-md font-semibold text-on-surface flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-[20px]">
-              favorite
-            </span>
-            Sở thích của bạn
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {favInterests.length > 0
-              ? INTERESTS.filter((i) => favInterests.includes(i.id)).map(
-                  (i) => (
-                    <span key={i.id} className="chip-active text-label-md">
-                      <span className="material-symbols-outlined text-[14px]">
-                        {i.icon}
-                      </span>
-                      {i.label}
-                    </span>
-                  ),
-                )
-              : INTERESTS.slice(0, 4).map((i) => (
-                  <span key={i.id} className="chip text-label-md">
-                    <span className="material-symbols-outlined text-[14px]">
-                      {i.icon}
-                    </span>
-                    {i.label}
-                  </span>
-                ))}
-          </div>
-        </section>
+        {draft ? (
+          <section className="card w-full max-w-3xl">
+            <form onSubmit={handleSave} className="space-y-stack-lg">
+              <h3 className="text-title-md font-semibold text-on-surface">
+                Chỉnh sửa hồ sơ
+              </h3>
+
+              <div>
+                <label
+                  htmlFor="profile-full-name"
+                  className="mb-2 block text-label-md font-semibold text-on-surface"
+                >
+                  Họ và tên
+                </label>
+                <input
+                  id="profile-full-name"
+                  type="text"
+                  value={draft.fullName}
+                  onChange={(event) => {
+                    setDraft((current) => ({
+                      ...current,
+                      fullName: event.target.value,
+                    }));
+                    setNameError("");
+                  }}
+                  disabled={saving}
+                  aria-invalid={Boolean(nameError)}
+                  aria-describedby={nameError ? "profile-name-error" : undefined}
+                  className="input-field w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                />
+                {nameError && (
+                  <p id="profile-name-error" role="alert" className="mt-2 text-label-md text-error">
+                    {nameError}
+                  </p>
+                )}
+              </div>
+
+              {PREFERENCE_GROUPS.map((group) => {
+                const options = tags.filter((tag) => tag.type === group.type);
+                return (
+                  <fieldset key={group.key} disabled={saving || tagsLoading || tagsError}>
+                    <legend className="mb-2 text-label-md font-semibold text-on-surface">
+                      {group.label}
+                    </legend>
+                    {tagsLoading ? (
+                      <p className="text-body-md text-on-surface-variant">Đang tải danh mục...</p>
+                    ) : tagsError ? (
+                      <p className="text-body-md text-error">Chưa tải được danh mục.</p>
+                    ) : options.length === 0 ? (
+                      <p className="text-body-md text-on-surface-variant">Chưa có lựa chọn.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {options.map((tag) => {
+                          const selected = draft[group.key].includes(tag.id);
+                          return (
+                            <button
+                              key={tag.id}
+                              type="button"
+                              onClick={() => toggleTag(group, tag.id)}
+                              aria-pressed={selected}
+                              className={`${selected ? "chip-active" : "chip"} min-h-11 px-4 text-body-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary`}
+                            >
+                              {tag.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </fieldset>
+                );
+              })}
+
+              {tagsError && (
+                <button
+                  type="button"
+                  onClick={reloadTags}
+                  className="text-body-md font-semibold text-primary underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                  Tải lại danh mục
+                </button>
+              )}
+              {formError && (
+                <p role="alert" className="text-body-md text-error">
+                  {formError}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={cancelEditing}
+                  disabled={saving}
+                  className="min-h-11 flex-1 rounded-full border border-outline-variant px-5 py-3 font-semibold text-on-surface-variant focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || !hasChanges}
+                  className="min-h-11 flex-1 rounded-full bg-primary px-5 py-3 font-semibold text-on-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"
+                >
+                  {saving ? "Đang lưu..." : "Lưu thay đổi"}
+                </button>
+              </div>
+            </form>
+          </section>
+        ) : (
+          <section className="card space-y-stack-md">
+            <h3 className="text-title-md font-semibold text-on-surface flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-[20px]">
+                favorite
+              </span>
+              Sở thích của bạn
+            </h3>
+            {PREFERENCE_GROUPS.map((group) => {
+              const savedIds = user?.preferences?.[group.key] ?? [];
+              const selectedTags = tags.filter(
+                (tag) => tag.type === group.type && savedIds.includes(tag.id),
+              );
+              return (
+                <div key={group.key} className="space-y-2">
+                  <h4 className="text-label-md font-semibold text-on-surface-variant">
+                    {group.label}
+                  </h4>
+                  {isDemo || savedIds.length === 0 ? (
+                    <p className="text-body-md text-on-surface-variant">Chưa chọn {group.label.toLowerCase()}.</p>
+                  ) : tagsLoading ? (
+                    <p className="text-body-md text-on-surface-variant">Đang tải danh mục...</p>
+                  ) : tagsError ? (
+                    <p className="text-body-md text-error">Chưa tải được danh mục.</p>
+                  ) : selectedTags.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTags.map((tag) => (
+                        <span key={tag.id} className="chip-active text-label-md">
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-body-md text-on-surface-variant">
+                      Sở thích đã lưu không còn trong danh mục hoạt động.
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+            {tagsError && !isDemo && (
+              <button
+                type="button"
+                onClick={reloadTags}
+                className="text-body-md font-semibold text-primary underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                Tải lại danh mục
+              </button>
+            )}
+          </section>
+        )}
 
         <section className="space-y-stack-md">
           <div className="flex justify-between items-center">
