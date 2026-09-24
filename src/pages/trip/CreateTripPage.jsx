@@ -2,22 +2,44 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTrip } from "../../context/TripContext";
 import { tagService } from "../../services/tagService";
+import { masterDataService } from "../../services/masterDataService";
+import { tripService, toTripRequestDto } from "../../services/tripService";
+import { formatDistance } from "../../utils/formatCurrency";
 import {
   DURATION_OPTIONS,
   TIME_OF_DAY_OPTIONS,
   BUDGET_OPTIONS,
   PEOPLE_OPTIONS,
-  AREAS,
 } from "../../constants";
 
 const STEPS = ["Vị trí", "Thời gian", "Sở thích", "Phong cách"];
+const GEOLOCATION_TIMEOUT_MS = 10000;
+
+const FEASIBILITY_MESSAGES = {
+  OutOfServiceArea: "Vị trí xuất phát quá xa tuyến Metro số 1.",
+  InsufficientCandidates:
+    "Chưa đủ địa điểm quanh ga này. Hãy thử tăng thời lượng hoặc bỏ bớt sở thích.",
+};
 
 export default function CreateTripPage() {
   const navigate = useNavigate();
   const { request, setRequest, generateTrip, setCurrentTrip } = useTrip();
   const [step, setStep] = useState(0);
 
-  const [startArea, setStartArea] = useState(() => request?.startArea ?? "Tân Bình");
+  const [startArea, setStartArea] = useState(() => request?.startArea ?? "");
+  const [selectedStationId, setSelectedStationId] = useState(
+    () => request?.startStationId ?? null,
+  );
+  const [startCoords, setStartCoords] = useState(() =>
+    request?.startLatitude != null
+      ? { latitude: request.startLatitude, longitude: request.startLongitude }
+      : null,
+  );
+  const [stations, setStations] = useState([]);
+  const [locating, setLocating] = useState(false);
+  const [feasibility, setFeasibility] = useState(null);
+  const [feasibilityError, setFeasibilityError] = useState("");
+  const [checking, setChecking] = useState(false);
   const [metroFriendly, setMetroFriendly] = useState(() => request?.metroFriendly ?? true);
   const [startAreaError, setStartAreaError] = useState("");
   const [durationHours, setDurationHours] = useState(4);
@@ -30,6 +52,15 @@ export default function CreateTripPage() {
 
   useEffect(() => {
     tagService.getTags().then(setTags).catch(() => setTags([]));
+  }, []);
+
+  useEffect(() => {
+    masterDataService
+      .getMasterData()
+      .then((data) =>
+        setStations([...data.metroStations].sort((a, b) => a.order - b.order)),
+      )
+      .catch(() => setStations([]));
   }, []);
 
   const interestTags = tags.filter((t) => t.type === "Interest");
@@ -46,23 +77,90 @@ export default function CreateTripPage() {
       prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
     );
 
-  const handleNextStep = () => {
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setStartAreaError("Trình duyệt không hỗ trợ định vị. Hãy chọn một ga bên dưới.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setStartCoords({ latitude: coords.latitude, longitude: coords.longitude });
+        setStartArea("Vị trí hiện tại");
+        setSelectedStationId(null);
+        setStartAreaError("");
+        setLocating(false);
+      },
+      () => {
+        setStartAreaError(
+          "Không lấy được vị trí. Hãy cho phép truy cập vị trí hoặc chọn một ga bên dưới.",
+        );
+        setLocating(false);
+      },
+      { timeout: GEOLOCATION_TIMEOUT_MS },
+    );
+  };
+
+  const handlePickStation = (station) => {
+    setStartCoords({ latitude: station.latitude, longitude: station.longitude });
+    setStartArea(station.name);
+    setSelectedStationId(station.id);
+    setStartAreaError("");
+  };
+
+  const checkFeasibility = async () => {
+    setFeasibilityError("");
+    setFeasibility(null);
+    setChecking(true);
+    const budget = BUDGET_OPTIONS.find((b) => b.value === budgetPerPerson);
+    try {
+      const result = await tripService.checkFeasibility(
+        toTripRequestDto({
+          startLatitude: startCoords.latitude,
+          startLongitude: startCoords.longitude,
+          durationHours,
+          budgetMinPerPerson: budget?.min ?? 0,
+          budgetMaxPerPerson: budgetPerPerson,
+          peopleCount,
+          tagIds: [...interests, ...travelStyles],
+        }),
+      );
+      setFeasibility(result);
+      if (!result.isFeasible) {
+        setFeasibilityError(
+          FEASIBILITY_MESSAGES[result.reason] ??
+            "Yêu cầu hiện chưa khả thi, hãy thử điều chỉnh.",
+        );
+        return false;
+      }
+      return true;
+    } catch (err) {
+      setFeasibilityError(err.message);
+      return false;
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const handleNextStep = async () => {
     if (step === 0) {
-      const trimmed = startArea.trim();
-      if (!trimmed) {
-        setStartAreaError("Vui lòng nhập hoặc chọn khu vực xuất phát.");
+      if (!startCoords) {
+        setStartAreaError("Vui lòng dùng vị trí hiện tại hoặc chọn một ga Metro.");
         return;
       }
       setStartAreaError("");
-      setStartArea(trimmed);
       setRequest({
         ...(request || {}),
-        startArea: trimmed,
+        startArea,
+        startStationId: selectedStationId,
+        startLatitude: startCoords.latitude,
+        startLongitude: startCoords.longitude,
         metroFriendly,
       });
     }
-    if (step === 2 && interests.length === 0) {
-      return;
+    if (step === 2) {
+      if (interests.length === 0) return;
+      if (!(await checkFeasibility())) return;
     }
     setStep((s) => s + 1);
   };
@@ -129,37 +227,35 @@ export default function CreateTripPage() {
               Bạn đang ở đâu?
             </h2>
 
+            <button
+              type="button"
+              onClick={handleUseCurrentLocation}
+              disabled={locating}
+              className="w-full flex items-center justify-center gap-2 rounded-full border border-primary px-6 py-3 font-semibold text-primary active:scale-95 transition-all disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined">my_location</span>
+              {locating ? "Đang định vị..." : "Dùng vị trí hiện tại"}
+            </button>
+
             <div className="space-y-stack-sm">
-              <label
-                htmlFor="start-area-input"
-                className="text-label-md text-on-surface-variant font-medium"
-              >
-                Khu vực xuất phát
+              <label className="text-label-md text-on-surface-variant font-medium">
+                Hoặc chọn ga Metro gần bạn
               </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline pointer-events-none">
-                  location_on
-                </span>
-                <input
-                  id="start-area-input"
-                  name="startArea"
-                  type="text"
-                  value={startArea}
-                  onChange={(e) => {
-                    setStartArea(e.target.value);
-                    if (startAreaError && e.target.value.trim()) {
-                      setStartAreaError("");
-                    }
-                  }}
-                  placeholder="Nhập khu vực..."
-                  aria-invalid={Boolean(startAreaError)}
-                  aria-describedby={startAreaError ? "start-area-error" : undefined}
-                  className={`input-field pl-12 ${
-                    startAreaError
-                      ? "ring-2 ring-error bg-error-container/10 focus:ring-error"
-                      : ""
-                  }`}
-                />
+              <div className="flex flex-wrap gap-2">
+                {stations.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => handlePickStation(s)}
+                    className={`px-4 py-2 rounded-full text-body-md transition-all active:scale-95 ${
+                      selectedStationId === s.id
+                        ? "bg-primary text-on-primary shadow-sm"
+                        : "border border-outline-variant text-on-surface-variant hover:border-primary"
+                    }`}
+                  >
+                    {s.name}
+                  </button>
+                ))}
               </div>
               {startAreaError && (
                 <p
@@ -171,31 +267,11 @@ export default function CreateTripPage() {
                   {startAreaError}
                 </p>
               )}
-            </div>
-
-            <div className="space-y-stack-sm">
-              <label className="text-label-md text-on-surface-variant font-medium">
-                Gợi ý nhanh
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {AREAS.map((area) => (
-                  <button
-                    key={area}
-                    type="button"
-                    onClick={() => {
-                      setStartArea(area);
-                      if (startAreaError) setStartAreaError("");
-                    }}
-                    className={`px-4 py-2 rounded-full text-body-md transition-all active:scale-95 ${
-                      startArea.trim() === area
-                        ? "bg-primary text-on-primary shadow-sm"
-                        : "border border-outline-variant text-on-surface-variant hover:border-primary"
-                    }`}
-                  >
-                    {area}
-                  </button>
-                ))}
-              </div>
+              {startCoords && (
+                <p className="text-label-md text-on-surface-variant">
+                  📍 Xuất phát: {startArea}
+                </p>
+              )}
             </div>
 
             <button
@@ -394,6 +470,16 @@ export default function CreateTripPage() {
                 </button>
               ))}
             </div>
+
+            {feasibilityError && (
+              <p
+                role="alert"
+                className="text-label-md text-error flex items-center gap-1 font-medium"
+              >
+                <span className="material-symbols-outlined text-[16px]">error</span>
+                {feasibilityError}
+              </p>
+            )}
           </div>
         )}
 
@@ -436,6 +522,12 @@ export default function CreateTripPage() {
                 <p>
                   📍 {startArea} {metroFriendly && "· Metro-friendly"}
                 </p>
+                {feasibility?.nearestStation && (
+                  <p>
+                    🚇 Ga gần bạn: {feasibility.nearestStation.stationName}, cách{" "}
+                    {formatDistance(feasibility.nearestStation.distanceMeters)}
+                  </p>
+                )}
                 <p>
                   ⏱{" "}
                   {
@@ -476,10 +568,10 @@ export default function CreateTripPage() {
         {step < STEPS.length - 1 ? (
           <button
             onClick={handleNextStep}
-            disabled={!canContinue}
+            disabled={!canContinue || checking}
             className="flex items-center bg-primary text-on-primary rounded-full px-8 py-3 font-semibold text-button active:scale-95 transition-all shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
           >
-            Tiếp tục
+            {checking ? "Đang kiểm tra..." : "Tiếp tục"}
             <span className="material-symbols-outlined ml-2">
               chevron_right
             </span>

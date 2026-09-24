@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { REVIEW_TAGS } from "../../constants";
+import { REVIEW_MAX_TAGS, REVIEW_TAGS } from "../../constants";
 import { useTrip } from "../../context/TripContext";
 import { reviewService } from "../../services/reviewService";
 import {
@@ -23,11 +23,27 @@ const STATUS_LABEL = {
   completed: "Completed",
 };
 
+const REVIEW_ERROR_MESSAGES = {
+  item_not_visited: "Bạn cần đánh dấu đã ghé địa điểm này trước khi đánh giá.",
+  review_already_exists: "Bạn đã đánh giá địa điểm này rồi.",
+  review_requires_persisted_user: "Vui lòng đăng ký tài khoản để đánh giá.",
+};
+
 export default function SavedTripDetailPage() {
   const { tripId } = useParams();
   const navigate = useNavigate();
-  const { savedTrips, markVisited } = useTrip();
+  const { savedTrips, markVisited, fetchTrip } = useTrip();
   const trip = savedTrips.find((t) => t.id === tripId);
+  const [loadedTripId, setLoadedTripId] = useState(null);
+  const loadingTrip = loadedTripId !== tripId;
+
+  // savedTrips chỉ chứa bản tóm tắt (không có items), nên tải chi tiết khi mở trang
+  useEffect(() => {
+    fetchTrip(tripId)
+      .catch(() => {})
+      .finally(() => setLoadedTripId(tripId));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripId]);
 
   const [reviewModal, setReviewModal] = useState(null);
   const [rating, setRating] = useState(0);
@@ -35,6 +51,7 @@ export default function SavedTripDetailPage() {
   const [comment, setComment] = useState("");
   const [reviewDone, setReviewDone] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState("");
   const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
@@ -43,6 +60,14 @@ export default function SavedTripDetailPage() {
     const timer = setTimeout(() => setShowToast(false), 2600);
     return () => clearTimeout(timer);
   }, [showToast]);
+
+  if (loadingTrip) {
+    return (
+      <div className="app-shell flex items-center justify-center px-container-margin">
+        <p className="text-body-lg text-on-surface-variant">Đang tải...</p>
+      </div>
+    );
+  }
 
   if (!trip) {
     return (
@@ -71,31 +96,33 @@ export default function SavedTripDetailPage() {
     setSelectedTags([]);
     setComment("");
     setReviewDone(false);
+    setReviewError("");
     setReviewModal({ itemId, placeId });
     setShowToast(true);
   };
 
   const handleSubmitReview = async () => {
     setSubmittingReview(true);
+    setReviewError("");
     try {
-      await reviewService.submitReview({
-        placeId: reviewModal.placeId,
-        tripId: trip.id,
+      await reviewService.submitReview(reviewModal.itemId, {
         rating,
-        tags: selectedTags,
+        quickTags: selectedTags,
         comment,
-        visitedAt: new Date().toISOString(),
       });
       setReviewDone(true);
+    } catch (err) {
+      setReviewError(REVIEW_ERROR_MESSAGES[err.code] ?? err.message);
     } finally {
       setSubmittingReview(false);
     }
   };
 
-  const toggleTag = (tag) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
+  const toggleTag = (value) => {
+    setSelectedTags((prev) => {
+      if (prev.includes(value)) return prev.filter((t) => t !== value);
+      return prev.length >= REVIEW_MAX_TAGS ? prev : [...prev, value];
+    });
   };
 
   return (
@@ -358,7 +385,7 @@ export default function SavedTripDetailPage() {
                   <span className="material-symbols-outlined text-[14px]">
                     payments
                   </span>
-                  ~{formatCurrencyShort(trip.estimatedBudget)}/người
+                  ~{formatCurrencyShort(trip.estimatedBudget)}
                 </span>
               </div>
             </section>
@@ -430,25 +457,34 @@ export default function SavedTripDetailPage() {
 
                 <div>
                   <p className="mb-2 text-label-md text-on-surface-variant">
-                    Chọn nhận xét nhanh:
+                    Chọn nhận xét nhanh (tối đa {REVIEW_MAX_TAGS}):
                   </p>
 
                   <div className="flex flex-wrap gap-2">
                     {REVIEW_TAGS.map((tag) => (
                       <button
-                        key={tag}
-                        onClick={() => toggleTag(tag)}
+                        key={tag.value}
+                        onClick={() => toggleTag(tag.value)}
                         className={`rounded-full px-3 py-1.5 text-label-md transition-all active:scale-95 ${
-                          selectedTags.includes(tag)
+                          selectedTags.includes(tag.value)
                             ? "bg-primary text-on-primary"
                             : "border border-outline-variant text-on-surface-variant hover:border-primary"
                         }`}
                       >
-                        {tag}
+                        {tag.label}
                       </button>
                     ))}
                   </div>
                 </div>
+
+                {reviewError && (
+                  <p
+                    role="alert"
+                    className="rounded-lg bg-error-container/10 px-3 py-2 text-label-md text-error"
+                  >
+                    {reviewError}
+                  </p>
+                )}
 
                 <textarea
                   value={comment}

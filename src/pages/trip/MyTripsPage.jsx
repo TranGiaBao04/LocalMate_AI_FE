@@ -112,14 +112,14 @@ export default function MyTripsPage() {
                         <span className="material-symbols-outlined text-[14px]">
                           payments
                         </span>
-                        ~{formatCurrencyShort(trip.estimatedBudget)}/người
+                        ~{formatCurrencyShort(trip.estimatedBudget)}
                       </span>
 
                       <span className="flex items-center gap-1 text-label-md text-on-surface-variant">
                         <span className="material-symbols-outlined text-[14px]">
                           place
                         </span>
-                        {trip.items.length} địa điểm
+                        {trip.itemCount ?? trip.items.length} địa điểm
                       </span>
 
                       {trip.metroFriendly && (

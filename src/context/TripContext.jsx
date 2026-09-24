@@ -54,10 +54,27 @@ export function TripProvider({ children }) {
     });
   };
 
+  // Cập nhật trip mới nhất từ server vào currentTrip; chỉ cập nhật savedTrips nếu trip đã có sẵn trong đó
+  const syncTrip = (trip) => {
+    if (currentTrip?.id === trip.id) setCurrentTrip(trip);
+    setSavedTrips((prev) => prev.map((t) => (t.id === trip.id ? trip : t)));
+    return trip;
+  };
+
+  const refreshTrip = async (tripId) =>
+    syncTrip(await tripService.getTripById(tripId));
+
+  const fetchTrip = async (tripId) => {
+    const trip = await tripService.getTripById(tripId);
+    upsertSavedTrip(trip);
+    return trip;
+  };
+
   const generateTrip = async (req) => tripService.generateTrip(req);
 
   const saveTrip = async (trip) => {
-    const saved = await tripService.saveTrip(trip);
+    const saved = await tripService.saveTrip(trip.id);
+    if (currentTrip?.id === saved.id) setCurrentTrip(saved);
     upsertSavedTrip(saved);
     return saved;
   };
@@ -69,84 +86,26 @@ export function TripProvider({ children }) {
 
   const finalizeTrip = async (tripId) => {
     const updated = await tripService.finalizeTrip(tripId);
-    if (currentTrip?.id === tripId) setCurrentTrip(updated);
+    syncTrip(updated);
     upsertSavedTrip(updated);
     return updated;
   };
 
-  const sumBudget = (items) =>
-    items.reduce((sum, it) => sum + (it.estimatedCost ?? 0), 0);
-
   const replaceItem = async (tripId, itemId, newPlaceId) => {
     const result = await tripService.replaceItem(tripId, itemId, newPlaceId);
-
-    const mergeReplaced = (items) =>
-      items.map((it) =>
-        it.id === itemId
-          ? {
-              ...it,
-              time: result.scheduledTime,
-              durationMinutes: result.estimatedDurationMinutes,
-              estimatedCost: result.estimatedBudget,
-              placeId: result.place.id,
-              placeName: result.place.name,
-              placeCategory: result.place.category,
-            }
-          : it,
-      );
-
-    if (currentTrip?.id === tripId) {
-      const items = mergeReplaced(currentTrip.items);
-      setCurrentTrip({ ...currentTrip, items, estimatedBudget: sumBudget(items) });
-    }
-    setSavedTrips((prev) =>
-      prev.map((t) => {
-        if (t.id !== tripId) return t;
-        const items = mergeReplaced(t.items);
-        return { ...t, items, estimatedBudget: sumBudget(items) };
-      }),
-    );
-
+    await refreshTrip(tripId);
     return result;
   };
 
   const deleteItem = async (tripId, itemId) => {
-    const remaining = await tripService.deleteItem(tripId, itemId);
-
-    const mergeTimeline = (items) =>
-      remaining.map((r) => {
-        const existing = items.find((it) => it.id === r.itemId);
-        return {
-          ...existing,
-          id: r.itemId,
-          time: r.scheduledTime,
-          durationMinutes: r.estimatedDurationMinutes,
-          estimatedCost: r.estimatedBudget,
-          placeId: r.placeId,
-          placeName: r.placeName,
-        };
-      });
-
-    if (currentTrip?.id === tripId) {
-      const items = mergeTimeline(currentTrip.items);
-      setCurrentTrip({ ...currentTrip, items, estimatedBudget: sumBudget(items) });
-    }
-    setSavedTrips((prev) =>
-      prev.map((t) => {
-        if (t.id !== tripId) return t;
-        const items = mergeTimeline(t.items);
-        return { ...t, items, estimatedBudget: sumBudget(items) };
-      }),
-    );
-
-    return remaining;
+    await tripService.deleteItem(tripId, itemId);
+    const updated = await refreshTrip(tripId);
+    return updated.items;
   };
 
   const markVisited = async (tripId, itemId) => {
-    const updated = await tripService.markVisited(tripId, itemId);
-    if (currentTrip?.id === tripId) setCurrentTripState(updated);
-    upsertSavedTrip(updated);
-    return updated;
+    await tripService.markVisited(itemId);
+    return refreshTrip(tripId);
   };
 
   return (
@@ -164,6 +123,7 @@ export function TripProvider({ children }) {
         replaceItem,
         deleteItem,
         markVisited,
+        fetchTrip,
       }}
     >
       {children}

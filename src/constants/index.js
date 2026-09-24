@@ -69,10 +69,10 @@ export const TIME_OF_DAY_OPTIONS = [
 ];
 
 export const BUDGET_OPTIONS = [
-  { id: "low", label: "Dưới 150k/người", value: 150000 },
-  { id: "mid", label: "150k – 300k/người", value: 300000 },
-  { id: "high", label: "300k – 500k/người", value: 500000 },
-  { id: "flex", label: "Linh hoạt", value: 999999 },
+  { id: "low", label: "Dưới 150k/người", min: 0, value: 150000 },
+  { id: "mid", label: "150k – 300k/người", min: 150000, value: 300000 },
+  { id: "high", label: "300k – 500k/người", min: 300000, value: 500000 },
+  { id: "flex", label: "Linh hoạt", min: 0, value: 999999 },
 ];
 
 export const PEOPLE_OPTIONS = [
@@ -80,17 +80,6 @@ export const PEOPLE_OPTIONS = [
   { id: "2", label: "2 người", value: 2 },
   { id: "3-5", label: "3–5 người", value: 4 },
   { id: "group", label: "Nhóm lớn", value: 10 },
-];
-
-export const AREAS = [
-  "Quận 1",
-  "Quận 3",
-  "Bình Thạnh",
-  "TP. Thủ Đức",
-  "Tân Bình",
-  "Phú Nhuận",
-  "Quận 4",
-  "Quận 7",
 ];
 
 export const METRO_STATIONS = [
@@ -103,19 +92,23 @@ export const METRO_STATIONS = [
   "An Phú",
 ];
 
+// value phải khớp 12 giá trị quickTags của BE
 export const REVIEW_TAGS = [
-  "Đáng đi",
-  "Gần metro",
-  "Dễ di chuyển",
-  "Giá hợp lý",
-  "Không gian đẹp",
-  "Phù hợp nhóm bạn",
-  "Quá đông",
-  "Khó tìm",
-  "Giá cao hơn dự kiến",
-  "Không đúng kỳ vọng",
-  "Không giống mô tả",
+  { value: "WorthVisiting", label: "Đáng đi" },
+  { value: "NearMetro", label: "Gần metro" },
+  { value: "EasyToReach", label: "Dễ di chuyển" },
+  { value: "GoodValue", label: "Giá hợp lý" },
+  { value: "NiceAtmosphere", label: "Không gian đẹp" },
+  { value: "GoodForGroups", label: "Phù hợp nhóm bạn" },
+  { value: "TooCrowded", label: "Quá đông" },
+  { value: "HardToFind", label: "Khó tìm" },
+  { value: "Overpriced", label: "Giá cao hơn dự kiến" },
+  { value: "BelowExpectations", label: "Không đúng kỳ vọng" },
+  { value: "InaccurateDescription", label: "Không giống mô tả" },
+  { value: "WantsReplacement", label: "Muốn thay thế" },
 ];
+
+export const REVIEW_MAX_TAGS = 3;
 
 export const REPLACE_REASONS = [
   { id: "cheaper", label: "Rẻ hơn", icon: "savings" },

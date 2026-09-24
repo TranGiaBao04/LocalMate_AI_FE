@@ -281,7 +281,7 @@ export default function DraftItineraryPage() {
                 địa điểm
               </p>
               <p className="text-body-md text-on-surface">
-                💰 ~{formatCurrencyShort(currentTrip.estimatedBudget)}/người
+                💰 ~{formatCurrencyShort(currentTrip.estimatedBudget)}
               </p>
             </div>
             <div className="flex gap-3">

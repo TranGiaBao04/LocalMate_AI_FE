@@ -85,7 +85,7 @@ export default function FinalizedItineraryPage() {
               <span className="material-symbols-outlined text-[14px]">
                 payments
               </span>
-              ~{formatCurrencyShort(currentTrip.estimatedBudget)}/người
+              ~{formatCurrencyShort(currentTrip.estimatedBudget)}
             </span>
 
             <span className="flex items-center gap-1 text-label-md opacity-90">
