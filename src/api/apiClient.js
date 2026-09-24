@@ -30,7 +30,7 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
 
   if (res.status === 204) return null;
 
-  const isJson = res.headers.get("content-type")?.includes("application/json");
+  const isJson = res.headers.get("content-type")?.includes("json");
   const data = isJson ? await res.json().catch(() => null) : null;
 
   if (!res.ok) {

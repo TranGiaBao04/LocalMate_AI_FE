@@ -104,6 +104,10 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(STORAGE_KEYS.IS_DEMO);
   };
 
+  const applyUserProfile = (profile) => {
+    if (!isDemo) setUser(profile);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -115,6 +119,7 @@ export function AuthProvider({ children }) {
         loginDemo,
         register,
         logout,
+        applyUserProfile,
       }}
     >
       {children}
