@@ -139,7 +139,7 @@ export default function ProfilePage() {
                   {trip.title}
                 </p>
                 <p className="text-label-md text-on-surface-variant">
-                  {trip.durationHours} tiếng · {trip.items.length} địa điểm
+                  {trip.durationHours} tiếng · {trip.itemCount ?? trip.items.length} địa điểm
                 </p>
               </div>
               <span className="material-symbols-outlined text-outline-variant">

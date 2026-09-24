@@ -135,7 +135,7 @@ export default function ReplacePlacePage() {
 
                 {place.matchScore != null && (
                   <span className="flex items-center gap-1 text-label-md text-primary font-bold">
-                    {Math.round(place.matchScore)}% phù hợp
+                    {Math.round(place.matchScore * 100)}% tương đồng
                   </span>
                 )}
               </div>
