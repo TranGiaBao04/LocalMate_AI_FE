@@ -57,19 +57,14 @@ const EXPERIENCES = [
   },
 ];
 
-const FILTERS = [
-  "Tất cả ga",
-  "Ga 01 Bến Thành",
-  "Ga 02 Nhà hát TP",
-  "Ga 03 Ba Son",
-  "Ga 04 Tân Cảng",
-];
-
 export default function HomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [activeFilter, setActiveFilter] = useState(0);
-  const [nearby, setNearby] = useState([]);
+  const [activeStationId, setActiveStationId] = useState(null);
+  const [clusters, setClusters] = useState([]);
+  const [clustersLoading, setClustersLoading] = useState(true);
+  const [clustersError, setClustersError] = useState(false);
+  const [clustersRetryKey, setClustersRetryKey] = useState(0);
 
   const [showGuestTour, setShowGuestTour] = useState(() => {
     try {
@@ -80,11 +75,20 @@ export default function HomePage() {
   });
 
   useEffect(() => {
+    let active = true;
     placeService
-      .getPlaces({ metroFriendly: true, limit: 4 })
-      .then((data) => setNearby(data?.places ?? []))
-      .catch(() => setNearby([]));
-  }, []);
+      .getMetroClusters()
+      .then((data) => {
+        if (active) setClusters(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (active) setClustersError(true);
+      })
+      .finally(() => {
+        if (active) setClustersLoading(false);
+      });
+    return () => { active = false; };
+  }, [clustersRetryKey]);
 
   const handleDismissTour = () => {
     setShowGuestTour(false);
@@ -97,6 +101,17 @@ export default function HomePage() {
 
   const firstName = user?.fullName?.split(" ").pop() || "bạn";
   const initial = (user?.fullName || "K").charAt(0).toUpperCase();
+  const stations = clusters.filter((cluster) => cluster.places.length > 0);
+  const activeCluster = stations.find((cluster) => cluster.stationId === activeStationId);
+  const nearby = activeCluster
+    ? activeCluster.places.slice(0, 4).map((place) => ({ ...place, stationName: activeCluster.stationName }))
+    : stations.slice(0, 4).map((cluster) => ({ ...cluster.places[0], stationName: cluster.stationName }));
+
+  const retryClusters = () => {
+    setClustersLoading(true);
+    setClustersError(false);
+    setClustersRetryKey((key) => key + 1);
+  };
 
   return (
     <MobileLayout>
@@ -206,8 +221,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-3.5">
               <a
-                href="#"
-                onClick={(e) => e.preventDefault()}
+                href="#sample-itineraries"
                 className="text-[13px] font-semibold text-slate-300 underline-offset-4 hover:text-white hover:underline"
               >
                 Lịch trình mẫu
@@ -226,7 +240,7 @@ export default function HomePage() {
         </section>
 
         {/* Featured experiences */}
-        <section className="flex flex-col gap-4">
+        <section id="sample-itineraries" className="flex scroll-mt-6 flex-col gap-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
@@ -252,10 +266,11 @@ export default function HomePage() {
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {EXPERIENCES.map((exp) => (
-              <div
+              <button
                 key={exp.title}
+                type="button"
                 onClick={() => navigate("/create")}
-                className="soft-shadow soft-shadow-hover cursor-pointer overflow-hidden rounded-[20px] bg-white"
+                className="soft-shadow soft-shadow-hover overflow-hidden rounded-[20px] bg-white text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
               >
                 <div className="relative h-[170px] bg-surface-variant">
                   <img
@@ -294,7 +309,7 @@ export default function HomePage() {
                     <div className="font-bold text-navy-dark">{exp.price}</div>
                   </div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </section>
@@ -311,45 +326,57 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="hide-scrollbar flex gap-2 overflow-x-auto pb-0.5">
-            {FILTERS.map((label, i) => (
+          <div role="group" aria-label="Lọc theo ga Metro" className="hide-scrollbar flex gap-2 overflow-x-auto pb-0.5">
+            {[{ stationId: null, stationName: "Tất cả ga" }, ...stations].map((station) => (
               <button
-                key={label}
-                onClick={() => setActiveFilter(i)}
-                className={`flex-none whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
-                  i === activeFilter
+                key={station.stationId ?? "all"}
+                type="button"
+                aria-pressed={station.stationId === activeStationId}
+                onClick={() => setActiveStationId(station.stationId)}
+                className={`flex-none whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-bold transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy motion-reduce:transition-none ${
+                  station.stationId === activeStationId
                     ? "bg-navy-dark text-white"
                     : "bg-chip-bg text-[#3A4256]"
                 }`}
               >
-                {label}
+                {station.stationId === null ? station.stationName : `Ga ${String(station.stationOrder).padStart(2, "0")} ${station.stationName}`}
               </button>
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {nearby.map((place) => (
-              <div
-                key={place.id}
-                onClick={() => navigate(`/place/${place.id}`)}
-                className="flex cursor-pointer flex-col gap-2.5 transition-opacity hover:opacity-90"
-              >
-                <div className="relative h-[150px] overflow-hidden rounded-xl bg-surface-variant">
-                  <img
-                    src={place.imageUrl}
-                    alt={place.name}
-                    className="h-full w-full object-cover"
-                  />
-                  <span className="absolute left-2 top-2 rounded-full bg-navy-dark px-2 py-[3px] text-[10.5px] font-bold text-white">
-                    {place.nearestMetroStation ?? "Gần ga"}
-                  </span>
-                </div>
-                <div className="truncate text-[13.5px] font-bold text-[#111726]">
-                  {place.name}
-                </div>
-              </div>
-            ))}
-          </div>
+          {clustersLoading ? (
+            <p role="status" className="py-6 text-[13px] text-text-muted">Đang tải địa điểm gần ga...</p>
+          ) : clustersError ? (
+            <div role="alert" className="flex items-center gap-3 py-6 text-[13px] text-text-muted">
+              <span>Không thể tải địa điểm gần ga.</span>
+              <button type="button" onClick={retryClusters} className="font-bold text-navy underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy">Thử lại</button>
+            </div>
+          ) : nearby.length === 0 ? (
+            <p className="py-6 text-[13px] text-text-muted">Chưa có địa điểm ở cụm ga này.</p>
+          ) : (
+            <div key={activeStationId ?? "all"} className="home-station-panel grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {nearby.map((place) => (
+                <button
+                  key={place.id}
+                  type="button"
+                  onClick={() => navigate(`/place/${place.id}`)}
+                  className="flex min-w-0 flex-col gap-2.5 text-left transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                >
+                  <div className="relative h-[150px] w-full overflow-hidden rounded-xl bg-surface-variant">
+                    {place.imageUrl ? (
+                      <img src={place.imageUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span aria-hidden="true" className="material-symbols-outlined flex h-full items-center justify-center text-4xl text-navy/30">location_on</span>
+                    )}
+                    <span className="absolute left-2 top-2 rounded-full bg-navy-dark px-2 py-[3px] text-[10.5px] font-bold text-white">
+                      Ga {place.stationName}
+                    </span>
+                  </div>
+                  <span className="w-full truncate text-[13.5px] font-bold text-[#111726]">{place.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </section>
       </main>
 

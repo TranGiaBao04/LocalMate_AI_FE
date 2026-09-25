@@ -12,6 +12,7 @@ function toQueryString(params = {}) {
 }
 
 export const placeService = {
+  getMetroClusters: () => apiClient.get("/places/metro-clusters"),
   getPlaces: ({ latitude, longitude, category } = {}) =>
     apiClient.get(`/places/nearby${toQueryString({ latitude, longitude, category })}`),
   getPlaceById: (placeId) => apiClient.get(`/places/${placeId}`),
