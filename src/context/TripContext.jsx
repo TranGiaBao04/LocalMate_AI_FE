@@ -6,7 +6,7 @@ import { useAuth } from "./AuthContext";
 const TripContext = createContext(null);
 
 export function TripProvider({ children }) {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, isDemo } = useAuth();
   const [request, setRequestState] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.TRIP_REQUEST);
@@ -24,14 +24,43 @@ export function TripProvider({ children }) {
     }
   });
   const [savedTrips, setSavedTrips] = useState([]);
+  const [tripsLoading, setTripsLoading] = useState(false);
+  const [tripsLoaded, setTripsLoaded] = useState(false);
+  const [tripsError, setTripsError] = useState(false);
+  const [tripsReloadKey, setTripsReloadKey] = useState(0);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
+    let active = true;
+    if (!isLoggedIn || isDemo) {
+      queueMicrotask(() => {
+        if (!active) return;
+        setSavedTrips([]);
+        setTripsLoading(false);
+        setTripsLoaded(false);
+        setTripsError(false);
+      });
+      return () => { active = false; };
+    }
+    queueMicrotask(() => {
+      if (!active) return;
+      setTripsLoading(true);
+      setTripsLoaded(false);
+      setTripsError(false);
+    });
     tripService
       .getTrips()
-      .then(setSavedTrips)
-      .catch(() => setSavedTrips([]));
-  }, [isLoggedIn]);
+      .then((trips) => {
+        if (active) setSavedTrips(trips);
+      })
+      .catch(() => {
+        if (active) setTripsError(true);
+      })
+      .finally(() => {
+        if (active) setTripsLoading(false);
+        if (active) setTripsLoaded(true);
+      });
+    return () => { active = false; };
+  }, [isLoggedIn, isDemo, tripsReloadKey]);
 
   const setRequest = (r) => {
     setRequestState(r);
@@ -116,6 +145,10 @@ export function TripProvider({ children }) {
         currentTrip,
         setCurrentTrip,
         savedTrips,
+        tripsLoading,
+        tripsLoaded,
+        tripsError,
+        retryTrips: () => setTripsReloadKey((key) => key + 1),
         saveTrip,
         deleteTrip,
         generateTrip,
