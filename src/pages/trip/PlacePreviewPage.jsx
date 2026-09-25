@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { mockPlaces } from "../../data/places.mock";
+import PlaceBadges from "../../components/ui/PlaceBadges";
+import { placeService } from "../../services/placeService";
 import {
   formatCurrencyShort,
   formatDuration,
@@ -8,8 +10,29 @@ import {
 
 export default function PlacePreviewPage() {
   const { placeId } = useParams();
+  return <PlaceDetail key={placeId} placeId={placeId} />;
+}
+
+function PlaceDetail({ placeId }) {
   const navigate = useNavigate();
-  const place = mockPlaces.find((p) => p.id === placeId);
+  const [place, setPlace] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    placeService
+      .getPlaceById(placeId)
+      .then(setPlace)
+      .catch(() => setPlace(null))
+      .finally(() => setLoading(false));
+  }, [placeId]);
+
+  if (loading) {
+    return (
+      <div className="app-shell flex items-center justify-center">
+        <p className="text-body-lg text-on-surface-variant">Đang tải...</p>
+      </div>
+    );
+  }
 
   if (!place) {
     return (
@@ -68,19 +91,11 @@ export default function PlacePreviewPage() {
           )}
         </div>
 
+        <PlaceBadges place={place} />
+
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           {[
-            { icon: "location_on", label: "Khu vực", value: place.area },
-            {
-              icon: "train",
-              label: "Ga gần nhất",
-              value: place.nearestMetroStation,
-            },
-            {
-              icon: "near_me",
-              label: "Cách ga",
-              value: `${place.distanceFromStationMeters}m`,
-            },
+            { icon: "location_on", label: "Địa chỉ", value: place.address },
             {
               icon: "payments",
               label: "Chi phí",
@@ -92,65 +107,80 @@ export default function PlacePreviewPage() {
             {
               icon: "schedule",
               label: "Thời gian",
-              value: formatDuration(place.suggestedDurationMinutes),
+              value: place.suggestedDurationMinutes
+                ? formatDuration(place.suggestedDurationMinutes)
+                : null,
             },
             {
               icon: "wb_sunny",
               label: "Nên đến",
               value: place.bestTimeToVisit,
             },
-          ].map((item) => (
-            <div key={item.label} className="card flex items-center gap-2 p-3">
-              <span className="material-symbols-outlined text-primary text-[20px]">
-                {item.icon}
-              </span>
-              <div>
-                <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">
-                  {item.label}
-                </p>
-                <p className="text-body-md font-semibold text-on-surface">
-                  {item.value}
-                </p>
+          ]
+            .filter((item) => item.value)
+            .map((item) => (
+              <div
+                key={item.label}
+                className="card flex items-center gap-2 p-3"
+              >
+                <span className="material-symbols-outlined text-primary text-[20px]">
+                  {item.icon}
+                </span>
+                <div>
+                  <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">
+                    {item.label}
+                  </p>
+                  <p className="text-body-md font-semibold text-on-surface">
+                    {item.value}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
+
+        {place.description && (
+          <p className="text-body-md text-on-surface-variant">
+            {place.description}
+          </p>
+        )}
 
         <div className="flex flex-wrap gap-2">
           {place.tags.map((tag) => (
-            <span key={tag} className="chip text-label-md">
-              {tag}
+            <span key={tag.id} className="chip text-label-md">
+              {tag.name}
             </span>
           ))}
         </div>
 
-        <div className="card space-y-stack-sm">
-          <h3 className="text-title-md font-bold text-on-surface flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-[20px]">
-              auto_awesome
-            </span>
-            Vì sao LocalMate đề xuất?
-          </h3>
+        {place.insights?.length > 0 && (
+          <div className="card space-y-stack-sm">
+            <h3 className="text-title-md font-bold text-on-surface flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-[20px]">
+                auto_awesome
+              </span>
+              Vì sao LocalMate đề xuất?
+            </h3>
 
-          <ul className="space-y-2">
-            {place.insights.map((insight, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-2 text-body-md text-on-surface-variant"
-              >
-                <span
-                  className="material-symbols-outlined text-primary-container text-[16px] mt-0.5 flex-shrink-0"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
+            <ul className="space-y-2">
+              {place.insights.map((insight, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-2 text-body-md text-on-surface-variant"
                 >
-                  check_circle
-                </span>
-                {insight}
-              </li>
-            ))}
-          </ul>
-        </div>
+                  <span
+                    className="material-symbols-outlined text-primary-container text-[16px] mt-0.5 flex-shrink-0"
+                    style={{ fontVariationSettings: "'FILL' 1" }}
+                  >
+                    check_circle
+                  </span>
+                  {insight}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-        {place.notes.length > 0 && (
+        {place.notes?.length > 0 && (
           <div className="card border-tertiary-container/30 bg-tertiary-container/10 space-y-2">
             <h3 className="text-label-md font-bold text-tertiary uppercase tracking-wider flex items-center gap-1">
               <span className="material-symbols-outlined text-[16px]">

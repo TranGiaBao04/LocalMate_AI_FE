@@ -1,21 +1,66 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { STORAGE_KEYS } from "../constants";
-import { mockItineraries } from "../data/itineraries.mock";
-import { mockPlaces } from "../data/places.mock";
+import { tripService } from "../services/tripService";
+import { useAuth } from "./AuthContext";
 
 const TripContext = createContext(null);
 
 export function TripProvider({ children }) {
-  const [request, setRequestState] = useState(null);
-  const [currentTrip, setCurrentTripState] = useState(null);
-  const [savedTrips, setSavedTrips] = useState(() => {
+  const { isLoggedIn, isDemo } = useAuth();
+  const [request, setRequestState] = useState(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.SAVED_TRIPS);
-      return stored ? JSON.parse(stored) : mockItineraries;
+      const stored = localStorage.getItem(STORAGE_KEYS.TRIP_REQUEST);
+      return stored ? JSON.parse(stored) : null;
     } catch {
-      return mockItineraries;
+      return null;
     }
   });
+  const [currentTrip, setCurrentTripState] = useState(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.TRIP_DRAFT);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [savedTrips, setSavedTrips] = useState([]);
+  const [tripsLoading, setTripsLoading] = useState(false);
+  const [tripsLoaded, setTripsLoaded] = useState(false);
+  const [tripsError, setTripsError] = useState(false);
+  const [tripsReloadKey, setTripsReloadKey] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    if (!isLoggedIn || isDemo) {
+      queueMicrotask(() => {
+        if (!active) return;
+        setSavedTrips([]);
+        setTripsLoading(false);
+        setTripsLoaded(false);
+        setTripsError(false);
+      });
+      return () => { active = false; };
+    }
+    queueMicrotask(() => {
+      if (!active) return;
+      setTripsLoading(true);
+      setTripsLoaded(false);
+      setTripsError(false);
+    });
+    tripService
+      .getTrips()
+      .then((trips) => {
+        if (active) setSavedTrips(trips);
+      })
+      .catch(() => {
+        if (active) setTripsError(true);
+      })
+      .finally(() => {
+        if (active) setTripsLoading(false);
+        if (active) setTripsLoaded(true);
+      });
+    return () => { active = false; };
+  }, [isLoggedIn, isDemo, tripsReloadKey]);
 
   const setRequest = (r) => {
     setRequestState(r);
@@ -25,156 +70,71 @@ export function TripProvider({ children }) {
   const setCurrentTrip = (t) => {
     setCurrentTripState(t);
     if (t) localStorage.setItem(STORAGE_KEYS.TRIP_DRAFT, JSON.stringify(t));
+    else localStorage.removeItem(STORAGE_KEYS.TRIP_DRAFT);
   };
 
-  const persistTrips = (trips) => {
-    setSavedTrips(trips);
-    localStorage.setItem(STORAGE_KEYS.SAVED_TRIPS, JSON.stringify(trips));
-  };
-
-  const saveTrip = (trip) => {
-    const existing = savedTrips.findIndex((t) => t.id === trip.id);
-    let updated;
-    if (existing >= 0) {
-      updated = savedTrips.map((t) => (t.id === trip.id ? trip : t));
-    } else {
-      updated = [trip, ...savedTrips];
-    }
-    persistTrips(updated);
-  };
-
-  const deleteTrip = (id) => {
-    persistTrips(savedTrips.filter((t) => t.id !== id));
-  };
-
-  const generateTrip = async (req) => {
-    await new Promise((r) => setTimeout(r, 2500));
-
-    let candidates = mockPlaces.filter((p) => p.isActive);
-
-    if (req.interests.length > 0) {
-      const scored = candidates
-        .map((p) => ({
-          place: p,
-          score: p.tags.filter((t) => req.interests.includes(t)).length,
-        }))
-        .sort((a, b) => b.score - a.score);
-      candidates = scored.map((s) => s.place);
-    }
-
-    if (req.budgetPerPerson < 999999) {
-      candidates = candidates.filter(
-        (p) => p.estimatedCostMin <= req.budgetPerPerson * 0.4,
-      );
-    }
-
-    const maxItems =
-      req.durationHours <= 2 ? 2 : req.durationHours <= 4 ? 4 : 5;
-    const selected = candidates.slice(0, maxItems);
-
-    let hour = 14;
-    const items = selected.map((p, i) => {
-      const timeStr = `${String(hour).padStart(2, "0")}:00`;
-      hour += Math.ceil(p.suggestedDurationMinutes / 60) + 1;
-      return {
-        id: `item-${Date.now()}-${i}`,
-        time: timeStr,
-        placeId: p.id,
-        placeName: p.name,
-        placeCategory: p.category,
-        durationMinutes: p.suggestedDurationMinutes,
-        estimatedCost: Math.round(
-          (p.estimatedCostMin + p.estimatedCostMax) / 2,
-        ),
-        reason: p.insights[0] ?? "Phù hợp với hành trình của bạn.",
-        travelNote: p.nearestMetroStation
-          ? `Gần ga ${p.nearestMetroStation}`
-          : undefined,
-      };
+  const upsertSavedTrip = (trip) => {
+    setSavedTrips((prev) => {
+      const existing = prev.findIndex((t) => t.id === trip.id);
+      if (existing >= 0) {
+        return prev.map((t) => (t.id === trip.id ? trip : t));
+      }
+      return [trip, ...prev];
     });
+  };
 
-    const totalBudget = items.reduce((s, i) => s + i.estimatedCost, 0);
-
-    const trip = {
-      id: `trip-${Date.now()}`,
-      status: "draft",
-      title: `Hành trình ${req.durationHours} tiếng – ${req.startArea}`,
-      summary: `Lịch trình ${req.durationHours} giờ, ${req.peopleCount} người, dựa trên sở thích cá nhân.`,
-      mainArea: req.startArea,
-      durationHours: req.durationHours,
-      estimatedBudget: totalBudget,
-      intensity:
-        req.durationHours <= 2 ? "Nhẹ" : req.durationHours <= 4 ? "Vừa" : "Dày",
-      metroFriendly: req.metroFriendly,
-      items,
-      createdAt: new Date().toISOString(),
-    };
-
+  // Cập nhật trip mới nhất từ server vào currentTrip; chỉ cập nhật savedTrips nếu trip đã có sẵn trong đó
+  const syncTrip = (trip) => {
+    if (currentTrip?.id === trip.id) setCurrentTrip(trip);
+    setSavedTrips((prev) => prev.map((t) => (t.id === trip.id ? trip : t)));
     return trip;
   };
 
-  const finalizeTrip = (tripId) => {
-    const trip =
-      currentTrip?.id === tripId
-        ? currentTrip
-        : savedTrips.find((t) => t.id === tripId);
-    if (!trip) return;
-    const updated = {
-      ...trip,
-      status: "finalized",
-      finalizedAt: new Date().toISOString(),
-    };
-    setCurrentTrip(updated);
-    saveTrip(updated);
+  const refreshTrip = async (tripId) =>
+    syncTrip(await tripService.getTripById(tripId));
+
+  const fetchTrip = async (tripId) => {
+    const trip = await tripService.getTripById(tripId);
+    upsertSavedTrip(trip);
+    return trip;
   };
 
-  const replaceItem = (tripId, itemId, newPlaceId) => {
-    const trip =
-      currentTrip?.id === tripId
-        ? currentTrip
-        : savedTrips.find((t) => t.id === tripId);
-    if (!trip) return;
-    const newPlace = mockPlaces.find((p) => p.id === newPlaceId);
-    if (!newPlace) return;
-    const updated = {
-      ...trip,
-      items: trip.items.map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              placeId: newPlace.id,
-              placeName: newPlace.name,
-              placeCategory: newPlace.category,
-              estimatedCost: Math.round(
-                (newPlace.estimatedCostMin + newPlace.estimatedCostMax) / 2,
-              ),
-              durationMinutes: newPlace.suggestedDurationMinutes,
-              reason: newPlace.insights[0] ?? "",
-            }
-          : item,
-      ),
-    };
-    updated.estimatedBudget = updated.items.reduce(
-      (s, i) => s + i.estimatedCost,
-      0,
-    );
-    setCurrentTrip(updated);
-    saveTrip(updated);
+  const generateTrip = async (req) => tripService.generateTrip(req);
+
+  const saveTrip = async (trip) => {
+    const saved = await tripService.saveTrip(trip.id);
+    if (currentTrip?.id === saved.id) setCurrentTrip(saved);
+    upsertSavedTrip(saved);
+    return saved;
   };
 
-  const markVisited = (tripId, itemId) => {
-    const trip = savedTrips.find((t) => t.id === tripId) ?? currentTrip;
-    if (!trip) return;
-    const items = trip.items.map((i) =>
-      i.id === itemId ? { ...i, isVisited: true } : i,
-    );
-    const updated = {
-      ...trip,
-      status: items.every((i) => i.isVisited) ? "completed" : trip.status,
-      items,
-    };
-    if (currentTrip?.id === tripId) setCurrentTripState(updated);
-    saveTrip(updated);
+  const deleteTrip = async (id) => {
+    await tripService.deleteTrip(id);
+    setSavedTrips((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const finalizeTrip = async (tripId) => {
+    const updated = await tripService.finalizeTrip(tripId);
+    syncTrip(updated);
+    upsertSavedTrip(updated);
+    return updated;
+  };
+
+  const replaceItem = async (tripId, itemId, newPlaceId) => {
+    const result = await tripService.replaceItem(tripId, itemId, newPlaceId);
+    await refreshTrip(tripId);
+    return result;
+  };
+
+  const deleteItem = async (tripId, itemId) => {
+    await tripService.deleteItem(tripId, itemId);
+    const updated = await refreshTrip(tripId);
+    return updated.items;
+  };
+
+  const markVisited = async (tripId, itemId) => {
+    await tripService.markVisited(itemId);
+    return refreshTrip(tripId);
   };
 
   return (
@@ -185,12 +145,18 @@ export function TripProvider({ children }) {
         currentTrip,
         setCurrentTrip,
         savedTrips,
+        tripsLoading,
+        tripsLoaded,
+        tripsError,
+        retryTrips: () => setTripsReloadKey((key) => key + 1),
         saveTrip,
         deleteTrip,
         generateTrip,
         finalizeTrip,
         replaceItem,
+        deleteItem,
         markVisited,
+        fetchTrip,
       }}
     >
       {children}

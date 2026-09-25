@@ -1,63 +1,139 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { STORAGE_KEYS } from "../constants";
-import { mockUsers } from "../data/users.mock";
+import { authService } from "../services/authService";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    const isDemoStored = localStorage.getItem(STORAGE_KEYS.IS_DEMO) === "true";
+    if (token && isDemoStored) {
+      return {
+        id: "demo",
+        fullName: "Khách Demo",
+        email: "demo@localmate.ai",
+        role: "User",
+      };
+    }
+    return null;
+  });
+
+  const [isDemo, setIsDemo] = useState(() => {
+    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    const isDemoStored = localStorage.getItem(STORAGE_KEYS.IS_DEMO) === "true";
+    return !!token && isDemoStored;
+  });
+
+  const [initializing, setInitializing] = useState(() => {
+    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    const isDemoStored = localStorage.getItem(STORAGE_KEYS.IS_DEMO) === "true";
+    return !!token && !isDemoStored;
+  });
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.USER);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        const isMockUser = mockUsers.some((u) => u.email === parsed.email);
-        if (isMockUser) setUser(parsed);
-        else localStorage.removeItem(STORAGE_KEYS.USER);
-      } catch {
-        localStorage.removeItem(STORAGE_KEYS.USER);
-      }
+    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    const isDemoStored = localStorage.getItem(STORAGE_KEYS.IS_DEMO) === "true";
+    if (!token || isDemoStored) {
+      return;
     }
+
+    authService
+      .getProfile()
+      .then((profile) => {
+        setUser(profile);
+        setIsDemo(false);
+      })
+      .catch(() => {
+        localStorage.removeItem(STORAGE_KEYS.TOKEN);
+        localStorage.removeItem(STORAGE_KEYS.IS_DEMO);
+        setUser(null);
+        setIsDemo(false);
+      })
+      .finally(() => setInitializing(false));
   }, []);
 
-  const saveUser = (u) => {
-    const { password: _password, ...safeUser } = u;
-    setUser(safeUser);
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(safeUser));
-  };
-
-  const login = async (email, password) => {
-    const found = mockUsers.find(
-      (u) =>
-        u.email.toLowerCase() === email.trim().toLowerCase() &&
-        u.password === password,
-    );
-    if (found) {
-      saveUser(found);
-      return true;
+  const completePersistedLogin = async (session) => {
+    const token = session?.accessToken || session?.token;
+    if (!token) {
+      throw new Error("Không nhận được access token từ máy chủ.");
     }
-    return false;
+    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+    localStorage.removeItem(STORAGE_KEYS.IS_DEMO);
+    setIsDemo(false);
+
+    try {
+      const profile = await authService.getProfile();
+      setUser(profile);
+      return { session, user: profile };
+    } catch (profileErr) {
+      localStorage.removeItem(STORAGE_KEYS.TOKEN);
+      setUser(null);
+      throw profileErr;
+    }
   };
 
-  const register = async () => {
-    return false;
+  const login = async (email, password) =>
+    completePersistedLogin(await authService.login(email, password));
+
+  const loginWithGoogle = async (idToken) =>
+    completePersistedLogin(await authService.googleLogin(idToken));
+
+  const loginDemo = async () => {
+    const session = await authService.demo();
+    const token = session?.accessToken || session?.token;
+    if (!token) {
+      throw new Error("Không nhận được token demo từ máy chủ.");
+    }
+    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+    localStorage.setItem(STORAGE_KEYS.IS_DEMO, "true");
+    const demoUser = {
+      id: "demo",
+      fullName: "Khách Demo",
+      email: "demo@localmate.ai",
+      role: "User",
+    };
+    setUser(demoUser);
+    setIsDemo(true);
+    return { session, user: demoUser };
+  };
+
+  const register = async (fullName, email, password) => {
+    return await authService.register(fullName, email, password);
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem(STORAGE_KEYS.USER);
+    setIsDemo(false);
+    localStorage.removeItem(STORAGE_KEYS.TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.IS_DEMO);
+  };
+
+  const applyUserProfile = (profile) => {
+    if (!isDemo) setUser(profile);
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, isLoggedIn: !!user, login, register, logout }}
+      value={{
+        user,
+        isDemo,
+        isLoggedIn: !!user,
+        initializing,
+        login,
+        loginWithGoogle,
+        loginDemo,
+        register,
+        logout,
+        applyUserProfile,
+      }}
     >
       {children}
     </AuthContext.Provider>
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");

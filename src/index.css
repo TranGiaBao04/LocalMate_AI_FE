@@ -39,7 +39,29 @@
   }
 
   .soft-shadow {
-    box-shadow: 0 10px 30px -10px rgba(0, 107, 95, 0.08);
+    box-shadow: 0 1px 2px rgba(20, 30, 60, 0.08);
+  }
+
+  .soft-shadow-hover {
+    transition:
+      transform 0.15s,
+      box-shadow 0.15s;
+  }
+  .soft-shadow-hover:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(20, 30, 60, 0.16);
+  }
+
+  .hero-gradient {
+    background:
+      repeating-linear-gradient(
+        115deg,
+        rgba(255, 255, 255, 0.03) 0px,
+        rgba(255, 255, 255, 0.03) 2px,
+        transparent 2px,
+        transparent 10px
+      ),
+      linear-gradient(120deg, #0f2148 0%, #1d3e82 60%, #2c56a8 100%);
   }
 
   .glass-card {
@@ -91,35 +113,27 @@
   }
 
   .mobile-shell {
-    @apply min-h-screen w-full bg-background relative lg:pl-72;
+    @apply min-h-screen w-full bg-background relative lg:pl-[220px];
   }
 
   .app-shell {
-    @apply min-h-screen w-full bg-background relative lg:pl-72;
+    @apply min-h-screen w-full bg-background relative lg:pl-[220px];
   }
 
   .content-shell {
-    @apply w-full max-w-md mx-auto lg:max-w-6xl;
+    @apply w-full max-w-md mx-auto lg:max-w-none lg:mx-0 2xl:max-w-[1680px] 2xl:mx-auto;
   }
 
   .app-header {
-    @apply fixed top-0 left-0 right-0 z-40 bg-surface/90 backdrop-blur-md lg:left-72;
+    @apply fixed top-0 left-0 right-0 z-40 bg-surface/90 backdrop-blur-md lg:left-[220px];
   }
 
   .app-footer {
-    @apply fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-lg lg:left-72;
+    @apply fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-lg lg:left-[220px];
   }
 
   .desktop-sidebar-bg {
-    background:
-      linear-gradient(
-        135deg,
-        rgba(248, 249, 255, 0.96) 0%,
-        rgba(208, 219, 237, 0.82) 42%,
-        rgba(45, 212, 191, 0.38) 100%
-      );
-    background-size: 180% 180%;
-    animation: sidebar-flow 12s ease-in-out infinite;
+    background: linear-gradient(180deg, #eaeef9 0%, #f8f9fc 60%);
   }
 
   .page-padding {
@@ -157,16 +171,6 @@
   }
 }
 
-@keyframes sidebar-flow {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
 .animate-float {
   animation: float 6s ease-in-out infinite;
 }
@@ -177,4 +181,17 @@
 
 .animate-spin-slow {
   animation: spin-slow 3s linear infinite;
+}
+
+@keyframes homeStationFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.home-station-panel {
+  animation: homeStationFade 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-station-panel { animation: none; }
 }

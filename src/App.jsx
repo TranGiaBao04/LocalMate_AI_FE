@@ -21,13 +21,15 @@ import SavedTripDetailPage from "./pages/trip/SavedTripDetailPage";
 
 export default function App() {
   const { pathname } = useLocation();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, initializing } = useAuth();
   const showAppNav = !["/", "/login", "/register", "/loading"].includes(
     pathname,
   ) && isLoggedIn;
   const showBottomNav = ["/home", "/trips", "/profile"].includes(pathname);
-  const requireAuth = (element) =>
-    isLoggedIn ? element : <Navigate to="/login" replace />;
+  const requireAuth = (element) => {
+    if (initializing) return null;
+    return isLoggedIn ? element : <Navigate to="/login" replace />;
+  };
 
   return (
     <>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import logo from "../../assets/logo.jpg";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -15,26 +16,61 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!fullName.trim()) return setError("Vui lòng nhập họ tên.");
-    if (password.length < 6) return setError("Mật khẩu tối thiểu 6 ký tự.");
-    if (password !== confirm) return setError("Mật khẩu xác nhận không khớp.");
+
+    const trimmedName = fullName.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedName) return setError("Vui lòng nhập họ và tên.");
+    if (!trimmedEmail) return setError("Vui lòng nhập email.");
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      return setError("Định dạng email không hợp lệ.");
+    }
+
+    if (password.length < 8 || password.length > 128) {
+      return setError("Mật khẩu phải từ 8 đến 128 ký tự.");
+    }
+    if (password !== confirm) {
+      return setError("Mật khẩu xác nhận không khớp.");
+    }
+
     setLoading(true);
-    const ok = await register(fullName, email, password);
-    if (ok) navigate("/home");
-    else setError("Hiện tại chỉ hỗ trợ đăng nhập bằng tài khoản mẫu.");
-    setLoading(false);
+    try {
+      await register(trimmedName, trimmedEmail, password);
+      navigate("/login", {
+        state: {
+          registeredEmail: trimmedEmail,
+          message: "Đăng ký tài khoản thành công! Vui lòng đăng nhập.",
+        },
+      });
+    } catch (err) {
+      if (err.code === "duplicate_email" || err.status === 409) {
+        setError(
+          "Email này đã được đăng ký. Vui lòng sử dụng email khác hoặc đăng nhập.",
+        );
+      } else if (err.errors) {
+        const firstMsg = Object.values(err.errors).flat()[0];
+        setError(
+          firstMsg || err.message || "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.",
+        );
+      } else {
+        setError(err.message || "Không thể tạo tài khoản. Vui lòng thử lại.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center overflow-hidden bg-background px-container-margin py-10">
       <div className="mb-8 flex flex-col items-center">
-        <div className="w-16 h-16 bg-primary-container rounded-lg flex items-center justify-center mb-4 soft-shadow">
-          <span
-            className="material-symbols-outlined text-on-primary-container"
-            style={{ fontSize: 36, fontVariationSettings: "'FILL' 1" }}
-          >
-            person_add
-          </span>
+        <div className="w-16 h-16 rounded-lg overflow-hidden mb-4 soft-shadow bg-white">
+          <img
+            src={logo}
+            alt="LocalMate AI"
+            className="w-full h-full object-cover object-top"
+          />
         </div>
         <h1 className="text-headline-xl font-bold text-primary mb-1">
           Tạo tài khoản
@@ -69,7 +105,7 @@ export default function RegisterPage() {
               value: password,
               setter: setPassword,
               type: "password",
-              placeholder: "Tối thiểu 6 ký tự",
+              placeholder: "Từ 8 đến 128 ký tự",
             },
             {
               label: "Xác nhận mật khẩu",
