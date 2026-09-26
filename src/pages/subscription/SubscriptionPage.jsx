@@ -1,36 +1,213 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useSubscription } from "../../context/SubscriptionContext";
 import SubscriptionSummary from "../../components/subscription/SubscriptionSummary";
 import PlanCard from "../../components/subscription/PlanCard";
+import PaymentCheckoutModal from "../../components/subscription/PaymentCheckoutModal";
+import { subscriptionService } from "../../services/subscriptionService";
 import { PLAN_CODES } from "../../utils/subscriptionUtils";
+
+const ACTIVE_PAYMENT_SESSION_KEY = "localmate_active_payment_intent";
 
 export default function SubscriptionPage() {
   const navigate = useNavigate();
-  const { isDemo } = useAuth();
+  const { isDemo, isLoggedIn } = useAuth();
   const {
     plans,
     subscription,
     plansLoading,
     subscriptionLoading,
     subscriptionError,
+    refreshSubscription,
     refreshAll,
   } = useSubscription();
 
-  const [actionLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [pageError, setPageError] = useState("");
+  const [pageSuccess, setPageSuccess] = useState("");
+
+  const [paymentIntent, setPaymentIntent] = useState(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   const currentPlanCode = subscription?.plan || PLAN_CODES.FREE;
 
-  const handleSelectPlan = async () => {
+  // Khôi phục phiên thanh toán đang chờ từ sessionStorage (Session Resume)
+  useEffect(() => {
+    if (isDemo || !isLoggedIn) return;
+
+    try {
+      const stored = sessionStorage.getItem(ACTIVE_PAYMENT_SESSION_KEY);
+      if (!stored) return;
+
+      const parsed = JSON.parse(stored);
+      if (!parsed?.orderId) return;
+
+      subscriptionService
+        .getOrder(parsed.orderId)
+        .then((order) => {
+          if (order?.status === "Pending") {
+            setPaymentIntent(parsed);
+            setIsPaymentModalOpen(true);
+          } else if (order?.status === "Paid") {
+            sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
+            refreshSubscription();
+          } else {
+            // Failed, Expired, hoặc trạng thái khác
+            sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
+          }
+        })
+        .catch(() => {
+          sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
+        });
+    } catch {
+      sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
+    }
+  }, [isDemo, isLoggedIn, refreshSubscription]);
+
+  // Trích xuất intent khi có lỗi 409 pending_order_exists
+  const extractReusableIntent = useCallback(
+    (err, defaultPlanCode) => {
+      const raw = err?.data?.extensions || err?.data || {};
+      const orderId = raw.orderId || raw.OrderId;
+      const qrCode = raw.qrCode || raw.QrCode;
+      const checkoutUrl = raw.checkoutUrl || raw.CheckoutUrl;
+      const amount = raw.amount || raw.Amount;
+      const expiresAt = raw.expiresAt || raw.ExpiresAt;
+
+      if (orderId && qrCode) {
+        return {
+          orderId,
+          planCode: defaultPlanCode,
+          qrCode,
+          checkoutUrl,
+          amount,
+          expiresAt,
+        };
+      }
+      return null;
+    },
+    [],
+  );
+
+  // Xử lý tạo đơn hàng thanh toán gói mới
+  const handleSelectPlan = async (planCode) => {
+    if (isDemo) return;
     setPageError("");
-    // S5-B will open PaymentCheckoutModal
+    setPageSuccess("");
+    setActionLoading(true);
+
+    try {
+      const response = await subscriptionService.checkout(planCode);
+      const intent = {
+        orderId: response.orderId,
+        planCode,
+        qrCode: response.qrCode,
+        checkoutUrl: response.checkoutUrl,
+        amount: response.amount,
+        expiresAt: response.expiresAt,
+      };
+
+      sessionStorage.setItem(ACTIVE_PAYMENT_SESSION_KEY, JSON.stringify(intent));
+      setPaymentIntent(intent);
+      setIsPaymentModalOpen(true);
+    } catch (err) {
+      if (err.code === "pending_order_exists") {
+        const reusable = extractReusableIntent(err, planCode);
+        if (reusable) {
+          sessionStorage.setItem(ACTIVE_PAYMENT_SESSION_KEY, JSON.stringify(reusable));
+          setPaymentIntent(reusable);
+          setIsPaymentModalOpen(true);
+          return;
+        }
+      }
+
+      if (err.code === "plan_already_active") {
+        refreshSubscription();
+        setPageError("Gói này hiện đang hoạt động trên tài khoản của bạn.");
+      } else if (err.code === "already_covered_by_higher_plan") {
+        refreshSubscription();
+        setPageError("Gói hiện tại của bạn đã bao gồm đầy đủ quyền lợi này.");
+      } else if (err.status === 502 || err.code === "payment_gateway_unavailable") {
+        setPageError(
+          "Cổng thanh toán PayOS tạm thời chưa thể kết nối. Vui lòng thử lại sau ít phút.",
+        );
+      } else if (err.code === "persisted_account_required" || err.status === 403) {
+        setPageError(
+          "Chức năng thanh toán yêu cầu tài khoản đã được đăng ký và lưu trên hệ thống.",
+        );
+      } else {
+        setPageError(err.message || "Không thể khởi tạo giao dịch thanh toán.");
+      }
+    } finally {
+      setActionLoading(false);
+    }
   };
 
+  // Xử lý gia hạn gói hiện tại
   const handleRenew = async () => {
+    if (isDemo) return;
     setPageError("");
-    // S5-B will handle renew payment
+    setPageSuccess("");
+    setActionLoading(true);
+
+    try {
+      const response = await subscriptionService.renew();
+      const intent = {
+        orderId: response.orderId,
+        planCode: subscription?.plan,
+        qrCode: response.qrCode,
+        checkoutUrl: response.checkoutUrl,
+        amount: response.amount,
+        expiresAt: response.expiresAt,
+      };
+
+      sessionStorage.setItem(ACTIVE_PAYMENT_SESSION_KEY, JSON.stringify(intent));
+      setPaymentIntent(intent);
+      setIsPaymentModalOpen(true);
+    } catch (err) {
+      if (err.code === "pending_order_exists") {
+        const reusable = extractReusableIntent(err, subscription?.plan);
+        if (reusable) {
+          sessionStorage.setItem(ACTIVE_PAYMENT_SESSION_KEY, JSON.stringify(reusable));
+          setPaymentIntent(reusable);
+          setIsPaymentModalOpen(true);
+          return;
+        }
+      }
+
+      if (err.code === "no_active_subscription") {
+        setPageError(
+          "Bạn chưa có gói trả phí nào đang hoạt động để gia hạn. Vui lòng chọn gói mới.",
+        );
+      } else if (err.status === 502 || err.code === "payment_gateway_unavailable") {
+        setPageError(
+          "Cổng thanh toán PayOS tạm thời chưa thể kết nối. Vui lòng thử lại sau ít phút.",
+        );
+      } else {
+        setPageError(err.message || "Không thể thực hiện gia hạn lúc này.");
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handlePaymentSuccess = () => {
+    sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
+    refreshSubscription();
+    setPageSuccess("Thanh toán thành công! Gói cước của bạn đã được cập nhật.");
+  };
+
+  const handleCloseModal = () => {
+    setIsPaymentModalOpen(false);
+  };
+
+  const handleRetryCheckout = (targetPlanCode) => {
+    setIsPaymentModalOpen(false);
+    sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
+    if (targetPlanCode) {
+      handleSelectPlan(targetPlanCode);
+    }
   };
 
   return (
@@ -61,14 +238,14 @@ export default function SubscriptionPage() {
         <button
           type="button"
           onClick={() => refreshAll()}
-          disabled={plansLoading || subscriptionLoading}
+          disabled={plansLoading || subscriptionLoading || actionLoading}
           className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant disabled:opacity-50"
           title="Làm mới thông tin"
           aria-label="Làm mới thông tin"
         >
           <span
             className={`material-symbols-outlined text-[20px] ${
-              plansLoading || subscriptionLoading ? "animate-spin" : ""
+              plansLoading || subscriptionLoading || actionLoading ? "animate-spin" : ""
             }`}
           >
             refresh
@@ -125,10 +302,35 @@ export default function SubscriptionPage() {
             </div>
             <button
               type="button"
-              onClick={() => refreshAll()}
+              onClick={() => {
+                setPageError("");
+                refreshAll();
+              }}
               className="text-label-md font-bold underline hover:no-underline flex-shrink-0"
             >
               Thử lại
+            </button>
+          </div>
+        )}
+
+        {/* Global Page Success */}
+        {pageSuccess && (
+          <div className="card border border-emerald-300 bg-emerald-50 p-4 rounded-xl flex items-center justify-between gap-3 text-body-md text-emerald-800">
+            <div className="flex items-center gap-2">
+              <span
+                className="material-symbols-outlined text-[20px] text-emerald-600"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                check_circle
+              </span>
+              <span>{pageSuccess}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPageSuccess("")}
+              className="text-label-sm font-bold text-emerald-700 hover:underline"
+            >
+              Đóng
             </button>
           </div>
         )}
@@ -210,6 +412,15 @@ export default function SubscriptionPage() {
           </ul>
         </section>
       </main>
+
+      {/* Payment Checkout & QR Modal */}
+      <PaymentCheckoutModal
+        isOpen={isPaymentModalOpen}
+        onClose={handleCloseModal}
+        paymentIntent={paymentIntent}
+        onSuccess={handlePaymentSuccess}
+        onRetryCheckout={handleRetryCheckout}
+      />
     </div>
   );
 }

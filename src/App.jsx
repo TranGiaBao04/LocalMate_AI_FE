@@ -11,6 +11,7 @@ import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import HomePage from "./pages/home/HomePage";
 import ProfilePage from "./pages/profile/ProfilePage";
 import SubscriptionPage from "./pages/subscription/SubscriptionPage";
+import PaymentReturnPage from "./pages/subscription/PaymentReturnPage";
 
 import CreateTripPage from "./pages/trip/CreateTripPage";
 import AiLoadingPage from "./pages/trip/AiLoadingPage";
@@ -24,7 +25,7 @@ import SavedTripDetailPage from "./pages/trip/SavedTripDetailPage";
 export default function App() {
   const { pathname } = useLocation();
   const { isLoggedIn, initializing } = useAuth();
-  const showAppNav = !["/", "/login", "/register", "/forgot-password", "/loading"].includes(
+  const showAppNav = !["/", "/login", "/register", "/forgot-password", "/loading", "/payment/success", "/payment/cancel"].includes(
     pathname,
   ) && isLoggedIn;
   const showBottomNav = ["/home", "/trips", "/profile"].includes(pathname);
@@ -44,6 +45,8 @@ export default function App() {
         <Route path="/home" element={requireAuth(<HomePage />)} />
         <Route path="/profile" element={requireAuth(<ProfilePage />)} />
         <Route path="/subscription" element={requireAuth(<SubscriptionPage />)} />
+        <Route path="/payment/success" element={requireAuth(<PaymentReturnPage mode="success" />)} />
+        <Route path="/payment/cancel" element={requireAuth(<PaymentReturnPage mode="cancel" />)} />
 
         <Route path="/create" element={requireAuth(<CreateTripPage />)} />
         <Route path="/loading" element={requireAuth(<AiLoadingPage />)} />
