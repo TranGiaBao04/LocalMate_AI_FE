@@ -6,6 +6,7 @@ import { tagService } from "../../services/tagService";
 import { masterDataService } from "../../services/masterDataService";
 import { tripService, toTripRequestDto } from "../../services/tripService";
 import { formatCurrency, formatDistance } from "../../utils/formatCurrency";
+import { formatVnDateTime } from "../../utils/subscriptionUtils";
 import {
   DAY_MINUTES,
   addDays,
@@ -79,6 +80,8 @@ const GENERATE_ERROR_MESSAGES = {
     "Chưa có địa điểm phù hợp. Hãy thử tăng ngân sách, tăng thời lượng hoặc bỏ bớt sở thích.",
   generate_requires_persisted_user: "Vui lòng đăng ký tài khoản để tạo lịch trình.",
   invalid_tag_ids: "Một số sở thích không còn khả dụng. Hãy chọn lại.",
+  generate_quota_exceeded:
+    "Bạn đã dùng hết lượt tạo lịch trình miễn phí trong tháng này.",
 };
 
 export default function CreateTripPage() {
@@ -90,6 +93,12 @@ export default function CreateTripPage() {
   // Lỗi từ lần tạo trước (trang bị mount lại sau /loading nên truyền qua location.state)
   const [generateError, setGenerateError] = useState(
     () => location.state?.error ?? "",
+  );
+  const [generateErrorCode, setGenerateErrorCode] = useState(
+    () => location.state?.errorCode ?? "",
+  );
+  const [quotaMetadata, setQuotaMetadata] = useState(
+    () => location.state?.quotaMetadata ?? null,
   );
   const [step, setStep] = useState(() => (location.state?.error ? 3 : 0));
   const stepHeadingRef = useRef(null);
@@ -301,6 +310,8 @@ export default function CreateTripPage() {
 
     setRequest(req);
     setGenerateError("");
+    setGenerateErrorCode("");
+    setQuotaMetadata(null);
     navigate("/loading");
     try {
       const trip = await generateTrip(buildTripDto());
@@ -309,7 +320,11 @@ export default function CreateTripPage() {
     } catch (err) {
       navigate("/create", {
         replace: true,
-        state: { error: GENERATE_ERROR_MESSAGES[err.code] ?? err.message },
+        state: {
+          error: GENERATE_ERROR_MESSAGES[err.code] ?? err.message,
+          errorCode: err.code || "",
+          quotaMetadata: err.data?.extensions || err.data || null,
+        },
       });
     }
   };
@@ -692,13 +707,64 @@ export default function CreateTripPage() {
         {step === 3 && (
           <div className="space-y-stack-lg">
             {generateError && (
-              <p
-                role="alert"
-                className="text-label-md text-error flex items-start gap-1 font-medium mt-stack-md"
-              >
-                <span className="material-symbols-outlined text-[16px]">error</span>
-                {generateError}
-              </p>
+              generateErrorCode === "generate_quota_exceeded" ? (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-error/20 bg-error-container/10 p-stack-md space-y-3 mt-stack-md"
+                >
+                  <div className="flex items-start gap-2">
+                    <span className="material-symbols-outlined text-error text-[20px] shrink-0 mt-0.5">
+                      lock
+                    </span>
+                    <div className="space-y-1">
+                      <p className="font-semibold text-body-md text-error">
+                        {generateError}
+                      </p>
+                      <p className="text-body-sm text-on-surface-variant">
+                        Nâng cấp gói dịch vụ để tiếp tục tạo các hành trình khám phá không giới hạn.
+                      </p>
+                    </div>
+                  </div>
+
+                  {quotaMetadata && (quotaMetadata.limit != null || quotaMetadata.resetAt) && (
+                    <div className="bg-surface rounded-lg p-3 text-body-sm space-y-1 border border-outline-variant/10">
+                      {quotaMetadata.limit != null && (
+                        <div className="flex justify-between text-on-surface">
+                          <span>Đã sử dụng:</span>
+                          <span className="font-semibold">
+                            {quotaMetadata.used ?? quotaMetadata.limit} / {quotaMetadata.limit} lượt
+                          </span>
+                        </div>
+                      )}
+                      {quotaMetadata.resetAt && (
+                        <div className="flex justify-between text-on-surface-variant">
+                          <span>Làm mới vào:</span>
+                          <span className="font-medium">
+                            {formatVnDateTime(quotaMetadata.resetAt)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("/subscription")}
+                    className="w-full py-2.5 px-4 bg-primary text-on-primary rounded-full font-semibold text-label-md flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-sm"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+                    Nâng cấp gói dịch vụ
+                  </button>
+                </div>
+              ) : (
+                <p
+                  role="alert"
+                  className="text-label-md text-error flex items-start gap-1 font-medium mt-stack-md"
+                >
+                  <span className="material-symbols-outlined text-[16px]">error</span>
+                  {generateError}
+                </p>
+              )
             )}
             <div className="mt-stack-lg">
               <h2 ref={stepHeadingRef} tabIndex={-1} className="text-headline-lg-mobile font-bold text-on-surface focus:outline-none">

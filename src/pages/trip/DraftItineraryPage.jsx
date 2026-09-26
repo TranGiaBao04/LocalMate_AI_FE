@@ -13,6 +13,7 @@ const ITEM_ERROR_MESSAGES = {
   trip_finalized: "Lịch trình đã chốt nên không sửa được nữa.",
   already_finalized: "Lịch trình này đã được chốt rồi.",
   itinerary_item_not_found: "Không tìm thấy địa điểm này. Hãy tải lại lịch trình.",
+  saved_trip_quota_exceeded: "Bạn đã đạt giới hạn lịch trình được lưu của gói hiện tại.",
 };
 
 // Thời gian đi từ chặng trước. Auto dùng số BE đã tính; chọn phương tiện cụ thể thì dùng field theo phương tiện
@@ -55,6 +56,8 @@ export default function DraftItineraryPage() {
   const [deletingItemId, setDeletingItemId] = useState(null);
   const [deleteError, setDeleteError] = useState("");
   const [finalizeError, setFinalizeError] = useState("");
+  const [finalizeErrorCode, setFinalizeErrorCode] = useState("");
+  const [quotaMetadata, setQuotaMetadata] = useState(null);
   const [toastMessage, setToastMessage] = useState(location.state?.toast ?? "");
 
   useEffect(() => {
@@ -90,11 +93,15 @@ export default function DraftItineraryPage() {
   const handleFinalize = async () => {
     setFinalizing(true);
     setFinalizeError("");
+    setFinalizeErrorCode("");
+    setQuotaMetadata(null);
     try {
       await finalizeTrip(currentTrip.id);
       setShowFinalizeModal(false);
       navigate("/finalized");
     } catch (err) {
+      setFinalizeErrorCode(err.code || "");
+      setQuotaMetadata(err.data?.extensions || err.data || null);
       setFinalizeError(ITEM_ERROR_MESSAGES[err.code] ?? err.message);
     } finally {
       setFinalizing(false);
@@ -379,9 +386,51 @@ export default function DraftItineraryPage() {
               </p>
             </div>
             {finalizeError && (
-              <p role="alert" className="text-label-md text-error bg-error-container/10 rounded-lg px-3 py-2">
-                {finalizeError}
-              </p>
+              finalizeErrorCode === "saved_trip_quota_exceeded" ? (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-error/20 bg-error-container/10 p-stack-md space-y-3"
+                >
+                  <div className="flex items-start gap-2">
+                    <span className="material-symbols-outlined text-error text-[20px] shrink-0 mt-0.5">
+                      folder_off
+                    </span>
+                    <div className="space-y-1">
+                      <p className="font-semibold text-body-md text-error">
+                        {finalizeError}
+                      </p>
+                      <p className="text-body-sm text-on-surface-variant">
+                        Nâng cấp gói dịch vụ để lưu thêm nhiều lịch trình yêu thích không giới hạn.
+                      </p>
+                    </div>
+                  </div>
+
+                  {quotaMetadata && (quotaMetadata.limit != null || quotaMetadata.used != null) && (
+                    <div className="bg-surface rounded-lg p-3 text-body-sm border border-outline-variant/10 flex justify-between text-on-surface">
+                      <span>Đã lưu:</span>
+                      <span className="font-semibold">
+                        {quotaMetadata.used ?? quotaMetadata.limit} / {quotaMetadata.limit} lịch trình
+                      </span>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFinalizeModal(false);
+                      navigate("/subscription");
+                    }}
+                    className="w-full py-2.5 px-4 bg-primary text-on-primary rounded-full font-semibold text-label-md flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-sm"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+                    Nâng cấp gói để lưu thêm
+                  </button>
+                </div>
+              ) : (
+                <p role="alert" className="text-label-md text-error bg-error-container/10 rounded-lg px-3 py-2">
+                  {finalizeError}
+                </p>
+              )
             )}
             <div className="flex gap-3">
               <button
