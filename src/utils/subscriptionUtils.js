@@ -10,6 +10,12 @@ export const PLAN_DISPLAY_NAMES = {
   [PLAN_CODES.MEMBERSHIP]: "Membership",
 };
 
+/**
+ * Gói cước tĩnh dự phòng (Static Fallback).
+ * LƯU Ý QUAN TRỌNG:
+ * Backend `/api/subscriptions/plans` là nguồn chân lý (authoritative source) duy nhất cho giao diện giao dịch / thanh toán.
+ * FALLBACK_PLANS chỉ được sử dụng cho mục đích hiển thị marketing tĩnh (như WelcomePage) khi người dùng chưa đăng nhập.
+ */
 export const FALLBACK_PLANS = [
   {
     code: PLAN_CODES.FREE,

@@ -10,6 +10,7 @@ export default function PaymentCheckoutModal({
   onClose,
   paymentIntent,
   onSuccess,
+  onRetryPayment,
   onRetryCheckout,
 }) {
   const [orderStatus, setOrderStatus] = useState("Pending");
@@ -31,6 +32,33 @@ export default function PaymentCheckoutModal({
   const expiresAt = paymentIntent?.expiresAt;
   const planCode = paymentIntent?.planCode;
   const planDisplayName = PLAN_DISPLAY_NAMES[planCode] || planCode || "Gói cước";
+  const lastOrderIdRef = useRef(orderId);
+
+  // Reset state thanh toán nội bộ khi orderId thay đổi
+  useEffect(() => {
+    if (!orderId || lastOrderIdRef.current === orderId) return undefined;
+    lastOrderIdRef.current = orderId;
+
+    const timer = setTimeout(() => {
+      setOrderStatus("Pending");
+      setPollError("");
+      const diffMs = expiresAt ? new Date(expiresAt).getTime() - Date.now() : 0;
+      setSecondsLeft(Math.max(0, Math.floor(diffMs / 1000)));
+      isFinalCheckDoneRef.current = false;
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [orderId, expiresAt]);
+
+  const handleRetry = () => {
+    if (onRetryPayment) {
+      onRetryPayment(paymentIntent);
+    } else if (onRetryCheckout) {
+      onRetryCheckout(paymentIntent);
+    }
+  };
 
   // Hàm kiểm tra trạng thái đơn hàng từ Backend
   const checkOrderStatus = useCallback(async () => {
@@ -281,9 +309,7 @@ export default function PaymentCheckoutModal({
               <div className="flex flex-col gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (onRetryCheckout) onRetryCheckout(planCode);
-                  }}
+                  onClick={handleRetry}
                   className="w-full py-3 px-4 rounded-xl bg-primary text-on-primary font-bold text-label-md hover:bg-primary/90 transition-all shadow-sm"
                 >
                   Tạo mã thanh toán mới
@@ -318,9 +344,7 @@ export default function PaymentCheckoutModal({
               <div className="flex flex-col gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (onRetryCheckout) onRetryCheckout(planCode);
-                  }}
+                  onClick={handleRetry}
                   className="w-full py-3 px-4 rounded-xl bg-primary text-on-primary font-bold text-label-md hover:bg-primary/90 transition-all shadow-sm"
                 >
                   Thử thanh toán lại

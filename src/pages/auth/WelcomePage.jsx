@@ -58,6 +58,8 @@ export default function WelcomePage() {
   const [tripDuration, setTripDuration] = useState("halfday");
   const [userPreference, setUserPreference] = useState("cafe");
 
+  // Backend /api/subscriptions/plans là nguồn chân lý (authoritative) cho giao dịch thực tế.
+  // WelcomePage giữ FALLBACK_PLANS làm marketing copy tĩnh để trang đích không bị crash khi chưa có mạng.
   useEffect(() => {
     subscriptionService
       .getPlans()
@@ -67,7 +69,7 @@ export default function WelcomePage() {
         }
       })
       .catch(() => {
-        // Fallback plans retained
+        // Giữ lại FALLBACK_PLANS cho trang đích marketing (không thực hiện giao dịch ở đây)
       });
   }, []);
 

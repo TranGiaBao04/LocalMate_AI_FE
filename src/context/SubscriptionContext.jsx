@@ -1,20 +1,40 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "./AuthContext";
 import { subscriptionService } from "../services/subscriptionService";
-import { FALLBACK_PLANS } from "../utils/subscriptionUtils";
 
 const SubscriptionContext = createContext(null);
 
 export function SubscriptionProvider({ children }) {
   const { user, isDemo, isLoggedIn, initializing } = useAuth();
 
-  const [plans, setPlans] = useState(FALLBACK_PLANS);
+  // Nguồn chân lý cho giao diện giao dịch là API Backend (bắt đầu rỗng thay vì fallback)
+  const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [plansError, setPlansError] = useState(null);
 
   const [persistedSubscription, setPersistedSubscription] = useState(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState(null);
+
+  const [prevUserId, setPrevUserId] = useState(user?.id);
+  const [prevIsLoggedIn, setPrevIsLoggedIn] = useState(isLoggedIn);
+  const [prevIsDemo, setPrevIsDemo] = useState(isDemo);
+
+  // Điều chỉnh state đồng bộ trong render khi chuyển đổi tài khoản/logout/demo để tránh lộ state cũ
+  if (isLoggedIn !== prevIsLoggedIn || isDemo !== prevIsDemo || user?.id !== prevUserId) {
+    setPrevIsLoggedIn(isLoggedIn);
+    setPrevIsDemo(isDemo);
+    setPrevUserId(user?.id);
+    if (!isLoggedIn || isDemo || user?.id !== prevUserId) {
+      setPersistedSubscription(null);
+      setSubscriptionError(null);
+      if (isLoggedIn && !isDemo) {
+        setSubscriptionLoading(true);
+      } else {
+        setSubscriptionLoading(false);
+      }
+    }
+  }
 
   const subscriptionUnavailableReason = isDemo ? "demo" : null;
 
@@ -24,7 +44,7 @@ export function SubscriptionProvider({ children }) {
     return persistedSubscription;
   }, [isLoggedIn, isDemo, persistedSubscription]);
 
-  // Lấy danh sách gói cước (Public)
+  // Lấy danh sách gói cước (Public) - Backend là nguồn chân lý
   const refreshPlans = useCallback(async () => {
     setPlansLoading(true);
     setPlansError(null);
@@ -35,8 +55,8 @@ export function SubscriptionProvider({ children }) {
       }
       return data;
     } catch (err) {
-      setPlansError(err.message || "Không thể tải danh sách gói cước.");
-      return FALLBACK_PLANS;
+      setPlansError(err.message || "Không thể tải danh sách gói cước từ máy chủ.");
+      return null;
     } finally {
       setPlansLoading(false);
     }
@@ -74,6 +94,7 @@ export function SubscriptionProvider({ children }) {
   const clearSubscriptionState = useCallback(() => {
     setPersistedSubscription(null);
     setSubscriptionError(null);
+    setSubscriptionLoading(false);
   }, []);
 
   // Tải plans khi provider mount
@@ -88,7 +109,7 @@ export function SubscriptionProvider({ children }) {
       })
       .catch((err) => {
         if (active) {
-          setPlansError(err.message || "Không thể tải danh sách gói cước.");
+          setPlansError(err.message || "Không thể tải danh sách gói cước từ máy chủ.");
         }
       })
       .finally(() => {
@@ -102,9 +123,7 @@ export function SubscriptionProvider({ children }) {
 
   // Đồng bộ subscription khi đăng nhập với tài khoản thật
   useEffect(() => {
-    if (initializing || !isLoggedIn || isDemo) {
-      return undefined;
-    }
+    if (initializing || !isLoggedIn || isDemo) return undefined;
 
     let active = true;
     subscriptionService

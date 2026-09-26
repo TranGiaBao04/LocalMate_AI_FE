@@ -17,8 +17,10 @@ export default function SubscriptionPage() {
     plans,
     subscription,
     plansLoading,
+    plansError,
     subscriptionLoading,
     subscriptionError,
+    refreshPlans,
     refreshSubscription,
     refreshAll,
   } = useSubscription();
@@ -43,6 +45,9 @@ export default function SubscriptionPage() {
       const parsed = JSON.parse(stored);
       if (!parsed?.orderId) return;
 
+      // Fallback an toàn cho intent cũ chưa có trường flow
+      parsed.flow = parsed.flow || "purchase";
+
       subscriptionService
         .getOrder(parsed.orderId)
         .then((order) => {
@@ -65,9 +70,9 @@ export default function SubscriptionPage() {
     }
   }, [isDemo, isLoggedIn, refreshSubscription]);
 
-  // Trích xuất intent khi có lỗi 409 pending_order_exists
+  // Trích xuất intent khi có lỗi 409 pending_order_exists (FE flow marker)
   const extractReusableIntent = useCallback(
-    (err, defaultPlanCode) => {
+    (err, defaultPlanCode, flow = "purchase") => {
       const raw = err?.data?.extensions || err?.data || {};
       const orderId = raw.orderId || raw.OrderId;
       const qrCode = raw.qrCode || raw.QrCode;
@@ -79,6 +84,7 @@ export default function SubscriptionPage() {
         return {
           orderId,
           planCode: defaultPlanCode,
+          flow,
           qrCode,
           checkoutUrl,
           amount,
@@ -98,10 +104,12 @@ export default function SubscriptionPage() {
     setActionLoading(true);
 
     try {
+      // Backend trả về HTTP 201 Created kèm CreatePaymentResponseDto
       const response = await subscriptionService.checkout(planCode);
       const intent = {
         orderId: response.orderId,
         planCode,
+        flow: "purchase",
         qrCode: response.qrCode,
         checkoutUrl: response.checkoutUrl,
         amount: response.amount,
@@ -113,7 +121,7 @@ export default function SubscriptionPage() {
       setIsPaymentModalOpen(true);
     } catch (err) {
       if (err.code === "pending_order_exists") {
-        const reusable = extractReusableIntent(err, planCode);
+        const reusable = extractReusableIntent(err, planCode, "purchase");
         if (reusable) {
           sessionStorage.setItem(ACTIVE_PAYMENT_SESSION_KEY, JSON.stringify(reusable));
           setPaymentIntent(reusable);
@@ -152,10 +160,12 @@ export default function SubscriptionPage() {
     setActionLoading(true);
 
     try {
+      // Backend trả về HTTP 201 Created kèm CreatePaymentResponseDto
       const response = await subscriptionService.renew();
       const intent = {
         orderId: response.orderId,
         planCode: subscription?.plan,
+        flow: "renew",
         qrCode: response.qrCode,
         checkoutUrl: response.checkoutUrl,
         amount: response.amount,
@@ -167,7 +177,7 @@ export default function SubscriptionPage() {
       setIsPaymentModalOpen(true);
     } catch (err) {
       if (err.code === "pending_order_exists") {
-        const reusable = extractReusableIntent(err, subscription?.plan);
+        const reusable = extractReusableIntent(err, subscription?.plan, "renew");
         if (reusable) {
           sessionStorage.setItem(ACTIVE_PAYMENT_SESSION_KEY, JSON.stringify(reusable));
           setPaymentIntent(reusable);
@@ -202,11 +212,14 @@ export default function SubscriptionPage() {
     setIsPaymentModalOpen(false);
   };
 
-  const handleRetryCheckout = (targetPlanCode) => {
+  const handleRetryPayment = (intent) => {
     setIsPaymentModalOpen(false);
     sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
-    if (targetPlanCode) {
-      handleSelectPlan(targetPlanCode);
+    if (!intent) return;
+    if (intent.flow === "renew") {
+      handleRenew();
+    } else if (intent.planCode) {
+      handleSelectPlan(intent.planCode);
     }
   };
 
@@ -292,13 +305,13 @@ export default function SubscriptionPage() {
         )}
 
         {/* Global Page Error */}
-        {(subscriptionError || pageError) && !isDemo && (
+        {(subscriptionError || pageError || (plansError && plans.length > 0)) && !isDemo && (
           <div className="card border border-error/30 bg-error/5 p-4 rounded-xl flex items-center justify-between gap-3 text-body-md text-error">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-[20px]">
                 error
               </span>
-              <span>{pageError || subscriptionError}</span>
+              <span>{pageError || subscriptionError || plansError}</span>
             </div>
             <button
               type="button"
@@ -374,6 +387,31 @@ export default function SubscriptionPage() {
                 />
               ))}
             </div>
+          ) : !plansLoading && plans.length === 0 && plansError ? (
+            <div
+              role="alert"
+              className="card border border-error/30 bg-error/5 p-8 rounded-3xl text-center space-y-4 max-w-lg mx-auto"
+            >
+              <div className="w-16 h-16 rounded-full bg-error/10 text-error flex items-center justify-center mx-auto">
+                <span className="material-symbols-outlined text-[36px]">cloud_off</span>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-title-md font-bold text-on-surface">
+                  Không thể tải danh sách gói cước
+                </h3>
+                <p className="text-body-md text-on-surface-variant">
+                  {plansError || "Hệ thống chưa thể lấy thông tin gói cước và giá mới nhất từ máy chủ."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => refreshPlans()}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-primary text-on-primary font-bold text-label-md hover:bg-primary/90 transition-all shadow-sm"
+              >
+                <span className="material-symbols-outlined text-[18px]">refresh</span>
+                Thử lại
+              </button>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
               {plans.map((plan) => (
@@ -415,11 +453,12 @@ export default function SubscriptionPage() {
 
       {/* Payment Checkout & QR Modal */}
       <PaymentCheckoutModal
+        key={paymentIntent?.orderId || "empty"}
         isOpen={isPaymentModalOpen}
         onClose={handleCloseModal}
         paymentIntent={paymentIntent}
         onSuccess={handlePaymentSuccess}
-        onRetryCheckout={handleRetryCheckout}
+        onRetryPayment={handleRetryPayment}
       />
     </div>
   );
