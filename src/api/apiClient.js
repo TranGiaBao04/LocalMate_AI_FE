@@ -13,6 +13,30 @@ export class ApiError extends Error {
   }
 }
 
+// title của ProblemDetails BE là tiếng Anh, nên không hiển thị. Trang tự map `code` quen thuộc,
+// còn lại dùng thông báo chung theo HTTP status.
+const STATUS_MESSAGES = {
+  400: "Dữ liệu chưa hợp lệ. Vui lòng kiểm tra lại.",
+  401: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+  403: "Bạn cần đăng nhập bằng tài khoản đã đăng ký để dùng chức năng này.",
+  404: "Không tìm thấy dữ liệu.",
+  409: "Thao tác không thực hiện được ở trạng thái hiện tại.",
+};
+
+function buildErrorMessage(status, data) {
+  // ValidationProblem theo field (vd PlannedDate, StartTime). Bỏ qua lỗi parse JSON ("$.startTime"),
+  // vì nội dung là thông báo mặc định tiếng Anh của .NET.
+  const fieldErrors = Object.entries(data?.errors ?? {})
+    .filter(([field]) => !field.startsWith("$"))
+    .flatMap(([, messages]) => messages);
+  if (fieldErrors.length > 0) return fieldErrors.join(" ");
+  if (data?.message) return data.message;
+  if (STATUS_MESSAGES[status]) return STATUS_MESSAGES[status];
+  return status >= 500
+    ? "Máy chủ đang gặp sự cố. Vui lòng thử lại sau."
+    : `Yêu cầu thất bại (${status}).`;
+}
+
 function getToken() {
   return localStorage.getItem(STORAGE_KEYS.TOKEN);
 }
@@ -36,12 +60,7 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
   if (!res.ok) {
     const code = data?.code || data?.extensions?.code || null;
     const errors = data?.errors || null;
-    const message =
-      data?.message ||
-      data?.detail ||
-      data?.title ||
-      `Yêu cầu thất bại (${res.status})`;
-    throw new ApiError(message, res.status, code, errors, data);
+    throw new ApiError(buildErrorMessage(res.status, data), res.status, code, errors, data);
   }
 
   return data;

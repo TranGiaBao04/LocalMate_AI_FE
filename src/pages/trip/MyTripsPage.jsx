@@ -144,7 +144,7 @@ export default function MyTripsPage() {
                         <span className="material-symbols-outlined text-[14px]">
                           payments
                         </span>
-                        ~{formatCurrencyShort(trip.estimatedBudget)}
+                        ~{formatCurrencyShort(trip.estimatedBudget)}/người
                       </span>
 
                       <span className="flex items-center gap-1 text-label-md text-on-surface-variant">

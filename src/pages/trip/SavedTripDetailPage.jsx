@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { REVIEW_MAX_TAGS, REVIEW_TAGS } from "../../constants";
+import { REVIEW_MAX_TAGS } from "../../constants";
 import { useTrip } from "../../context/TripContext";
+import { masterDataService } from "../../services/masterDataService";
 import { reviewService } from "../../services/reviewService";
 import {
   buildGoogleMapsDirectionUrl,
@@ -61,6 +62,8 @@ export default function SavedTripDetailPage() {
   const [reviewDone, setReviewDone] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewError, setReviewError] = useState("");
+  // [{ code, label }] từ master-data; lỗi thì form vẫn gửi được sao + nhận xét
+  const [reviewQuickTags, setReviewQuickTags] = useState([]);
   const [visitError, setVisitError] = useState("");
   const [visitingItemId, setVisitingItemId] = useState(null);
   const [reviewsByItem, setReviewsByItem] = useState({});
@@ -90,6 +93,13 @@ export default function SavedTripDetailPage() {
     });
     return () => { active = false; };
   }, [tripId, visitedItemIds, reviewReloadKey]);
+
+  useEffect(() => {
+    masterDataService
+      .getMasterData()
+      .then((data) => setReviewQuickTags(data.reviewQuickTags ?? []))
+      .catch(() => setReviewQuickTags([]));
+  }, []);
 
   useEffect(() => {
     if (!showToast) return undefined;
@@ -481,7 +491,7 @@ export default function SavedTripDetailPage() {
                   <span className="material-symbols-outlined text-[14px]">
                     payments
                   </span>
-                  ~{formatCurrencyShort(trip.estimatedBudget)}
+                  ~{formatCurrencyShort(trip.estimatedBudget)}/người
                 </span>
               </div>
             </section>
@@ -561,15 +571,15 @@ export default function SavedTripDetailPage() {
                   </p>
 
                   <div className="flex flex-wrap gap-2">
-                    {REVIEW_TAGS.map((tag) => (
+                    {reviewQuickTags.map((tag) => (
                       <button
-                        key={tag.value}
+                        key={tag.code}
                         type="button"
-                        aria-pressed={selectedTags.includes(tag.value)}
+                        aria-pressed={selectedTags.includes(tag.code)}
                         disabled={submittingReview}
-                        onClick={() => toggleTag(tag.value)}
+                        onClick={() => toggleTag(tag.code)}
                         className={`rounded-full px-3 py-1.5 text-label-md transition-all active:scale-95 ${
-                          selectedTags.includes(tag.value)
+                          selectedTags.includes(tag.code)
                             ? "bg-primary text-on-primary"
                             : "border border-outline-variant text-on-surface-variant hover:border-primary"
                         }`}
