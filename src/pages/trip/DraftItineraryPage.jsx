@@ -6,13 +6,18 @@ import {
   formatDuration,
 } from "../../utils/formatCurrency";
 import TimelineItemDirections from "../../components/TimelineItemDirections";
+import DraftReviewSummary from "../../components/trip/DraftReviewSummary";
+import FinalizeTripModal from "../../components/trip/FinalizeTripModal";
+import useTripPermission from "../../hooks/useTripPermission";
 
 export default function DraftItineraryPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentTrip, finalizeTrip, deleteItem } = useTrip();
+  const permissions = useTripPermission(currentTrip);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [finalizeError, setFinalizeError] = useState("");
   const [deletingItemId, setDeletingItemId] = useState(null);
   const [deleteError, setDeleteError] = useState("");
   const [toastMessage, setToastMessage] = useState(location.state?.toast ?? "");
@@ -49,14 +54,18 @@ export default function DraftItineraryPage() {
 
   const handleFinalize = async () => {
     setFinalizing(true);
+    setFinalizeError("");
     try {
       await finalizeTrip(currentTrip.id);
       setShowFinalizeModal(false);
       navigate("/finalized");
+    } catch (err) {
+      setFinalizeError(err?.message || "Không thể chốt lịch trình. Vui lòng thử lại.");
     } finally {
       setFinalizing(false);
     }
   };
+
 
   const handleDeleteItem = async (itemId) => {
     setDeleteError("");
@@ -133,6 +142,13 @@ export default function DraftItineraryPage() {
             </div>
           )}
         </div>
+
+        {/* FE-59: Draft Review Summary & Finalize Checklist */}
+        <DraftReviewSummary
+          trip={currentTrip}
+          onOpenFinalizeModal={() => setShowFinalizeModal(true)}
+        />
+
 
         <div className="space-y-0">
           {currentTrip.items.map((item, idx) => (
@@ -270,46 +286,15 @@ export default function DraftItineraryPage() {
         </div>
       )}
 
-      {showFinalizeModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">
-          <div className="w-full max-w-md bg-surface rounded-t-lg p-stack-lg space-y-stack-md animate-fade-in-up lg:rounded-lg">
-            <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
-            <h3 className="text-title-md font-bold text-on-surface text-center">
-              Xác nhận chốt lịch trình?
-            </h3>
-            <p className="text-body-md text-on-surface-variant text-center">
-              Lịch trình sẽ được lưu và sẵn sàng sử dụng.
-            </p>
-            <div className="card space-y-1">
-              <p className="text-body-md text-on-surface">
-                📍 {currentTrip.mainArea}
-              </p>
-              <p className="text-body-md text-on-surface">
-                ⏱ {currentTrip.durationHours} tiếng · {currentTrip.items.length}{" "}
-                địa điểm
-              </p>
-              <p className="text-body-md text-on-surface">
-                💰 ~{formatCurrencyShort(currentTrip.estimatedBudget)}
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowFinalizeModal(false)}
-                className="flex-1 py-3 border border-outline-variant text-on-surface-variant rounded-full font-semibold active:scale-95 transition-all"
-              >
-                Quay lại
-              </button>
-              <button
-                onClick={handleFinalize}
-                disabled={finalizing}
-                className="flex-1 py-3 bg-primary text-on-primary rounded-full font-semibold active:scale-95 transition-all shadow-lg shadow-primary/30 disabled:opacity-60"
-              >
-                {finalizing ? "Đang chốt..." : "Chốt lịch trình"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* FE-60: FinalizeTripModal */}
+      <FinalizeTripModal
+        isOpen={showFinalizeModal}
+        onClose={() => setShowFinalizeModal(false)}
+        onConfirmFinalize={handleFinalize}
+        isSubmitting={finalizing}
+        error={finalizeError}
+      />
     </div>
   );
 }
+
