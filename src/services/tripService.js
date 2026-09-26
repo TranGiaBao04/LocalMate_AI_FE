@@ -1,24 +1,31 @@
 import { apiClient } from "../api/apiClient";
 import { mapMyTrip, mapTrip } from "../utils/tripMapper";
 
-// Request wizard -> TripRequestDto của BE. budgetMin/Max là TỔNG cả chuyến (VNĐ),
-// nên nhân mức theo người với số người.
+// Request wizard -> TripRequestDto của BE. budgetMax là ngân sách MỘT NGƯỜI (VNĐ), không nhân số người.
+// budgetMin BE chưa dùng nên gửi 0. BE không nhận peopleCount/timeOfDay.
 export function toTripRequestDto({
   startLatitude,
   startLongitude,
   durationHours,
-  budgetMinPerPerson,
   budgetMaxPerPerson,
-  peopleCount,
   tagIds,
+  travelMode,
+  plannedDate,
+  startTime,
 }) {
   return {
     startLatitude,
     startLongitude,
     durationHours,
-    budgetMin: budgetMinPerPerson * peopleCount,
-    budgetMax: budgetMaxPerPerson * peopleCount,
+    budgetMin: 0,
+    budgetMax: budgetMaxPerPerson,
     tagIds,
+    // "yyyy-MM-dd" giờ VN, bỏ trống = hôm nay
+    ...(plannedDate && { plannedDate }),
+    // "HH:mm" giờ VN, luôn gửi (bỏ trống BE dùng 08:00, lịch có thể bắt đầu ở quá khứ)
+    startTime: `${startTime}:00`,
+    // "Auto" (mặc định BE) | "Walking" | "Motorbike"
+    ...(travelMode && { travelMode }),
   };
 }
 
@@ -30,8 +37,9 @@ export const tripService = {
   checkFeasibility: (dto) =>
     apiClient.post("/trips/feasibility-check", dto, { auth: false }),
 
-  // Chưa có endpoint tương ứng bên BE (BE-41, chờ LLM)
-  generateTrip: (request) => apiClient.post("/trips/generate", request),
+  // 201 TripDetailResponse: trip nháp đã lưu (có id)
+  generateTrip: async (dto) =>
+    mapTrip(await apiClient.post("/trips/generate", dto)),
 
   getTrips: async () =>
     (await apiClient.get("/trips/my-trips")).map(mapMyTrip),

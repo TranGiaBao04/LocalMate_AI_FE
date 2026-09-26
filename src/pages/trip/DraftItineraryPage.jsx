@@ -5,7 +5,35 @@ import {
   formatCurrencyShort,
   formatDuration,
 } from "../../utils/formatCurrency";
+import { formatPlannedDate } from "../../utils/vnTime";
 import TimelineItemDirections from "../../components/TimelineItemDirections";
+
+const ITEM_ERROR_MESSAGES = {
+  cannot_delete_last_item: "Lịch trình cần ít nhất một địa điểm nên không xoá được chặng cuối cùng.",
+  trip_finalized: "Lịch trình đã chốt nên không sửa được nữa.",
+  already_finalized: "Lịch trình này đã được chốt rồi.",
+  itinerary_item_not_found: "Không tìm thấy địa điểm này. Hãy tải lại lịch trình.",
+};
+
+// Thời gian đi từ chặng trước. Auto dùng số BE đã tính; chọn phương tiện cụ thể thì dùng field theo phương tiện
+function travelLabel(trip, item) {
+  if (item.travelMinutesFromPrevious == null) return null;
+  const walking = trip.travelMode === "Walking";
+  const motorbike = trip.travelMode === "Motorbike";
+  const minutes = walking
+    ? item.walkingMinutes
+    : motorbike
+      ? item.motorbikeMinutes
+      : item.travelMinutesFromPrevious;
+  if (minutes == null) return null;
+  const isWalk =
+    walking ||
+    (!motorbike && item.travelMinutesFromPrevious === item.walkingMinutes);
+  return {
+    icon: isWalk ? "directions_walk" : "two_wheeler",
+    text: `Đi ${minutes} phút`,
+  };
+}
 
 export default function DraftItineraryPage() {
   const navigate = useNavigate();
@@ -15,6 +43,7 @@ export default function DraftItineraryPage() {
   const [finalizing, setFinalizing] = useState(false);
   const [deletingItemId, setDeletingItemId] = useState(null);
   const [deleteError, setDeleteError] = useState("");
+  const [finalizeError, setFinalizeError] = useState("");
   const [toastMessage, setToastMessage] = useState(location.state?.toast ?? "");
 
   useEffect(() => {
@@ -49,10 +78,13 @@ export default function DraftItineraryPage() {
 
   const handleFinalize = async () => {
     setFinalizing(true);
+    setFinalizeError("");
     try {
       await finalizeTrip(currentTrip.id);
       setShowFinalizeModal(false);
       navigate("/finalized");
+    } catch (err) {
+      setFinalizeError(ITEM_ERROR_MESSAGES[err.code] ?? err.message);
     } finally {
       setFinalizing(false);
     }
@@ -65,7 +97,7 @@ export default function DraftItineraryPage() {
       await deleteItem(currentTrip.id, itemId);
       setToastMessage("Đã xoá địa điểm khỏi lịch trình");
     } catch (err) {
-      setDeleteError(err.message);
+      setDeleteError(ITEM_ERROR_MESSAGES[err.code] ?? err.message);
     } finally {
       setDeletingItemId(null);
     }
@@ -104,7 +136,7 @@ export default function DraftItineraryPage() {
               { icon: "schedule", label: `${currentTrip.durationHours} tiếng` },
               {
                 icon: "payments",
-                label: formatCurrencyShort(currentTrip.estimatedBudget),
+                label: `${formatCurrencyShort(currentTrip.estimatedBudget)}/người`,
               },
               { icon: "place", label: `${currentTrip.items.length} điểm` },
             ].map((item) => (
@@ -121,6 +153,25 @@ export default function DraftItineraryPage() {
               </div>
             ))}
           </div>
+
+          {currentTrip.plannedDate && (
+            <p className="text-label-md text-on-surface-variant mt-stack-sm">
+              {formatPlannedDate(currentTrip.plannedDate)}
+              {currentTrip.startTime && ` · xuất phát ${currentTrip.startTime}`}
+            </p>
+          )}
+          {currentTrip.endTime && (
+            <p className="text-label-md text-on-surface-variant mt-1">
+              Kết thúc dự kiến {currentTrip.endTime} · di chuyển{" "}
+              {currentTrip.totalTravelMinutes ?? 0} phút
+            </p>
+          )}
+          {currentTrip.totalMinutes != null &&
+            currentTrip.totalMinutes < currentTrip.durationHours * 60 - 30 && (
+              <p className="text-label-md text-on-surface-variant mt-1">
+                Lịch ngắn hơn thời gian bạn chọn vì chưa có thêm địa điểm phù hợp.
+              </p>
+            )}
 
           {currentTrip.metroFriendly && (
             <div className="flex items-center gap-1.5 mt-stack-sm">
@@ -147,6 +198,22 @@ export default function DraftItineraryPage() {
               </div>
 
               <div className="flex-1 mb-4">
+                {idx === 0 && currentTrip.travelMinutesFromOrigin != null && (
+                  <p className="mb-1 text-label-md text-on-surface-variant flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px]">
+                      near_me
+                    </span>
+                    Đi {currentTrip.travelMinutesFromOrigin} phút từ điểm xuất phát
+                  </p>
+                )}
+                {travelLabel(currentTrip, item) && (
+                  <p className="mb-1 text-label-md text-on-surface-variant flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px]">
+                      {travelLabel(currentTrip, item).icon}
+                    </span>
+                    {travelLabel(currentTrip, item).text}
+                  </p>
+                )}
                 <div className="card space-y-2">
                   <div className="flex items-start justify-between">
                     <div>
@@ -289,9 +356,14 @@ export default function DraftItineraryPage() {
                 địa điểm
               </p>
               <p className="text-body-md text-on-surface">
-                💰 ~{formatCurrencyShort(currentTrip.estimatedBudget)}
+                💰 ~{formatCurrencyShort(currentTrip.estimatedBudget)}/người
               </p>
             </div>
+            {finalizeError && (
+              <p role="alert" className="text-label-md text-error bg-error-container/10 rounded-lg px-3 py-2">
+                {finalizeError}
+              </p>
+            )}
             <div className="flex gap-3">
               <button
                 onClick={() => setShowFinalizeModal(false)}

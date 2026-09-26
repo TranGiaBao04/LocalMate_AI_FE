@@ -122,27 +122,16 @@ export function SideNavigation() {
       </nav>
 
       <div className="mt-auto flex flex-col gap-3">
+        {/* Gói subscription BE chưa có: chỉ giới thiệu, không hiển thị quota */}
         <div className="rounded-[20px] bg-navy/[0.06] p-3.5">
-          <div className="flex items-baseline justify-between text-[11.5px] text-text-muted">
-            <span>Bản Free còn</span>
-            <span className="font-bold text-navy-dark">1/3 lượt tạo</span>
-          </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border-soft">
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: "33%",
-                background: "linear-gradient(90deg,#E08E10,#1D3E82)",
-              }}
-            />
-          </div>
-          <div className="mt-2 flex items-center gap-2 text-[11.5px]">
-            <span className="min-w-0 flex-1 truncate text-text-muted">
-              Mở khoá AI vô hạn
+          <div className="flex items-center justify-between gap-2 text-[11.5px]">
+            <span className="font-bold text-navy-dark">Gói Pro</span>
+            <span className="flex-none rounded-full bg-border-soft px-2 py-0.5 text-[10.5px] font-bold text-text-muted">
+              Sắp ra mắt
             </span>
-            <a href="#" className="flex-none whitespace-nowrap font-bold">
-              Nâng Pro ›
-            </a>
+          </div>
+          <div className="mt-1.5 text-[11.5px] text-text-muted">
+            Tạo lịch trình AI không giới hạn
           </div>
         </div>
         <div

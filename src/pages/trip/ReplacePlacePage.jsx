@@ -14,6 +14,14 @@ const WARNING_LABELS = {
   higher_cost: "Chi phí cao hơn điểm cũ",
 };
 
+const REPLACE_ERROR_MESSAGES = {
+  same_place: "Đây chính là địa điểm hiện tại.",
+  place_not_found: "Địa điểm này không còn hoạt động. Hãy chọn địa điểm khác.",
+  place_already_in_trip: "Địa điểm này đã có trong lịch trình.",
+  itinerary_item_not_found: "Không tìm thấy chặng cần thay. Hãy tải lại lịch trình.",
+  trip_finalized: "Lịch trình đã chốt nên không thay được địa điểm.",
+};
+
 export default function ReplacePlacePage() {
   const { itemId } = useParams();
   const navigate = useNavigate();
@@ -41,7 +49,8 @@ export default function ReplacePlacePage() {
     try {
       const result = await replaceItem(currentTrip.id, itemId, placeId);
       const warningText = (result.warnings ?? [])
-        .map((w) => WARNING_LABELS[w] ?? w)
+        .map((w) => WARNING_LABELS[w])
+        .filter(Boolean)
         .join(", ");
       navigate("/draft", {
         state: {
@@ -49,7 +58,7 @@ export default function ReplacePlacePage() {
         },
       });
     } catch (err) {
-      setError(err.message);
+      setError(REPLACE_ERROR_MESSAGES[err.code] ?? err.message);
     } finally {
       setReplacing(false);
     }
