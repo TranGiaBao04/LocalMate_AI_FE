@@ -7,6 +7,7 @@ import { useAuth } from "./context/AuthContext";
 import WelcomePage from "./pages/auth/WelcomePage";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
+import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import HomePage from "./pages/home/HomePage";
 import ProfilePage from "./pages/profile/ProfilePage";
 
@@ -22,7 +23,7 @@ import SavedTripDetailPage from "./pages/trip/SavedTripDetailPage";
 export default function App() {
   const { pathname } = useLocation();
   const { isLoggedIn, initializing } = useAuth();
-  const showAppNav = !["/", "/login", "/register", "/loading"].includes(
+  const showAppNav = !["/", "/login", "/register", "/forgot-password", "/loading"].includes(
     pathname,
   ) && isLoggedIn;
   const showBottomNav = ["/home", "/trips", "/profile"].includes(pathname);
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/" element={<WelcomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/home" element={requireAuth(<HomePage />)} />
         <Route path="/profile" element={requireAuth(<ProfilePage />)} />
 
