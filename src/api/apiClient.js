@@ -21,6 +21,7 @@ const STATUS_MESSAGES = {
   403: "Bạn cần đăng nhập bằng tài khoản đã đăng ký để dùng chức năng này.",
   404: "Không tìm thấy dữ liệu.",
   409: "Thao tác không thực hiện được ở trạng thái hiện tại.",
+  429: "Bạn thao tác quá nhanh. Vui lòng thử lại sau.",
 };
 
 function buildErrorMessage(status, data) {

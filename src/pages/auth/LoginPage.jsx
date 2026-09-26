@@ -154,6 +154,9 @@ export default function LoginPage() {
               </label>
               <button
                 type="button"
+                onClick={() =>
+                  navigate("/forgot-password", { state: { email: email.trim() } })
+                }
                 className="text-label-md text-primary hover:underline"
               >
                 Quên mật khẩu?

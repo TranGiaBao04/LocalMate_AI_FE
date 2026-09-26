@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { authService } from "../../services/authService";
+import OtpCodeField from "../../components/auth/OtpCodeField";
+import { useCountdown } from "../../hooks/useCountdown";
+import { getAuthErrorMessage, getRetryAfterSeconds } from "../../utils/authErrors";
 import logo from "../../assets/logo.jpg";
 
 export default function RegisterPage() {
@@ -12,6 +16,23 @@ export default function RegisterPage() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Đăng ký 2 bước: gửi thông tin -> BE gửi mã OTP -> nhập mã mới tạo tài khoản
+  const [step, setStep] = useState("form"); // "form" | "verify"
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [info, setInfo] = useState("");
+  const [resending, setResending] = useState(false);
+  const [resendIn, startResend] = useCountdown();
+  const [expiresIn, startExpire] = useCountdown();
+
+  // BE đã gửi mã: sang bước nhập mã và bắt đầu đếm ngược
+  const openVerifyStep = (sentTo, dispatch) => {
+    setPendingEmail(sentTo);
+    setCode("");
+    setStep("verify");
+    startResend(dispatch.resendAfterSeconds);
+    startExpire(dispatch.codeExpiresInSeconds);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,28 +58,58 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      await register(trimmedName, trimmedEmail, password);
-      navigate("/login", {
-        state: {
-          registeredEmail: trimmedEmail,
-          message: "Đăng ký tài khoản thành công! Vui lòng đăng nhập.",
-        },
-      });
+      const dispatch = await register(trimmedName, trimmedEmail, password);
+      openVerifyStep(dispatch.email ?? trimmedEmail, dispatch);
     } catch (err) {
-      if (err.code === "duplicate_email" || err.status === 409) {
-        setError(
-          "Email này đã được đăng ký. Vui lòng sử dụng email khác hoặc đăng nhập.",
-        );
-      } else if (err.errors) {
-        const firstMsg = Object.values(err.errors).flat()[0];
-        setError(
-          firstMsg || err.message || "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.",
-        );
+      if (err.code === "otp_resend_cooldown") {
+        // Mã đã gửi ở lần bấm trước (vẫn còn hạn), chỉ cần nhập mã
+        setPendingEmail(trimmedEmail);
+        setCode("");
+        setStep("verify");
+        startResend(getRetryAfterSeconds(err));
       } else {
-        setError(err.message || "Không thể tạo tài khoản. Vui lòng thử lại.");
+        setError(getAuthErrorMessage(err, "Không thể tạo tài khoản. Vui lòng thử lại."));
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    setError("");
+    setInfo("");
+    if (code.length !== 6) return setError("Vui lòng nhập đủ 6 chữ số.");
+    setLoading(true);
+    try {
+      await authService.verifyRegistration(pendingEmail, code);
+      navigate("/login", {
+        state: {
+          registeredEmail: pendingEmail,
+          message: "Đăng ký thành công! Vui lòng đăng nhập.",
+        },
+      });
+    } catch (err) {
+      if (err.code === "otp_attempts_exceeded" || err.code === "otp_expired") setCode("");
+      setError(getAuthErrorMessage(err, "Không thể xác thực. Vui lòng thử lại."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setError("");
+    setInfo("");
+    setResending(true);
+    try {
+      const dispatch = await authService.resendRegistrationOtp(pendingEmail);
+      openVerifyStep(pendingEmail, dispatch);
+      setInfo("Đã gửi mã mới. Mã cũ không còn dùng được.");
+    } catch (err) {
+      startResend(getRetryAfterSeconds(err));
+      setError(getAuthErrorMessage(err, "Không gửi lại được mã. Vui lòng thử lại."));
+    } finally {
+      setResending(false);
     }
   };
 
@@ -73,7 +124,7 @@ export default function RegisterPage() {
           />
         </div>
         <h1 className="text-headline-xl font-bold text-primary mb-1">
-          Tạo tài khoản
+          {step === "form" ? "Tạo tài khoản" : "Xác thực email"}
         </h1>
         <p className="text-center text-body-md text-on-surface-variant">
           Bắt đầu hành trình khám phá TP.HCM.
@@ -81,6 +132,40 @@ export default function RegisterPage() {
       </div>
 
       <div className="w-full rounded-lg border border-white/40 bg-surface-container-lowest/80 p-8 soft-shadow blur-bg">
+        {step === "verify" ? (
+          <form onSubmit={handleVerify} className="space-y-stack-md">
+            <OtpCodeField
+              email={pendingEmail}
+              value={code}
+              onChange={setCode}
+              disabled={loading}
+              expiresIn={expiresIn}
+              resendIn={resendIn}
+              resending={resending}
+              onResend={handleResend}
+            />
+            {info && <p className="text-body-md text-primary text-center">{info}</p>}
+            {error && <p className="text-error text-body-md text-center">{error}</p>}
+            <button
+              type="submit"
+              disabled={loading || code.length !== 6}
+              className="btn-primary mt-stack-lg"
+            >
+              {loading ? "Đang xác thực..." : "Xác nhận"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStep("form");
+                setError("");
+                setInfo("");
+              }}
+              className="w-full text-label-md text-on-surface-variant hover:underline"
+            >
+              Sửa email hoặc thông tin đăng ký
+            </button>
+          </form>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-stack-md">
           {[
             {
@@ -145,12 +230,13 @@ export default function RegisterPage() {
             disabled={loading}
             className="btn-primary mt-stack-lg"
           >
-            {loading ? "Đang tạo..." : "Tạo tài khoản"}
+            {loading ? "Đang gửi mã..." : "Tạo tài khoản"}
             <span className="material-symbols-outlined text-[20px]">
               arrow_forward
             </span>
           </button>
         </form>
+        )}
       </div>
 
       <div className="mt-8 text-center">
