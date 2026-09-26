@@ -1,6 +1,8 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTrip } from "../../context/TripContext";
+import { useSubscription } from "../../context/SubscriptionContext";
+import { PLAN_CODES, PLAN_DISPLAY_NAMES } from "../../utils/subscriptionUtils";
 import logo from "../../assets/logo.jpg";
 
 const NAV_ITEMS = [
@@ -79,8 +81,9 @@ function NavigationItem({ item, isActive, onClick, variant = "bottom" }) {
 export function SideNavigation() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   const { savedTrips } = useTrip();
+  const { subscription } = useSubscription();
 
   const navItems = SIDEBAR_NAV_ITEMS.map((item) => ({
     ...item,
@@ -89,6 +92,10 @@ export function SideNavigation() {
 
   const displayName = user?.fullName || "Khách";
   const initial = displayName.charAt(0).toUpperCase();
+
+  const currentPlan = subscription?.plan || PLAN_CODES.FREE;
+  const planDisplayName = PLAN_DISPLAY_NAMES[currentPlan] || currentPlan;
+  const isPaid = currentPlan === PLAN_CODES.TRIP_PASS || currentPlan === PLAN_CODES.MEMBERSHIP;
 
   return (
     <aside className="desktop-sidebar-bg fixed inset-y-0 left-0 z-50 hidden w-[220px] flex-col gap-[22px] border-r border-navy/10 px-3.5 py-6 lg:flex">
@@ -131,18 +138,43 @@ export function SideNavigation() {
       </nav>
 
       <div className="mt-auto flex flex-col gap-3">
-        {/* Gói subscription BE chưa có: chỉ giới thiệu, không hiển thị quota */}
-        <div className="rounded-[20px] bg-navy/[0.06] p-3.5">
-          <div className="flex items-center justify-between gap-2 text-[11.5px]">
-            <span className="font-bold text-navy-dark">Gói Pro</span>
-            <span className="flex-none rounded-full bg-border-soft px-2 py-0.5 text-[10.5px] font-bold text-text-muted">
-              Sắp ra mắt
-            </span>
+        {/* Hộp thông tin gói dịch vụ */}
+        {isDemo ? (
+          <div
+            className="rounded-[20px] bg-navy/[0.06] p-3.5 cursor-pointer hover:bg-navy/[0.09] transition-colors"
+            onClick={() => navigate("/subscription")}
+          >
+            <div className="flex items-center justify-between gap-2 text-[11.5px]">
+              <span className="font-bold text-navy-dark">Gói thành viên</span>
+              <span className="flex-none rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">
+                Demo
+              </span>
+            </div>
+            <div className="mt-1 text-[11px] text-text-muted">
+              Đăng ký để sử dụng đầy đủ
+            </div>
           </div>
-          <div className="mt-1.5 text-[11.5px] text-text-muted">
-            Tạo lịch trình AI không giới hạn
+        ) : (
+          <div
+            className="rounded-[20px] bg-navy/[0.06] p-3.5 cursor-pointer hover:bg-navy/[0.09] transition-colors"
+            onClick={() => navigate("/subscription")}
+          >
+            <div className="flex items-center justify-between gap-2 text-[11.5px]">
+              <span className="font-bold text-navy-dark">{planDisplayName}</span>
+              <span
+                className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  isPaid ? "bg-primary text-white" : "bg-border-soft text-text-muted"
+                }`}
+              >
+                {isPaid ? "Đang dùng" : "Mặc định"}
+              </span>
+            </div>
+            <div className="mt-1 text-[11px] text-text-muted">
+              {isPaid ? "Quản lý gói & gia hạn" : "Nâng cấp gói tạo không giới hạn"}
+            </div>
           </div>
-        </div>
+        )}
+
         <div
           className="flex cursor-pointer items-center gap-2.5 rounded-xl px-1.5 py-1 hover:bg-[#E8ECF7]"
           onClick={() => navigate("/profile")}
@@ -154,7 +186,9 @@ export function SideNavigation() {
             <div className="truncate text-[13px] font-bold text-navy-dark">
               {displayName}
             </div>
-            <div className="text-[11px] text-text-faint">Gói Tiêu chuẩn</div>
+            <div className="text-[11px] text-text-faint">
+              {isDemo ? "Phiên Demo" : planDisplayName}
+            </div>
           </div>
           <span className="material-symbols-outlined flex-none text-[16px] text-text-faint">
             settings

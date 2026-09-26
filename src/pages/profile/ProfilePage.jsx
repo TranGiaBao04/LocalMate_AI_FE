@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTrip } from "../../context/TripContext";
+import { useSubscription } from "../../context/SubscriptionContext";
+import { PLAN_DISPLAY_NAMES, formatVnDateTime } from "../../utils/subscriptionUtils";
 import MobileLayout from "../../components/layout/MobileLayout";
 import { tagService } from "../../services/tagService";
 import { userService } from "../../services/userService";
@@ -19,6 +21,7 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, isDemo, logout, applyUserProfile } = useAuth();
   const { savedTrips } = useTrip();
+  const { subscription } = useSubscription();
   const [tags, setTags] = useState([]);
   const [tagsLoading, setTagsLoading] = useState(true);
   const [tagsError, setTagsError] = useState(false);
@@ -240,6 +243,78 @@ export default function ProfilePage() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* Compact Subscription Card */}
+        <section className="card w-full max-w-3xl border border-outline-variant/30 space-y-4">
+          <div className="flex items-center justify-between gap-3 border-b border-outline-variant/20 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-[22px]">
+                workspace_premium
+              </span>
+              <h3 className="text-title-md font-bold text-on-surface">
+                Gói dịch vụ
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate("/subscription")}
+              className="text-label-md font-bold text-primary hover:underline flex items-center gap-0.5"
+            >
+              <span>Quản lý gói</span>
+              <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+            </button>
+          </div>
+
+          {isDemo ? (
+            <div className="rounded-xl bg-amber-50 p-3.5 text-label-md text-amber-900 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <span>Tài khoản Demo không hỗ trợ gói thành viên. Vui lòng đăng ký tài khoản chính thức để sử dụng.</span>
+              <button
+                type="button"
+                onClick={() => navigate("/register")}
+                className="px-3 py-1.5 rounded-lg bg-amber-700 text-white font-bold text-xs flex-shrink-0"
+              >
+                Đăng ký ngay
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-body-md font-semibold text-on-surface">
+                    Gói hiện tại:
+                  </span>
+                  <span className="rounded-full bg-primary/10 px-3 py-0.5 text-label-md font-bold text-primary">
+                    {PLAN_DISPLAY_NAMES[subscription?.plan] || subscription?.plan || "Free"}
+                  </span>
+                </div>
+                {subscription?.endsAt && (
+                  <span className="text-label-sm text-text-muted">
+                    Hết hạn: {formatVnDateTime(subscription.endsAt)}
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="rounded-xl bg-surface-container-low p-3">
+                  <div className="text-label-sm text-on-surface-variant">Lượt tạo AI tháng này</div>
+                  <div className="text-body-lg font-bold text-on-surface mt-0.5">
+                    {subscription?.usage?.generateLimit == null
+                      ? "Không giới hạn"
+                      : `${subscription?.usage?.generateUsed ?? 0} / ${subscription?.usage?.generateLimit}`}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-surface-container-low p-3">
+                  <div className="text-label-sm text-on-surface-variant">Lịch trình đã chốt</div>
+                  <div className="text-body-lg font-bold text-on-surface mt-0.5">
+                    {subscription?.savedTrips?.limit == null
+                      ? "Không giới hạn"
+                      : `${subscription?.savedTrips?.used ?? 0} / ${subscription?.savedTrips?.limit}`}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         {draft ? (

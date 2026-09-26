@@ -5,6 +5,8 @@ import logo from "../../assets/logo.jpg";
 import { masterDataService } from "../../services/masterDataService";
 import { placeService } from "../../services/placeService";
 import { itineraryService } from "../../services/itineraryService";
+import { subscriptionService } from "../../services/subscriptionService";
+import { FALLBACK_PLANS, formatPlanPrice } from "../../utils/subscriptionUtils";
 import {
   formatCurrencyShort,
   formatDistance,
@@ -41,23 +43,12 @@ const SHOWCASE_GRADIENTS = [
   "from-emerald-900/60 to-slate-900",
 ];
 
-const FREE_FEATURES = [
-  "Tạo lịch trình AI theo vị trí, thời gian, ngân sách và sở thích",
-  "Địa điểm quanh các ga Metro Tuyến 1",
-  "Tự tính thời gian đi bộ / xe máy giữa các điểm",
-];
-
-// Gói subscription BE chưa có: chỉ giới thiệu, không đưa giá/quota như đã hoạt động
-const PRO_FEATURES = [
-  "Không giới hạn lượt tạo lịch trình AI",
-  "Tuỳ biến lịch trình sâu hơn theo gu riêng",
-];
-
 export default function WelcomePage() {
   const navigate = useNavigate();
   const { isLoggedIn, loginDemo } = useAuth();
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [error, setError] = useState("");
+  const [plans, setPlans] = useState(FALLBACK_PLANS);
 
   const [startStation, setStartStation] = useState("");
   const [stations, setStations] = useState([]);
@@ -66,6 +57,19 @@ export default function WelcomePage() {
   const [publicDataLoaded, setPublicDataLoaded] = useState(false);
   const [tripDuration, setTripDuration] = useState("halfday");
   const [userPreference, setUserPreference] = useState("cafe");
+
+  useEffect(() => {
+    subscriptionService
+      .getPlans()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setPlans(data);
+        }
+      })
+      .catch(() => {
+        // Fallback plans retained
+      });
+  }, []);
 
   useEffect(() => {
     if (isLoggedIn) navigate("/home");
@@ -124,6 +128,10 @@ export default function WelcomePage() {
     }
   };
 
+  const freePlan = plans.find((p) => p.code === "Free") || FALLBACK_PLANS[0];
+  const tripPassPlan = plans.find((p) => p.code === "TripPass") || FALLBACK_PLANS[1];
+  const membershipPlan = plans.find((p) => p.code === "Membership") || FALLBACK_PLANS[2];
+
   return (
     <div className="min-h-screen w-full bg-background text-on-surface">
       {/* Header */}
@@ -173,7 +181,7 @@ export default function WelcomePage() {
               className="hover:text-primary transition-colors"
               href="#bang-gia"
             >
-              Gói Pro
+              Gói dịch vụ
             </a>
           </nav>
 
@@ -366,7 +374,7 @@ export default function WelcomePage() {
                   >
                     {loadingDemo
                       ? "Đang chuẩn bị..."
-                      : "Dùng thử ngay không cần đăng ký"}
+                      : "Trải nghiệm nhanh phiên Demo"}
                   </button>
                   <button
                     onClick={() => navigate("/login")}
@@ -682,43 +690,53 @@ export default function WelcomePage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto items-stretch">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto items-stretch">
               {/* Free plan */}
-              <div className="bg-white rounded-3xl p-8 border border-outline-variant/40 shadow-[0_10px_30px_-10px_rgba(15,32,66,0.08)] flex flex-col justify-between">
+              <div className="bg-white rounded-3xl p-7 border border-outline-variant/40 shadow-sm flex flex-col justify-between">
                 <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-bold text-on-surface">
-                      Bản Free Cơ Bản
-                    </h3>
-                    <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
-                      Miễn phí trọn đời
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-xl font-bold text-on-surface">Free</h3>
+                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
+                      Miễn phí
                     </span>
                   </div>
-                  <p className="text-xs text-on-surface-variant mb-6">
-                    Trải nghiệm tiện lợi nhanh chóng không cần đăng ký tài khoản
-                    rườm rà.
+                  <p className="text-xs text-on-surface-variant mb-5">
+                    Trải nghiệm lập kế hoạch chuyến đi thông minh quanh tuyến Metro số 1.
                   </p>
-                  <div className="mb-6 pb-6 border-b border-outline-variant/30">
-                    <span className="text-4xl font-black text-on-surface">
-                      0đ
+                  <div className="mb-5 pb-5 border-b border-outline-variant/30">
+                    <span className="text-3xl sm:text-4xl font-black text-on-surface">
+                      {formatPlanPrice(freePlan.price)}
                     </span>
-                    <span className="text-xs text-on-surface-variant">
-                      {" "}
-                      / vĩnh viễn
-                    </span>
+                    <span className="text-xs text-on-surface-variant"> / Không thời hạn</span>
                   </div>
-                  <ul className="space-y-3.5 text-xs sm:text-sm text-on-surface-variant">
-                    {FREE_FEATURES.map((feature) => (
-                      <li key={feature} className="flex items-center gap-2.5">
-                        <span
-                          className="material-symbols-outlined text-[18px] text-emerald-500 flex-shrink-0"
-                          style={{ fontVariationSettings: "'FILL' 1" }}
-                        >
-                          check_circle
-                        </span>
-                        <span>{feature}</span>
-                      </li>
-                    ))}
+                  <ul className="space-y-3 text-xs sm:text-sm text-on-surface-variant">
+                    <li className="flex items-center gap-2.5">
+                      <span
+                        className="material-symbols-outlined text-[18px] text-emerald-500 flex-shrink-0"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        check_circle
+                      </span>
+                      <span>1 lượt tạo lịch trình AI / tháng</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <span
+                        className="material-symbols-outlined text-[18px] text-emerald-500 flex-shrink-0"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        check_circle
+                      </span>
+                      <span>Tối đa 1 lịch trình đã chốt</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <span
+                        className="material-symbols-outlined text-[18px] text-emerald-500 flex-shrink-0"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        check_circle
+                      </span>
+                      <span>Bản đồ Metro & chỉ đường Google Maps</span>
+                    </li>
                   </ul>
                 </div>
                 <div className="mt-8">
@@ -726,53 +744,124 @@ export default function WelcomePage() {
                     onClick={() => navigate("/register")}
                     className="w-full block text-center py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs sm:text-sm transition-colors"
                   >
-                    Bắt đầu miễn phí
+                    Đăng ký để sử dụng
                   </button>
                 </div>
               </div>
 
-              {/* Pro plan */}
-              <div className="bg-navy-darkest text-white rounded-3xl p-8 border-2 border-blue-500 shadow-2xl relative flex flex-col justify-between overflow-hidden">
-                <div className="absolute top-0 right-0 translate-x-6 -translate-y-6 w-32 h-32 bg-blue-500/20 rounded-full blur-xl pointer-events-none" />
+              {/* Trip Pass */}
+              <div className="bg-white rounded-3xl p-7 border border-outline-variant/60 shadow-sm hover:shadow-md flex flex-col justify-between">
                 <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-bold text-white">
-                      Gói Metro Explorer Pro
-                    </h3>
-                    <span className="px-2.5 py-1 rounded-full bg-blue-500 text-white text-xs font-bold">
-                      Sắp ra mắt
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-xl font-bold text-on-surface">Trip Pass</h3>
+                    <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">
+                      7 ngày
                     </span>
                   </div>
-                  <p className="text-xs text-blue-200 mb-6">
-                    Dành cho người muốn tạo nhiều lịch trình hơn. Giá và quyền lợi
-                    sẽ công bố khi ra mắt.
+                  <p className="text-xs text-on-surface-variant mb-5">
+                    Lựa chọn tối ưu cho tuần du lịch hoặc trải nghiệm dày đặc.
                   </p>
-                  <div className="mb-6 pb-6 border-b border-white/10 flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-white">
-                      Đang phát triển
+                  <div className="mb-5 pb-5 border-b border-outline-variant/30">
+                    <span className="text-3xl sm:text-4xl font-black text-on-surface">
+                      {formatPlanPrice(tripPassPlan.price)}
                     </span>
+                    <span className="text-xs text-on-surface-variant"> / 7 ngày</span>
                   </div>
-                  <ul className="space-y-3.5 text-xs sm:text-sm text-slate-200">
-                    {PRO_FEATURES.map((feature) => (
-                      <li key={feature} className="flex items-center gap-2.5">
-                        <span
-                          className="material-symbols-outlined text-[18px] text-emerald-400 flex-shrink-0"
-                          style={{ fontVariationSettings: "'FILL' 1" }}
-                        >
-                          check_circle
-                        </span>
-                        <span>{feature}</span>
-                      </li>
-                    ))}
+                  <ul className="space-y-3 text-xs sm:text-sm text-on-surface-variant">
+                    <li className="flex items-center gap-2.5">
+                      <span
+                        className="material-symbols-outlined text-[18px] text-emerald-500 flex-shrink-0"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        check_circle
+                      </span>
+                      <span>Tạo lịch trình AI không giới hạn</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <span
+                        className="material-symbols-outlined text-[18px] text-emerald-500 flex-shrink-0"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        check_circle
+                      </span>
+                      <span>Tối đa 3 lịch trình đã chốt</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <span
+                        className="material-symbols-outlined text-[18px] text-emerald-500 flex-shrink-0"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        check_circle
+                      </span>
+                      <span>Bản đồ Metro & chỉ đường Google Maps</span>
+                    </li>
                   </ul>
                 </div>
                 <div className="mt-8">
                   <button
-                    type="button"
-                    disabled
-                    className="w-full block text-center py-3 rounded-xl bg-blue-600/40 text-white/80 font-bold text-xs sm:text-sm cursor-not-allowed"
+                    onClick={() => navigate("/login")}
+                    className="w-full block text-center py-3 rounded-xl bg-navy-dark hover:bg-navy-darkest text-white font-bold text-xs sm:text-sm transition-colors"
                   >
-                    Sắp ra mắt
+                    Đăng nhập để chọn gói
+                  </button>
+                </div>
+              </div>
+
+              {/* Membership */}
+              <div className="bg-navy-darkest text-white rounded-3xl p-7 border-2 border-primary shadow-2xl relative flex flex-col justify-between overflow-hidden">
+                <div className="absolute top-0 right-0 translate-x-6 -translate-y-6 w-32 h-32 bg-blue-500/20 rounded-full blur-xl pointer-events-none" />
+                <div className="absolute top-3.5 right-4 px-2.5 py-0.5 rounded-full bg-primary text-white text-xs font-bold">
+                  Phổ biến nhất
+                </div>
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-xl font-bold text-white">Membership</h3>
+                  </div>
+                  <p className="text-xs text-blue-200 mb-5">
+                    Trải nghiệm không giới hạn mọi lịch trình và số lượng lưu trữ.
+                  </p>
+                  <div className="mb-5 pb-5 border-b border-white/10 flex items-baseline gap-1.5">
+                    <span className="text-3xl sm:text-4xl font-black text-white">
+                      {formatPlanPrice(membershipPlan.price)}
+                    </span>
+                    <span className="text-xs text-blue-200"> / 30 ngày</span>
+                  </div>
+                  <ul className="space-y-3 text-xs sm:text-sm text-slate-200">
+                    <li className="flex items-center gap-2.5">
+                      <span
+                        className="material-symbols-outlined text-[18px] text-emerald-400 flex-shrink-0"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        check_circle
+                      </span>
+                      <span>Tạo lịch trình AI không giới hạn</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <span
+                        className="material-symbols-outlined text-[18px] text-emerald-400 flex-shrink-0"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        check_circle
+                      </span>
+                      <span>Lịch trình đã chốt không giới hạn</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <span
+                        className="material-symbols-outlined text-[18px] text-emerald-400 flex-shrink-0"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        check_circle
+                      </span>
+                      <span>Bản đồ Metro & chỉ đường Google Maps</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="mt-8">
+                  <button
+                    onClick={() => navigate("/login")}
+                    className="w-full block text-center py-3 rounded-xl bg-primary hover:bg-primary/90 text-on-primary font-bold text-xs sm:text-sm shadow-lg shadow-primary/30 transition-all"
+                  >
+                    Đăng nhập để chọn gói
                   </button>
                 </div>
               </div>

@@ -10,6 +10,7 @@ import RegisterPage from "./pages/auth/RegisterPage";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import HomePage from "./pages/home/HomePage";
 import ProfilePage from "./pages/profile/ProfilePage";
+import SubscriptionPage from "./pages/subscription/SubscriptionPage";
 
 import CreateTripPage from "./pages/trip/CreateTripPage";
 import AiLoadingPage from "./pages/trip/AiLoadingPage";
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/home" element={requireAuth(<HomePage />)} />
         <Route path="/profile" element={requireAuth(<ProfilePage />)} />
+        <Route path="/subscription" element={requireAuth(<SubscriptionPage />)} />
 
         <Route path="/create" element={requireAuth(<CreateTripPage />)} />
         <Route path="/loading" element={requireAuth(<AiLoadingPage />)} />
