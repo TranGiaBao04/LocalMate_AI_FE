@@ -51,7 +51,8 @@ export const GoogleMapsButton = ({
     outline:
       'border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40',
     text: 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 shadow-none',
-    compact: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 p-2 rounded-lg text-xs shadow-none',
+    // Dùng trong thanh tiêu đề MapEmbedPreview: nút navy theo tông chung của app
+    compact: 'bg-primary text-on-primary hover:opacity-90 px-3 py-1.5 rounded-full text-xs shadow-none',
   };
 
   const sizeStyles = {

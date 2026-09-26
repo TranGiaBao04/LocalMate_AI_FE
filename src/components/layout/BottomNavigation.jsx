@@ -17,11 +17,20 @@ const SIDEBAR_NAV_ITEMS = [
     icon: "confirmation_number",
     label: "My Trips",
     badgeKey: "trips",
+    // Trang con của một chuyến đi: chi tiết, nháp, thay địa điểm, đã chốt
+    activePaths: ["/trips", "/draft", "/replace", "/finalized"],
   },
   { path: "/create", icon: "train", label: "Metro Stations" },
   { path: "/create", icon: "location_on", label: "Hot Check-in Spots" },
   { path: "/profile", icon: "person", label: "My Account" },
 ];
+
+// "/trips" khớp "/trips" và "/trips/<id>", không khớp "/trips-abc"
+const matchesPath = (pathname, path) =>
+  pathname === path || pathname.startsWith(`${path}/`);
+
+const isItemActive = (pathname, item) =>
+  (item.activePaths ?? [item.path]).some((path) => matchesPath(pathname, path));
 
 function NavigationItem({ item, isActive, onClick, variant = "bottom" }) {
   const activeClass =
@@ -112,7 +121,7 @@ export function SideNavigation() {
             key={`${item.path}-${i}`}
             item={item}
             isActive={
-              pathname === item.path &&
+              isItemActive(pathname, item) &&
               navItems.findIndex((n) => n.path === item.path) === i
             }
             onClick={() => navigate(item.path)}

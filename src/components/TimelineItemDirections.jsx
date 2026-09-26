@@ -1,4 +1,3 @@
-import React from 'react';
 import { openGoogleMapsApp } from '../utils/openGoogleMapsApp';
 
 /**
@@ -15,19 +14,20 @@ export const TimelineItemDirections = ({
 }) => {
   if (!currentStop) return null;
 
-  const currentLat = currentStop.latitude || currentStop.lat;
-  const currentLng = currentStop.longitude || currentStop.lng;
-  const currentName = currentStop.name || currentStop.title;
+  // Item timeline (tripMapper) dùng latitude/longitude/placeName
+  const currentLat = currentStop.latitude ?? currentStop.lat;
+  const currentLng = currentStop.longitude ?? currentStop.lng;
+  const currentName = currentStop.placeName ?? currentStop.name ?? currentStop.title;
 
-  const prevLat = prevStop ? (prevStop.latitude || prevStop.lat) : null;
-  const prevLng = prevStop ? (prevStop.longitude || prevStop.lng) : null;
-  const prevName = prevStop ? (prevStop.name || prevStop.title) : null;
+  const prevLat = prevStop ? (prevStop.latitude ?? prevStop.lat) : null;
+  const prevLng = prevStop ? (prevStop.longitude ?? prevStop.lng) : null;
+  const prevName = prevStop ? (prevStop.placeName ?? prevStop.name ?? prevStop.title) : null;
 
   const handleDirectionsClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (prevLat && prevLng) {
+    if (prevLat != null && prevLng != null) {
       // Điều hướng từ điểm trước đó đến điểm hiện tại
       openGoogleMapsApp({
         lat: prevLat,

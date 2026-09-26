@@ -35,6 +35,17 @@ function travelLabel(trip, item) {
   };
 }
 
+// Phương tiện cho nút chỉ đường Google Maps. Xe máy dùng "driving" (Maps URL không có xe máy).
+// Auto: BE chọn đi bộ khi gần, xa hơn thì xe máy; chặng đầu chưa có số liệu theo phương tiện nên để đi bộ.
+function mapsTravelMode(trip, item) {
+  if (trip.travelMode === "Walking") return "walking";
+  if (trip.travelMode === "Motorbike") return "driving";
+  return item.travelMinutesFromPrevious != null &&
+    item.travelMinutesFromPrevious !== item.walkingMinutes
+    ? "driving"
+    : "walking";
+}
+
 export default function DraftItineraryPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -250,9 +261,17 @@ export default function DraftItineraryPage() {
 
                   {/* SPEC-03 / FE-69: Nút chỉ đường trên từng điểm dừng Timeline */}
                   <TimelineItemDirections
-                    prevStop={idx > 0 ? currentTrip.items[idx - 1] : null}
+                    prevStop={
+                      idx > 0
+                        ? currentTrip.items[idx - 1]
+                        : {
+                            latitude: currentTrip.startLatitude,
+                            longitude: currentTrip.startLongitude,
+                            placeName: "điểm xuất phát",
+                          }
+                    }
                     currentStop={item}
-                    estimatedTimeText={item.travelNote}
+                    travelMode={mapsTravelMode(currentTrip, item)}
                   />
 
                   {item.travelNote && (
