@@ -6,6 +6,7 @@ import {
   formatDuration,
 } from "../../utils/formatCurrency";
 import { formatPlannedDate } from "../../utils/vnTime";
+import TimelineItemDirections from "../../components/TimelineItemDirections";
 
 const ITEM_ERROR_MESSAGES = {
   cannot_delete_last_item: "Lịch trình cần ít nhất một địa điểm nên không xoá được chặng cuối cùng.",
@@ -246,6 +247,13 @@ export default function DraftItineraryPage() {
                   <p className="text-label-md text-on-surface-variant italic">
                     "{item.reason}"
                   </p>
+
+                  {/* SPEC-03 / FE-69: Nút chỉ đường trên từng điểm dừng Timeline */}
+                  <TimelineItemDirections
+                    prevStop={idx > 0 ? currentTrip.items[idx - 1] : null}
+                    currentStop={item}
+                    estimatedTimeText={item.travelNote}
+                  />
 
                   {item.travelNote && (
                     <div className="flex items-center gap-1.5 bg-secondary/5 rounded px-2 py-1">

@@ -5,8 +5,9 @@ import { placeService } from "../../services/placeService";
 import {
   formatCurrencyShort,
   formatDuration,
-  buildGoogleMapsDirectionUrl,
 } from "../../utils/formatCurrency";
+import MapEmbedPreview from "../../components/MapEmbedPreview";
+import GoogleMapsButton from "../../components/GoogleMapsButton";
 
 export default function PlacePreviewPage() {
   const { placeId } = useParams();
@@ -196,18 +197,37 @@ function PlaceDetail({ placeId }) {
             ))}
           </div>
         )}
+
+        {/* SPEC-03 / FE-68: Nhúng Google Maps Preview */}
+        <div className="space-y-2">
+          <h3 className="text-title-md font-bold text-on-surface flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-[20px]">
+              map
+            </span>
+            Vị trí trên bản đồ
+          </h3>
+          <MapEmbedPreview
+            lat={place.latitude}
+            lng={place.longitude}
+            placeName={place.name}
+            address={place.area}
+            initExpanded={true}
+          />
+        </div>
       </main>
 
       <div className="app-footer space-y-2 border-t border-outline-variant/20 px-container-margin py-stack-md lg:px-8">
-        <a
-          href={buildGoogleMapsDirectionUrl(place.latitude, place.longitude)}
-          target="_blank"
-          rel="noreferrer"
-          className="btn-ghost flex items-center justify-center gap-2 py-3 rounded-full"
+        {/* SPEC-03 / FE-65 & FE-67: Nút bấm GoogleMapsButton với Deeplink App */}
+        <GoogleMapsButton
+          lat={place.latitude}
+          lng={place.longitude}
+          placeName={place.name}
+          variant="primary"
+          size="lg"
+          className="w-full text-button"
         >
-          <span className="material-symbols-outlined text-[18px]">map</span>
-          Mở Google Maps
-        </a>
+          Mở Google Maps chỉ đường
+        </GoogleMapsButton>
 
         <div className="flex gap-3">
           <button
