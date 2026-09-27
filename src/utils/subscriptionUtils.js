@@ -26,7 +26,7 @@ export const FALLBACK_PLANS = [
   },
   {
     code: PLAN_CODES.TRIP_PASS,
-    price: 49000,
+    price: 19000,
     durationDays: 7,
     generateLimit: null,
     savedTripLimit: 3,
