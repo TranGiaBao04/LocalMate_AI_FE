@@ -8,6 +8,7 @@ import WelcomePage from "./pages/auth/WelcomePage";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
+import MetroStationsPage from "./pages/metro/MetroStationsPage";
 import HomePage from "./pages/home/HomePage";
 import ProfilePage from "./pages/profile/ProfilePage";
 import SubscriptionPage from "./pages/subscription/SubscriptionPage";
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/finalized" element={requireAuth(<FinalizedItineraryPage />)} />
 
         <Route path="/trips" element={requireAuth(<MyTripsPage />)} />
+        <Route path="/metro" element={requireAuth(<MetroStationsPage />)} />
         <Route
           path="/trips/:tripId"
           element={requireAuth(<SavedTripDetailPage />)}

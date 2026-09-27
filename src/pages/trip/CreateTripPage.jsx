@@ -5,6 +5,8 @@ import { useTrip } from "../../context/TripContext";
 import { tagService } from "../../services/tagService";
 import { masterDataService } from "../../services/masterDataService";
 import { tripService, toTripRequestDto } from "../../services/tripService";
+// Đồng hồ cập nhật định kỳ để chip buổi/thời lượng tự khoá khi đã qua giờ
+import { useClock } from "../../hooks/useClock";
 import { formatCurrency, formatDistance } from "../../utils/formatCurrency";
 import { formatVnDateTime } from "../../utils/subscriptionUtils";
 import {
@@ -30,16 +32,6 @@ const START_TIME_STEP_MINUTES = 15;
 const MAX_DAYS_AHEAD = 90;
 const DEFAULT_START_MINUTES = 8 * 60;
 const DEFAULT_TRIP_LIMITS = { minDurationHours: 1, maxDurationHours: 24 };
-
-// Đồng hồ cập nhật định kỳ để chip buổi/thời lượng tự khoá khi đã qua giờ
-function useClock(intervalMs) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
-}
 
 // Buổi kết thúc khi buổi sau bắt đầu (buổi cuối tới 24:00). Với hôm nay, giờ bắt đầu thực tế là
 // max(giờ của buổi, giờ hiện tại làm tròn); buổi bị khoá khi đã qua hoặc không còn đủ thời lượng tối thiểu.
