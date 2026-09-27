@@ -17,6 +17,7 @@ export default function FinalizedItineraryPage() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [saveErrorCode, setSaveErrorCode] = useState("");
   const savePending = useRef(false);
   const alreadySaved = saved || savedTrips.some((trip) => trip.id === currentTrip?.id);
 
@@ -44,16 +45,22 @@ export default function FinalizedItineraryPage() {
     savePending.current = true;
     setSaving(true);
     setSaveError("");
+    setSaveErrorCode("");
     try {
       await saveTrip(currentTrip);
       setSaved(true);
       setShowSaveModal(true);
     } catch (err) {
-      setSaveError(err.status === 404
-        ? "Không tìm thấy lịch trình để lưu. Vui lòng tạo lại lịch trình."
-        : err.status === 401 || err.status === 403
-          ? "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại."
-          : "Không thể lưu lịch trình lúc này. Vui lòng thử lại.");
+      setSaveErrorCode(err.code || "");
+      if (err.code === "saved_trip_quota_exceeded") {
+        setSaveError("Bạn đã đạt giới hạn lịch trình được lưu của gói hiện tại.");
+      } else {
+        setSaveError(err.status === 404
+          ? "Không tìm thấy lịch trình để lưu. Vui lòng tạo lại lịch trình."
+          : err.status === 401 || err.status === 403
+            ? "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại."
+            : "Không thể lưu lịch trình lúc này. Vui lòng thử lại.");
+      }
     } finally {
       savePending.current = false;
       setSaving(false);
@@ -219,9 +226,21 @@ export default function FinalizedItineraryPage() {
 
       <div className="app-footer space-y-2 border-t border-outline-variant/20 px-container-margin py-stack-md lg:px-8">
         {saveError && (
-          <div role="alert" className="flex items-center justify-between gap-3 text-label-md text-error">
+          <div role="alert" className="flex items-center justify-between gap-3 text-label-md text-error bg-error-container/10 p-2.5 rounded-lg">
             <span>{saveError}</span>
-            {isDemo && <button type="button" onClick={() => navigate("/login")} className="shrink-0 font-bold underline">Đăng nhập</button>}
+            {saveErrorCode === "saved_trip_quota_exceeded" ? (
+              <button
+                type="button"
+                onClick={() => navigate("/subscription")}
+                className="shrink-0 font-bold underline text-primary"
+              >
+                Nâng cấp
+              </button>
+            ) : isDemo ? (
+              <button type="button" onClick={() => navigate("/login")} className="shrink-0 font-bold underline">
+                Đăng nhập
+              </button>
+            ) : null}
           </div>
         )}
         <div className="flex gap-3">
