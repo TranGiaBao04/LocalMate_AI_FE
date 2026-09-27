@@ -22,7 +22,7 @@ const SIDEBAR_NAV_ITEMS = [
     // Trang con của một chuyến đi: chi tiết, nháp, thay địa điểm, đã chốt
     activePaths: ["/trips", "/draft", "/replace", "/finalized"],
   },
-  { path: "/create", icon: "train", label: "Metro Stations" },
+  { path: "/metro", icon: "train", label: "Metro Stations" },
   { path: "/create", icon: "location_on", label: "Hot Check-in Spots" },
   { path: "/profile", icon: "person", label: "My Account" },
 ];
