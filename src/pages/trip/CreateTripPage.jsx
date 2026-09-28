@@ -1,19 +1,70 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import { useTrip } from "../../context/TripContext";
 import { tagService } from "../../services/tagService";
 import { masterDataService } from "../../services/masterDataService";
 import { tripService, toTripRequestDto } from "../../services/tripService";
-import { formatDistance } from "../../utils/formatCurrency";
+import { formatCurrency, formatDistance } from "../../utils/formatCurrency";
+import {
+  DAY_MINUTES,
+  addDays,
+  formatPlannedDate,
+  minutesNowInVietnam,
+  minutesToTime,
+  roundUpMinutes,
+  timeToMinutes,
+  todayInVietnam,
+} from "../../utils/vnTime";
 import {
   DURATION_OPTIONS,
-  TIME_OF_DAY_OPTIONS,
   BUDGET_OPTIONS,
   PEOPLE_OPTIONS,
 } from "../../constants";
 
 const STEPS = ["Vị trí", "Thời gian", "Sở thích", "Phong cách"];
 const GEOLOCATION_TIMEOUT_MS = 10000;
+const CLOCK_TICK_MS = 30000;
+const START_TIME_STEP_MINUTES = 15;
+const MAX_DAYS_AHEAD = 90;
+const DEFAULT_START_MINUTES = 8 * 60;
+const DEFAULT_TRIP_LIMITS = { minDurationHours: 1, maxDurationHours: 24 };
+
+// Đồng hồ cập nhật định kỳ để chip buổi/thời lượng tự khoá khi đã qua giờ
+function useClock(intervalMs) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+// Buổi kết thúc khi buổi sau bắt đầu (buổi cuối tới 24:00). Với hôm nay, giờ bắt đầu thực tế là
+// max(giờ của buổi, giờ hiện tại làm tròn); buổi bị khoá khi đã qua hoặc không còn đủ thời lượng tối thiểu.
+function buildTimeSlots(timeSlots, { isToday, nowMinutes, limits }) {
+  const earliest = isToday ? roundUpMinutes(nowMinutes, START_TIME_STEP_MINUTES) : 0;
+  const sorted = [...timeSlots].sort(
+    (a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime),
+  );
+  return sorted.map((slot, index) => {
+    const slotStart = timeToMinutes(slot.startTime);
+    const slotEnd =
+      index + 1 < sorted.length ? timeToMinutes(sorted[index + 1].startTime) : DAY_MINUTES;
+    const startMinutes = Math.max(slotStart, earliest);
+    const maxHours = Math.min(
+      Math.floor((DAY_MINUTES - startMinutes) / 60),
+      slot.maxDurationHours,
+      limits.maxDurationHours,
+    );
+    return {
+      ...slot,
+      startMinutes,
+      maxHours,
+      disabled: startMinutes >= slotEnd || maxHours < limits.minDurationHours,
+    };
+  });
+}
 
 const FEASIBILITY_MESSAGES = {
   OutOfServiceArea: "Vị trí xuất phát quá xa tuyến Metro số 1.",
@@ -21,10 +72,26 @@ const FEASIBILITY_MESSAGES = {
     "Chưa đủ địa điểm quanh ga này. Hãy thử tăng thời lượng hoặc bỏ bớt sở thích.",
 };
 
+const GENERATE_ERROR_MESSAGES = {
+  out_of_service_area:
+    "Vị trí xuất phát nằm ngoài vùng phục vụ. Hãy chọn một ga Metro gần hơn.",
+  insufficient_candidates:
+    "Chưa có địa điểm phù hợp. Hãy thử tăng ngân sách, tăng thời lượng hoặc bỏ bớt sở thích.",
+  generate_requires_persisted_user: "Vui lòng đăng ký tài khoản để tạo lịch trình.",
+  invalid_tag_ids: "Một số sở thích không còn khả dụng. Hãy chọn lại.",
+};
+
 export default function CreateTripPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { request, setRequest, generateTrip, setCurrentTrip } = useTrip();
-  const [step, setStep] = useState(0);
+  const { isDemo } = useAuth();
+  const now = useClock(CLOCK_TICK_MS);
+  // Lỗi từ lần tạo trước (trang bị mount lại sau /loading nên truyền qua location.state)
+  const [generateError, setGenerateError] = useState(
+    () => location.state?.error ?? "",
+  );
+  const [step, setStep] = useState(() => (location.state?.error ? 3 : 0));
   const stepHeadingRef = useRef(null);
   const previousStepRef = useRef(step);
 
@@ -44,13 +111,17 @@ export default function CreateTripPage() {
   const [checking, setChecking] = useState(false);
   const [metroFriendly, setMetroFriendly] = useState(() => request?.metroFriendly ?? true);
   const [startAreaError, setStartAreaError] = useState("");
-  const [durationHours, setDurationHours] = useState(4);
-  const [timeOfDay, setTimeOfDay] = useState("afternoon");
-  const [budgetPerPerson, setBudgetPerPerson] = useState(300000);
-  const [peopleCount, setPeopleCount] = useState(2);
+  const [durationHours, setDurationHours] = useState(() => request?.durationHours ?? 4);
+  const [plannedDate, setPlannedDate] = useState(() => request?.plannedDate ?? todayInVietnam());
+  // null = tự chọn buổi đang diễn ra hoặc buổi sớm nhất còn dùng được
+  const [timeSlotCode, setTimeSlotCode] = useState(() => request?.timeSlotCode ?? null);
+  const [timeSlots, setTimeSlots] = useState([]);
+  const [tripLimits, setTripLimits] = useState(DEFAULT_TRIP_LIMITS);
+  const [budgetPerPerson, setBudgetPerPerson] = useState(() => request?.budgetPerPerson ?? 300000);
+  const [peopleCount, setPeopleCount] = useState(() => request?.peopleCount ?? 2);
   const [tags, setTags] = useState([]);
-  const [interests, setInterests] = useState([]);
-  const [travelStyles, setTravelStyles] = useState([]);
+  const [interests, setInterests] = useState(() => request?.interests ?? []);
+  const [travelStyles, setTravelStyles] = useState(() => request?.travelStyles ?? []);
 
   useEffect(() => {
     tagService.getTags().then(setTags).catch(() => setTags([]));
@@ -59,9 +130,11 @@ export default function CreateTripPage() {
   useEffect(() => {
     masterDataService
       .getMasterData()
-      .then((data) =>
-        setStations([...data.metroStations].sort((a, b) => a.order - b.order)),
-      )
+      .then((data) => {
+        setStations([...data.metroStations].sort((a, b) => a.order - b.order));
+        setTimeSlots(data.timeSlots ?? []);
+        if (data.tripLimits) setTripLimits(data.tripLimits);
+      })
       .catch(() => setStations([]));
   }, []);
 
@@ -72,9 +145,56 @@ export default function CreateTripPage() {
     stepHeadingRef.current?.focus({ preventScroll: true });
   }, [step]);
 
+  // Ngày/giờ tính lại mỗi lần đồng hồ chạy. Ngày đã qua (lưu từ hôm trước) tự thành hôm nay.
+  const today = todayInVietnam(now);
+  const lastDate = addDays(today, MAX_DAYS_AHEAD);
+  const effectiveDate = plannedDate < today || plannedDate > lastDate ? today : plannedDate;
+  const isToday = effectiveDate === today;
+  const nowMinutes = minutesNowInVietnam(now);
+  const slots = buildTimeSlots(timeSlots, { isToday, nowMinutes, limits: tripLimits });
+  const selectedSlot =
+    slots.find((s) => s.code === timeSlotCode && !s.disabled) ??
+    slots.find((s) => !s.disabled) ??
+    null;
+  const slotAutoChanged = timeSlotCode != null && selectedSlot?.code !== timeSlotCode;
+  // Chưa có timeSlots (master-data lỗi): hôm nay dùng giờ hiện tại làm tròn, ngày khác 08:00
+  const startMinutes = selectedSlot
+    ? selectedSlot.startMinutes
+    : isToday
+      ? roundUpMinutes(nowMinutes, START_TIME_STEP_MINUTES)
+      : DEFAULT_START_MINUTES;
+  const maxHours = selectedSlot
+    ? selectedSlot.maxHours
+    : Math.min(Math.floor((DAY_MINUTES - startMinutes) / 60), tripLimits.maxDurationHours);
+  const noTimeLeft = slots.length > 0 ? !selectedSlot : maxHours < tripLimits.minDurationHours;
+  // Lựa chọn quá dài thì dùng mức dài nhất còn vừa. Không mức nào vừa thì thêm đúng số giờ còn lại.
+  const fittingOptions = DURATION_OPTIONS.filter((o) => o.value <= maxHours);
+  const durationOptions =
+    fittingOptions.length > 0 || noTimeLeft
+      ? DURATION_OPTIONS
+      : [{ value: maxHours, label: `${maxHours} giờ` }, ...DURATION_OPTIONS];
+  const effectiveDuration =
+    durationHours <= maxHours ? durationHours : (fittingOptions.at(-1)?.value ?? maxHours);
+  const startTime = minutesToTime(startMinutes);
+  const endTime = minutesToTime(startMinutes + effectiveDuration * 60);
+  const budgetOption = BUDGET_OPTIONS.find((b) => b.value === budgetPerPerson);
+  const peopleOption = PEOPLE_OPTIONS.find((p) => p.value === peopleCount);
+
+  const buildTripDto = () =>
+    toTripRequestDto({
+      startLatitude: startCoords.latitude,
+      startLongitude: startCoords.longitude,
+      durationHours: effectiveDuration,
+      budgetMaxPerPerson: budgetPerPerson,
+      tagIds: [...interests, ...travelStyles],
+      plannedDate: effectiveDate,
+      startTime,
+    });
+
   const interestTags = tags.filter((t) => t.type === "Interest");
   const styleTags = tags.filter((t) => t.type === "TravelStyle");
-  const canContinue = step !== 2 || interests.length > 0;
+  const canContinue =
+    (step !== 1 || !noTimeLeft) && (step !== 2 || interests.length > 0);
 
   const toggleInterest = (id) =>
     setInterests((prev) =>
@@ -121,19 +241,8 @@ export default function CreateTripPage() {
     setFeasibilityError("");
     setFeasibility(null);
     setChecking(true);
-    const budget = BUDGET_OPTIONS.find((b) => b.value === budgetPerPerson);
     try {
-      const result = await tripService.checkFeasibility(
-        toTripRequestDto({
-          startLatitude: startCoords.latitude,
-          startLongitude: startCoords.longitude,
-          durationHours,
-          budgetMinPerPerson: budget?.min ?? 0,
-          budgetMaxPerPerson: budgetPerPerson,
-          peopleCount,
-          tagIds: [...interests, ...travelStyles],
-        }),
-      );
+      const result = await tripService.checkFeasibility(buildTripDto());
       setFeasibility(result);
       if (!result.isFeasible) {
         setFeasibilityError(
@@ -175,12 +284,14 @@ export default function CreateTripPage() {
   };
 
   const handleGenerate = async () => {
+    if (isDemo) return;
     const trimmed = startArea.trim();
     const req = {
       ...(request || {}),
       startArea: trimmed || startArea,
-      durationHours,
-      timeOfDay,
+      durationHours: effectiveDuration,
+      plannedDate: effectiveDate,
+      timeSlotCode: selectedSlot?.code ?? null,
       budgetPerPerson,
       peopleCount,
       interests,
@@ -189,13 +300,17 @@ export default function CreateTripPage() {
     };
 
     setRequest(req);
+    setGenerateError("");
     navigate("/loading");
     try {
-      const trip = await generateTrip(req);
+      const trip = await generateTrip(buildTripDto());
       setCurrentTrip(trip);
       navigate("/draft");
-    } catch {
-      navigate("/create");
+    } catch (err) {
+      navigate("/create", {
+        replace: true,
+        state: { error: GENERATE_ERROR_MESSAGES[err.code] ?? err.message },
+      });
     }
   };
 
@@ -333,57 +448,22 @@ export default function CreateTripPage() {
             <section>
               <h3 className="text-title-md font-semibold mb-stack-md flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">
-                  schedule
+                  event
                 </span>
-                Thời lượng
+                Ngày đi
               </h3>
-              <div className="grid grid-cols-2 gap-gutter lg:grid-cols-4">
-                {DURATION_OPTIONS.map((opt) => (
+              <div className="flex flex-wrap items-center gap-stack-sm">
+                {[
+                  { value: today, label: "Hôm nay" },
+                  { value: addDays(today, 1), label: "Ngày mai" },
+                ].map((opt) => (
                   <button
-                    key={opt.value}
+                    key={opt.label}
                     type="button"
-                    aria-pressed={durationHours === opt.value}
-                    onClick={() => setDurationHours(opt.value)}
-                    className={`relative p-stack-md rounded-lg border-2 transition-all active:scale-95 ${
-                      durationHours === opt.value
-                        ? "border-primary bg-primary-container/10"
-                        : "border-surface-container-highest bg-white hover:border-primary-container"
-                    }`}
-                  >
-                    <span
-                      className={`font-semibold text-button ${durationHours === opt.value ? "text-primary" : "text-on-surface-variant"}`}
-                    >
-                      {opt.label}
-                    </span>
-                    {durationHours === opt.value && (
-                      <span
-                        className="material-symbols-outlined absolute -top-2 -right-2 bg-primary text-white rounded-full text-[14px] p-0.5"
-                        style={{ fontVariationSettings: "'FILL' 1" }}
-                      >
-                        check
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section>
-              <h3 className="text-title-md font-semibold mb-stack-md flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">
-                  wb_twilight
-                </span>
-                Thời điểm
-              </h3>
-              <div className="flex flex-wrap gap-stack-sm">
-                {TIME_OF_DAY_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    aria-pressed={timeOfDay === opt.id}
-                    onClick={() => setTimeOfDay(opt.id)}
+                    aria-pressed={effectiveDate === opt.value}
+                    onClick={() => setPlannedDate(opt.value)}
                     className={`min-h-11 px-6 py-2 rounded-full font-semibold text-button active:scale-95 transition-all ${
-                      timeOfDay === opt.id
+                      effectiveDate === opt.value
                         ? "bg-primary text-on-primary shadow-md shadow-primary/20"
                         : "border border-outline-variant text-on-surface-variant"
                     }`}
@@ -391,8 +471,112 @@ export default function CreateTripPage() {
                     {opt.label}
                   </button>
                 ))}
+                <label className="flex min-h-11 items-center gap-2 rounded-full border border-outline-variant px-4 text-body-md text-on-surface-variant">
+                  <span className="sr-only">Chọn ngày khác</span>
+                  <input
+                    type="date"
+                    value={effectiveDate}
+                    min={today}
+                    max={lastDate}
+                    onChange={(e) => e.target.value && setPlannedDate(e.target.value)}
+                    className="bg-transparent border-none p-0 focus:ring-0"
+                  />
+                </label>
               </div>
+              <p className="mt-1 text-label-md text-on-surface-variant">
+                {formatPlannedDate(effectiveDate)} · tối đa {MAX_DAYS_AHEAD} ngày tới
+              </p>
             </section>
+
+            {slots.length > 0 && (
+              <section>
+                <h3 className="text-title-md font-semibold mb-stack-md flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">
+                    wb_twilight
+                  </span>
+                  Thời điểm
+                </h3>
+                <div className="flex flex-wrap gap-stack-sm">
+                  {slots.map((slot) => (
+                    <button
+                      key={slot.code}
+                      type="button"
+                      disabled={slot.disabled}
+                      aria-pressed={selectedSlot?.code === slot.code}
+                      onClick={() => setTimeSlotCode(slot.code)}
+                      className={`min-h-11 px-6 py-2 rounded-full font-semibold text-button active:scale-95 transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${
+                        selectedSlot?.code === slot.code
+                          ? "bg-primary text-on-primary shadow-md shadow-primary/20"
+                          : "border border-outline-variant text-on-surface-variant"
+                      }`}
+                    >
+                      {slot.label}
+                      <span className="ml-1 font-normal opacity-80">
+                        {slot.disabled ? "· đã qua" : `· từ ${minutesToTime(slot.startMinutes)}`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {slotAutoChanged && selectedSlot && (
+                  <p className="mt-1 text-label-md text-on-surface-variant">
+                    Buổi bạn chọn đã qua, đã chuyển sang {selectedSlot.label.toLowerCase()}.
+                  </p>
+                )}
+              </section>
+            )}
+
+            {noTimeLeft ? (
+              <p
+                role="alert"
+                className="text-label-md text-error flex items-center gap-1 font-medium"
+              >
+                <span className="material-symbols-outlined text-[16px]">error</span>
+                Hôm nay không còn đủ thời gian cho chuyến đi. Hãy chọn ngày khác.
+              </p>
+            ) : (
+              <section>
+                <h3 className="text-title-md font-semibold mb-stack-md flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">
+                    schedule
+                  </span>
+                  Thời lượng
+                </h3>
+                <div className="grid grid-cols-2 gap-gutter lg:grid-cols-4">
+                  {durationOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      disabled={opt.value > maxHours}
+                      aria-pressed={effectiveDuration === opt.value}
+                      onClick={() => setDurationHours(opt.value)}
+                      className={`relative p-stack-md rounded-lg border-2 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${
+                        effectiveDuration === opt.value
+                          ? "border-primary bg-primary-container/10"
+                          : "border-surface-container-highest bg-white hover:border-primary-container"
+                      }`}
+                    >
+                      <span
+                        className={`font-semibold text-button ${effectiveDuration === opt.value ? "text-primary" : "text-on-surface-variant"}`}
+                      >
+                        {opt.label}
+                      </span>
+                      {effectiveDuration === opt.value && (
+                        <span
+                          className="material-symbols-outlined absolute -top-2 -right-2 bg-primary text-white rounded-full text-[14px] p-0.5"
+                          style={{ fontVariationSettings: "'FILL' 1" }}
+                        >
+                          check
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1 text-label-md text-on-surface-variant">
+                  Xuất phát {startTime}, dự kiến xong trước {endTime}
+                  {maxHours < tripLimits.maxDurationHours && ` · tối đa ${maxHours} giờ (phải kết thúc trong ngày)`}
+                </p>
+              </section>
+            )}
 
             <section>
               <h3 className="text-title-md font-semibold mb-stack-md flex items-center gap-2">
@@ -507,6 +691,15 @@ export default function CreateTripPage() {
 
         {step === 3 && (
           <div className="space-y-stack-lg">
+            {generateError && (
+              <p
+                role="alert"
+                className="text-label-md text-error flex items-start gap-1 font-medium mt-stack-md"
+              >
+                <span className="material-symbols-outlined text-[16px]">error</span>
+                {generateError}
+              </p>
+            )}
             <div className="mt-stack-lg">
               <h2 ref={stepHeadingRef} tabIndex={-1} className="text-headline-lg-mobile font-bold text-on-surface focus:outline-none">
                 Phong cách chuyến đi?
@@ -538,6 +731,12 @@ export default function CreateTripPage() {
               ))}
             </div>
 
+            {isDemo && (
+              <p role="status" className="card text-body-md text-on-surface-variant">
+                Phiên demo chỉ xem được gợi ý. Hãy đăng nhập hoặc đăng ký tài khoản để tạo và lưu lịch trình.
+              </p>
+            )}
+
             <div className="card space-y-2">
               <p className="text-label-md text-on-surface-variant uppercase tracking-wider">
                 Tóm tắt
@@ -553,22 +752,14 @@ export default function CreateTripPage() {
                   </p>
                 )}
                 <p>
-                  ⏱{" "}
-                  {
-                    DURATION_OPTIONS.find((d) => d.value === durationHours)
-                      ?.label
-                  }
+                  📅 {formatPlannedDate(effectiveDate)} · {startTime} – {endTime}
                 </p>
+                <p>⏱ {effectiveDuration} giờ</p>
+                <p>💰 {budgetOption?.label}</p>
                 <p>
-                  💰{" "}
-                  {
-                    BUDGET_OPTIONS.find((b) => b.value === budgetPerPerson)
-                      ?.label
-                  }
-                </p>
-                <p>
-                  👥{" "}
-                  {PEOPLE_OPTIONS.find((p) => p.value === peopleCount)?.label}
+                  👥 {peopleOption?.label}
+                  {peopleCount > 1 &&
+                    ` · tổng nhóm tối đa ~${formatCurrency(budgetPerPerson * peopleCount)}`}
                 </p>
               </div>
             </div>
@@ -601,6 +792,15 @@ export default function CreateTripPage() {
             <span className="material-symbols-outlined ml-2 hidden min-[360px]:inline">
               chevron_right
             </span>
+          </button>
+        ) : isDemo ? (
+          <button
+            type="button"
+            onClick={() => navigate("/login")}
+            className="flex min-h-12 shrink-0 items-center whitespace-nowrap bg-primary text-on-primary rounded-full px-4 py-3 font-semibold text-button active:scale-95 transition-all shadow-lg shadow-primary/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary sm:px-8"
+          >
+            Đăng nhập để tạo
+            <span className="material-symbols-outlined ml-2 hidden min-[360px]:inline">login</span>
           </button>
         ) : (
           <button

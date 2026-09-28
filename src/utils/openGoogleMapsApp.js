@@ -2,8 +2,10 @@ import { buildDirectionsUrl, buildMapsSearchUrl } from './googleMaps';
 
 /**
  * SPEC-03 / FE-67: Mobile Google Maps Deeplink Handler
- * Mở ứng dụng Google Maps trực tiếp trên thiết bị di động (iOS/Android)
- * Tự động fallback sang trình duyệt tab mới nếu không mở được app native.
+ * Mở Google Maps bằng link https://www.google.com/maps/... (Maps URLs).
+ * Trên Android/iOS đã cài app Google Maps, hệ điều hành tự mở link này bằng app; chưa cài thì mở trình duyệt.
+ * Không dùng scheme riêng (geo:, comgooglemaps://): geo: bỏ mất điểm đi nên không chỉ đường được,
+ * còn cách đoán "mở app thất bại" bằng setTimeout làm mở thêm tab web cả khi app đã mở.
  */
 
 /**
@@ -17,9 +19,9 @@ export const isMobileDevice = () => {
 };
 
 /**
- * Mở ứng dụng Google Maps di động với đường dẫn deeplink phù hợp
+ * Mở Google Maps: có điểm đến thì chỉ đường, không thì mở vị trí
  * @param {Object} options
- * @param {number} [options.lat]
+ * @param {number} [options.lat] - điểm đi (khi chỉ đường) hoặc vị trí cần mở
  * @param {number} [options.lng]
  * @param {string} [options.query]
  * @param {number} [options.destLat]
@@ -36,11 +38,12 @@ export const openGoogleMapsApp = ({
   destName,
   travelMode = 'walking',
 }) => {
-  const isDirections = Boolean(destLat && destLng);
-  const webUrl = isDirections
+  const isDirections = destLat != null && destLng != null;
+  const url = isDirections
     ? buildDirectionsUrl({
         originLat: lat,
         originLng: lng,
+        originName: query,
         destLat,
         destLng,
         destName,
@@ -48,35 +51,5 @@ export const openGoogleMapsApp = ({
       })
     : buildMapsSearchUrl({ lat, lng, query });
 
-  const isMobile = isMobileDevice();
-
-  if (!isMobile) {
-    // Trên máy tính: mở tab mới tới Google Maps Web
-    window.open(webUrl, '_blank', 'noopener,noreferrer');
-    return;
-  }
-
-  // Trên Mobile: thử mở với URI Scheme Google Maps App
-  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-  let appSchemeUrl = '';
-  if (isDirections) {
-    appSchemeUrl = isIOS
-      ? `comgooglemaps://?saddr=${lat},${lng}&daddr=${destLat},${destLng}&directionsmode=${travelMode}`
-      : `geo:${destLat},${destLng}?q=${destLat},${destLng}(${encodeURIComponent(destName || 'Điểm đến')})`;
-  } else {
-    appSchemeUrl = isIOS
-      ? `comgooglemaps://?q=${encodeURIComponent(query || `${lat},${lng}`)}&center=${lat},${lng}`
-      : `geo:${lat},${lng}?q=${encodeURIComponent(query || `${lat},${lng}`)}`;
-  }
-
-  // Thử mở App, nếu sau 500ms không rời trang thì chuyển sang tab Web
-  const start = Date.now();
-  window.location.href = appSchemeUrl;
-
-  setTimeout(() => {
-    if (Date.now() - start < 1500) {
-      window.open(webUrl, '_blank', 'noopener,noreferrer');
-    }
-  }, 500);
+  window.open(url, '_blank', 'noopener,noreferrer');
 };

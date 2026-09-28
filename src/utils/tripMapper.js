@@ -25,6 +25,12 @@ export function mapTripItem(item) {
     reason: item.reasoning,
     isVisited: item.isVisited,
     visitedAt: item.visitedAt,
+    // Chặng đầu là null. Sau replace, travelMinutesFromPrevious có thể chưa đúng,
+    // walkingMinutes/motorbikeMinutes thì luôn đúng.
+    travelMinutesFromPrevious: item.travelMinutesFromPrevious,
+    distanceMetersFromPrevious: item.distanceMetersFromPrevious,
+    walkingMinutes: item.walkingMinutes,
+    motorbikeMinutes: item.motorbikeMinutes,
   };
 }
 
@@ -47,6 +53,16 @@ export function mapTrip(trip) {
     budgetMax: trip.budgetMax,
     estimatedBudget: trip.estimatedBudget,
     totalDurationMinutes: trip.totalDurationMinutes,
+    travelMode: trip.travelMode,
+    totalVisitMinutes: trip.totalVisitMinutes,
+    totalTravelMinutes: trip.totalTravelMinutes,
+    totalMinutes: trip.totalMinutes,
+    endTime: toHHmm(trip.endTime),
+    // Trip cũ trả null cho 3 field này
+    plannedDate: trip.plannedDate,
+    startTime: toHHmm(trip.startTime),
+    // Thời gian đi từ điểm xuất phát tới chặng đầu (chặng đầu có travelMinutesFromPrevious = null)
+    travelMinutesFromOrigin: trip.travelMinutesFromOrigin,
     tagIds: trip.tagIds ?? [],
     createdAt: trip.createdAt,
     updatedAt: trip.updatedAt,
@@ -68,6 +84,7 @@ export function mapMyTrip(trip) {
     budgetMin: trip.budgetMin,
     budgetMax: trip.budgetMax,
     estimatedBudget: trip.estimatedBudget,
+    plannedDate: trip.plannedDate,
     createdAt: trip.createdAt,
     updatedAt: trip.updatedAt,
     // BE: trip chốt từ trước khi có field này thì null, dùng updatedAt làm dự phòng
