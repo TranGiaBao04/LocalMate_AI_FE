@@ -7,6 +7,9 @@ import {
 } from "../../utils/formatCurrency";
 import { formatPlannedDate } from "../../utils/vnTime";
 import TimelineItemDirections from "../../components/TimelineItemDirections";
+import DraftReviewSummary from "../../components/trip/DraftReviewSummary";
+import FinalizeTripModal from "../../components/trip/FinalizeTripModal";
+import useTripPermission from "../../hooks/useTripPermission";
 
 const ITEM_ERROR_MESSAGES = {
   cannot_delete_last_item: "Lịch trình cần ít nhất một địa điểm nên không xoá được chặng cuối cùng.",
@@ -51,14 +54,15 @@ export default function DraftItineraryPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentTrip, finalizeTrip, deleteItem } = useTrip();
+  const permissions = useTripPermission(currentTrip);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [finalizeError, setFinalizeError] = useState("");
   const [deletingItemId, setDeletingItemId] = useState(null);
   const [deleteError, setDeleteError] = useState("");
-  const [finalizeError, setFinalizeError] = useState("");
-  const [finalizeErrorCode, setFinalizeErrorCode] = useState("");
   const [quotaMetadata, setQuotaMetadata] = useState(null);
   const [toastMessage, setToastMessage] = useState(location.state?.toast ?? "");
+
 
   useEffect(() => {
     if (!toastMessage) return undefined;
@@ -107,6 +111,7 @@ export default function DraftItineraryPage() {
       setFinalizing(false);
     }
   };
+
 
   const handleDeleteItem = async (itemId) => {
     setDeleteError("");
@@ -203,6 +208,13 @@ export default function DraftItineraryPage() {
           )}
         </div>
 
+        {/* FE-59: Draft Review Summary & Finalize Checklist */}
+        <DraftReviewSummary
+          trip={currentTrip}
+          onOpenFinalizeModal={() => setShowFinalizeModal(true)}
+        />
+
+
         <div className="space-y-0">
           {currentTrip.items.map((item, idx) => (
             <div key={item.id} className="flex gap-3">
@@ -272,10 +284,10 @@ export default function DraftItineraryPage() {
                       idx > 0
                         ? currentTrip.items[idx - 1]
                         : {
-                            latitude: currentTrip.startLatitude,
-                            longitude: currentTrip.startLongitude,
-                            placeName: "điểm xuất phát",
-                          }
+                          latitude: currentTrip.startLatitude,
+                          longitude: currentTrip.startLongitude,
+                          placeName: "điểm xuất phát",
+                        }
                     }
                     currentStop={item}
                     travelMode={mapsTravelMode(currentTrip, item)}
@@ -382,7 +394,7 @@ export default function DraftItineraryPage() {
                 địa điểm
               </p>
               <p className="text-body-md text-on-surface">
-                💰 ~{formatCurrencyShort(currentTrip.estimatedBudget)}/người
+                💰 ~{formatCurrencyShort(currentTrip.estimatedBudget)}
               </p>
             </div>
             {finalizeError && (
@@ -453,3 +465,4 @@ export default function DraftItineraryPage() {
     </div>
   );
 }
+
