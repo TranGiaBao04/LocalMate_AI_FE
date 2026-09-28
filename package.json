@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-pdf/renderer": "4.9.0",
+    "html-to-image": "1.11.13",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-qr-code": "^2.2.0",
