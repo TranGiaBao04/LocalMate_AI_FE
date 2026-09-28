@@ -7,16 +7,12 @@ import {
   formatDuration,
   buildGoogleMapsDirectionUrl,
 } from "../../utils/formatCurrency";
-import useTripPermission from "../../hooks/useTripPermission";
-
 
 export default function FinalizedItineraryPage() {
   const navigate = useNavigate();
   const { currentTrip, savedTrips, saveTrip } = useTrip();
   const { isLoggedIn, isDemo } = useAuth();
-  const permissions = useTripPermission(currentTrip);
   const [saved, setSaved] = useState(false);
-
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [copied, setCopied] = useState(false);
