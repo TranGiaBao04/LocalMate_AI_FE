@@ -59,8 +59,8 @@ export default function DraftItineraryPage() {
   const [finalizeError, setFinalizeError] = useState("");
   const [deletingItemId, setDeletingItemId] = useState(null);
   const [deleteError, setDeleteError] = useState("");
-  const [finalizeError, setFinalizeError] = useState("");
   const [toastMessage, setToastMessage] = useState(location.state?.toast ?? "");
+
 
   useEffect(() => {
     if (!toastMessage) return undefined;
