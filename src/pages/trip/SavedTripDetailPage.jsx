@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import ExportTripModal from "../../components/trip/export/ExportTripModal";
 import { REVIEW_MAX_TAGS } from "../../constants";
 import { useTrip } from "../../context/TripContext";
 import { masterDataService } from "../../services/masterDataService";
@@ -69,6 +70,7 @@ export default function SavedTripDetailPage() {
   const [reviewsByItem, setReviewsByItem] = useState({});
   const [reviewReloadKey, setReviewReloadKey] = useState(0);
   const [showToast, setShowToast] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const visitPending = useRef(false);
   const reviewPending = useRef(false);
   const visitedItemIds = trip?.items.filter((item) => item.isVisited).map((item) => item.id).join(",") ?? "";
@@ -235,8 +237,13 @@ export default function SavedTripDetailPage() {
           </h1>
         </div>
 
-        <button className="flex h-9 w-9 items-center justify-center rounded-full text-primary transition-colors hover:bg-surface-container-high">
-          <span className="material-symbols-outlined">more_vert</span>
+        <button
+          className="flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-3 text-label-md font-bold text-on-primary transition-transform active:scale-95"
+          onClick={() => setExportModalOpen(true)}
+          type="button"
+        >
+          <span className="material-symbols-outlined text-[19px]">download</span>
+          <span>Xuất lịch trình</span>
         </button>
       </header>
 
@@ -527,6 +534,14 @@ export default function SavedTripDetailPage() {
             Đã cập nhật trạng thái tham quan
           </span>
         </div>
+      )}
+
+      {exportModalOpen && (
+        <ExportTripModal
+          onClose={() => setExportModalOpen(false)}
+          open
+          trip={trip}
+        />
       )}
 
       {reviewModal && (
