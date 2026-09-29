@@ -138,6 +138,17 @@ export function SideNavigation() {
       </nav>
 
       <div className="mt-auto flex flex-col gap-3">
+        {user?.role === "Admin" && (
+          <button
+            type="button"
+            onClick={() => navigate("/admin")}
+            className="flex w-full items-center gap-2.5 rounded-xl bg-navy px-3 py-2.5 text-left text-[13px] font-semibold text-white transition hover:bg-navy-dark"
+          >
+            <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+            Về giao diện quản trị
+          </button>
+        )}
+
         {/* Hộp thông tin gói dịch vụ */}
         {isDemo ? (
           <div
