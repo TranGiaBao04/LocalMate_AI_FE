@@ -4,6 +4,7 @@ import BottomNavigation, {
   SideNavigation,
 } from "./components/layout/BottomNavigation";
 import { useAuth } from "./context/AuthContext";
+import AdminRoute from "./components/admin/AdminRoute";
 
 import WelcomePage from "./pages/auth/WelcomePage";
 import LoginPage from "./pages/auth/LoginPage";
@@ -70,11 +71,13 @@ export default function App() {
 
         <Route
           path="/admin"
-          element={requireAuth(
+          element={
+            <AdminRoute>
             <Suspense fallback={<div className="min-h-screen bg-[#f4f6fa]" />}>
               <AdminLayout />
-            </Suspense>,
-          )}
+            </Suspense>
+            </AdminRoute>
+          }
         >
           <Route index element={<AdminDashboardPage />} />
           <Route path="users" element={<AdminSectionPlaceholder />} />
