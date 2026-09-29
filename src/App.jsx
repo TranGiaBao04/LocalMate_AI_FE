@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import BottomNavigation, {
   SideNavigation,
@@ -23,10 +24,14 @@ import FinalizedItineraryPage from "./pages/trip/FinalizedItineraryPage";
 import MyTripsPage from "./pages/trip/MyTripsPage";
 import SavedTripDetailPage from "./pages/trip/SavedTripDetailPage";
 
+const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
+const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
+const AdminSectionPlaceholder = lazy(() => import("./pages/admin/AdminSectionPlaceholder"));
+
 export default function App() {
   const { pathname } = useLocation();
   const { isLoggedIn, initializing } = useAuth();
-  const showAppNav = !["/", "/login", "/register", "/forgot-password", "/loading", "/payment/success", "/payment/cancel"].includes(
+  const showAppNav = !pathname.startsWith("/admin") && !["/", "/login", "/register", "/forgot-password", "/loading", "/payment/success", "/payment/cancel"].includes(
     pathname,
   ) && isLoggedIn;
   const showBottomNav = ["/home", "/trips", "/profile"].includes(pathname);
@@ -62,6 +67,22 @@ export default function App() {
           path="/trips/:tripId"
           element={requireAuth(<SavedTripDetailPage />)}
         />
+
+        <Route
+          path="/admin"
+          element={requireAuth(
+            <Suspense fallback={<div className="min-h-screen bg-[#f4f6fa]" />}>
+              <AdminLayout />
+            </Suspense>,
+          )}
+        >
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="users" element={<AdminSectionPlaceholder />} />
+          <Route path="places" element={<AdminSectionPlaceholder />} />
+          <Route path="transactions" element={<AdminSectionPlaceholder />} />
+          <Route path="feedback" element={<AdminSectionPlaceholder />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
+        </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

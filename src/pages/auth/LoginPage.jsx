@@ -45,8 +45,8 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      await login(trimmedEmail, password);
-      navigate("/home");
+      const { user } = await login(trimmedEmail, password);
+      navigate(user?.role === "Admin" ? "/admin" : "/home");
     } catch (err) {
       if (err.code === "invalid_credentials" || err.status === 401) {
         setError("Email hoặc mật khẩu không chính xác.");
