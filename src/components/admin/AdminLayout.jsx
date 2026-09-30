@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { ADMIN_API_EVENTS } from "../../api/adminApiClient";
 import logo from "../../assets/logo.jpg";
 
 const menuItems = [
@@ -13,6 +15,33 @@ const menuItems = [
 export default function AdminLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [apiNotice, setApiNotice] = useState("");
+
+  useEffect(() => {
+    let noticeTimer;
+
+    const handleUnauthorized = (event) => {
+      logout();
+      navigate("/login", {
+        replace: true,
+        state: { message: event.detail?.message || "Phiên đăng nhập đã hết hạn." },
+      });
+    };
+
+    const handleForbidden = (event) => {
+      setApiNotice(event.detail?.message || "Bạn không có quyền thực hiện thao tác này.");
+      clearTimeout(noticeTimer);
+      noticeTimer = setTimeout(() => setApiNotice(""), 4500);
+    };
+
+    window.addEventListener(ADMIN_API_EVENTS.UNAUTHORIZED, handleUnauthorized);
+    window.addEventListener(ADMIN_API_EVENTS.FORBIDDEN, handleForbidden);
+    return () => {
+      clearTimeout(noticeTimer);
+      window.removeEventListener(ADMIN_API_EVENTS.UNAUTHORIZED, handleUnauthorized);
+      window.removeEventListener(ADMIN_API_EVENTS.FORBIDDEN, handleForbidden);
+    };
+  }, [logout, navigate]);
 
   const handleLogout = () => {
     logout();
@@ -73,6 +102,15 @@ export default function AdminLayout() {
       </aside>
 
       <div className="min-h-screen">
+        {apiNotice && (
+          <div role="alert" className="fixed right-5 top-5 z-[70] flex max-w-sm items-start gap-3 rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xl">
+            <span className="material-symbols-outlined text-[20px] text-amber-600">warning</span>
+            <span className="flex-1 font-medium">{apiNotice}</span>
+            <button type="button" onClick={() => setApiNotice("")} aria-label="Đóng thông báo" className="text-slate-400 hover:text-slate-700">
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          </div>
+        )}
         <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200 bg-white/90 px-5 backdrop-blur-xl sm:px-8 lg:px-10">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 overflow-hidden rounded-xl bg-white shadow-sm lg:hidden">
