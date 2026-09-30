@@ -21,8 +21,7 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
     name: isEdit ? (plan?.name || "") : "",
     entitlementPriority: isEdit ? (plan?.entitlementPriority ?? 10) : 10,
     price: isEdit ? (isFree ? 0 : (cv?.price ?? 0)) : 50000,
-    durationDays: isEdit ? (cv?.durationDays ?? 30) : 30,
-    durationUnlimited: isEdit ? (isFree || cv?.durationDays == null) : false,
+    durationDays: isEdit ? (isFree ? null : (cv?.durationDays ?? 30)) : 30,
     generateLimit: isEdit ? (cv?.generateLimit ?? 0) : 10,
     generateUnlimited: isEdit ? (cv?.generateLimit == null) : false,
     savedTripLimit: isEdit ? (cv?.savedTripLimit ?? 0) : 5,
@@ -56,7 +55,14 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
         errors.code = "Mã gói phải viết hoa, bắt đầu bằng chữ cái, tối đa 64 ký tự (ví dụ: TRIP_PASS, VIP_MONTHLY).";
       }
 
-      if (form.entitlementPriority === "" || form.entitlementPriority == null || Number(form.entitlementPriority) < 0) {
+      const numPriority = Number(form.entitlementPriority);
+      if (
+        form.entitlementPriority === "" ||
+        form.entitlementPriority == null ||
+        Number.isNaN(numPriority) ||
+        numPriority < 0 ||
+        !Number.isInteger(numPriority)
+      ) {
         errors.entitlementPriority = "Độ ưu tiên phải là số nguyên không âm (>= 0).";
       }
     }
@@ -68,31 +74,53 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
     }
 
     if (isFree) {
-      // Free plan has fixed price 0 and no duration
+      // Free plan has fixed price 0 and no duration (null)
     } else {
       const numPrice = Number(form.price);
-      if (form.price === "" || form.price == null || Number.isNaN(numPrice) || numPrice <= 0 || !Number.isInteger(numPrice)) {
+      if (
+        form.price === "" ||
+        form.price == null ||
+        Number.isNaN(numPrice) ||
+        numPrice <= 0 ||
+        !Number.isInteger(numPrice)
+      ) {
         errors.price = "Giá gói trả phí phải là số nguyên dương VND (ví dụ: 19000, 59000).";
       }
 
-      if (!form.durationUnlimited) {
-        const numDuration = Number(form.durationDays);
-        if (form.durationDays === "" || form.durationDays == null || Number.isNaN(numDuration) || numDuration <= 0 || !Number.isInteger(numDuration)) {
-          errors.durationDays = "Thời hạn gói trả phí phải là số ngày nguyên dương (> 0).";
-        }
+      const numDuration = Number(form.durationDays);
+      if (
+        form.durationDays === "" ||
+        form.durationDays == null ||
+        Number.isNaN(numDuration) ||
+        numDuration <= 0 ||
+        !Number.isInteger(numDuration)
+      ) {
+        errors.durationDays = "Thời hạn gói trả phí là bắt buộc và phải là số ngày nguyên dương (> 0).";
       }
     }
 
     if (!form.generateUnlimited) {
       const numGen = Number(form.generateLimit);
-      if (form.generateLimit === "" || form.generateLimit == null || Number.isNaN(numGen) || numGen < 0 || !Number.isInteger(numGen)) {
+      if (
+        form.generateLimit === "" ||
+        form.generateLimit == null ||
+        Number.isNaN(numGen) ||
+        numGen < 0 ||
+        !Number.isInteger(numGen)
+      ) {
         errors.generateLimit = "Hạn mức tạo AI phải là số nguyên không âm (>= 0) hoặc chọn Không giới hạn.";
       }
     }
 
     if (!form.savedTripUnlimited) {
       const numTrip = Number(form.savedTripLimit);
-      if (form.savedTripLimit === "" || form.savedTripLimit == null || Number.isNaN(numTrip) || numTrip < 0 || !Number.isInteger(numTrip)) {
+      if (
+        form.savedTripLimit === "" ||
+        form.savedTripLimit == null ||
+        Number.isNaN(numTrip) ||
+        numTrip < 0 ||
+        !Number.isInteger(numTrip)
+      ) {
         errors.savedTripLimit = "Hạn mức lưu chuyến phải là số nguyên không âm (>= 0) hoặc chọn Không giới hạn.";
       }
     }
@@ -118,10 +146,10 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
         // DO NOT send code, entitlementPriority, isSystem, id, etc.
         const updatePayload = {
           name: form.name.trim(),
-          price: isFree ? 0 : Math.round(Number(form.price)),
-          durationDays: isFree || form.durationUnlimited ? null : Math.round(Number(form.durationDays)),
-          generateLimit: form.generateUnlimited ? null : Math.round(Number(form.generateLimit)),
-          savedTripLimit: form.savedTripUnlimited ? null : Math.round(Number(form.savedTripLimit)),
+          price: isFree ? 0 : Number(form.price),
+          durationDays: isFree ? null : Number(form.durationDays),
+          generateLimit: form.generateUnlimited ? null : Number(form.generateLimit),
+          savedTripLimit: form.savedTripUnlimited ? null : Number(form.savedTripLimit),
           featureIds: form.featureIds || [],
         };
 
@@ -132,11 +160,11 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
         const createPayload = {
           code: form.code.trim().toUpperCase(),
           name: form.name.trim(),
-          entitlementPriority: Math.round(Number(form.entitlementPriority)),
-          price: Math.round(Number(form.price)),
-          durationDays: form.durationUnlimited ? null : Math.round(Number(form.durationDays)),
-          generateLimit: form.generateUnlimited ? null : Math.round(Number(form.generateLimit)),
-          savedTripLimit: form.savedTripUnlimited ? null : Math.round(Number(form.savedTripLimit)),
+          entitlementPriority: Number(form.entitlementPriority),
+          price: Number(form.price),
+          durationDays: Number(form.durationDays),
+          generateLimit: form.generateUnlimited ? null : Number(form.generateLimit),
+          savedTripLimit: form.savedTripUnlimited ? null : Number(form.savedTripLimit),
           featureIds: form.featureIds || [],
         };
 
@@ -289,6 +317,7 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
                   <input
                     type="number"
                     min={0}
+                    step={1}
                     value={form.entitlementPriority}
                     onChange={(e) => handleChange("entitlementPriority", e.target.value)}
                     placeholder="10, 20, 30..."
@@ -350,8 +379,8 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
                   <div className="relative mt-1.5">
                     <input
                       type="number"
-                      min={1000}
-                      step={1000}
+                      min={1}
+                      step={1}
                       value={form.price}
                       onChange={(e) => handleChange("price", e.target.value)}
                       placeholder="59000"
@@ -377,35 +406,19 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
             </div>
 
             <div>
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
-                  Thời hạn hiệu lực (Ngày)
-                </label>
-                {!isFree && (
-                  <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={form.durationUnlimited}
-                      onChange={(e) => handleChange("durationUnlimited", e.target.checked)}
-                      className="rounded border-slate-300 text-[#1d3e82] focus:ring-[#1d3e82]"
-                    />
-                    <span>Không có thời hạn mua</span>
-                  </label>
-                )}
-              </div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
+                Thời hạn hiệu lực (Ngày) {!isFree && <span className="text-rose-500">*</span>}
+              </label>
               {isFree ? (
                 <div className="mt-1.5 flex h-11 items-center rounded-xl border border-slate-200 bg-slate-100 px-3.5 text-sm font-semibold text-slate-700">
-                  <span>Không áp dụng (Không có thời hạn mua)</span>
-                </div>
-              ) : form.durationUnlimited ? (
-                <div className="mt-1.5 flex h-11 items-center rounded-xl border border-slate-200 bg-slate-100 px-3.5 text-sm font-semibold text-slate-700">
-                  <span>Không có thời hạn mua</span>
+                  <span>Không áp dụng (Gói mặc định, không có thời hạn mua)</span>
                 </div>
               ) : (
                 <>
                   <input
                     type="number"
                     min={1}
+                    step={1}
                     value={form.durationDays}
                     onChange={(e) => handleChange("durationDays", e.target.value)}
                     placeholder="30, 365..."
@@ -453,6 +466,7 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
                   <input
                     type="number"
                     min={0}
+                    step={1}
                     value={form.generateLimit}
                     onChange={(e) => handleChange("generateLimit", e.target.value)}
                     placeholder="0, 1, 10..."
@@ -497,6 +511,7 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
                   <input
                     type="number"
                     min={0}
+                    step={1}
                     value={form.savedTripLimit}
                     onChange={(e) => handleChange("savedTripLimit", e.target.value)}
                     placeholder="0, 3, 10..."
