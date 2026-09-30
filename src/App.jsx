@@ -27,6 +27,7 @@ import SavedTripDetailPage from "./pages/trip/SavedTripDetailPage";
 
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
+const AdminPlansPage = lazy(() => import("./pages/admin/AdminPlansPage"));
 const AdminSectionPlaceholder = lazy(() => import("./pages/admin/AdminSectionPlaceholder"));
 
 export default function App() {
@@ -80,6 +81,7 @@ export default function App() {
           }
         >
           <Route index element={<AdminDashboardPage />} />
+          <Route path="plans" element={<AdminPlansPage />} />
           <Route path="users" element={<AdminSectionPlaceholder />} />
           <Route path="places" element={<AdminSectionPlaceholder />} />
           <Route path="transactions" element={<AdminSectionPlaceholder />} />

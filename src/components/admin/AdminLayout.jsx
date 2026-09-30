@@ -6,6 +6,7 @@ import logo from "../../assets/logo.jpg";
 
 const menuItems = [
   { label: "Tổng quan", icon: "dashboard", to: "/admin", end: true },
+  { label: "Gói dịch vụ", icon: "workspace_premium", to: "/admin/plans" },
   { label: "Người dùng", icon: "group", to: "/admin/users" },
   { label: "Địa điểm", icon: "location_on", to: "/admin/places" },
   { label: "Giao dịch", icon: "receipt_long", to: "/admin/transactions" },
