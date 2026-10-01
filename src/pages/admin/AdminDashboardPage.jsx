@@ -2,6 +2,13 @@ import { Link } from "react-router-dom";
 
 const quickActions = [
   {
+    title: "Gói dịch vụ",
+    description: "Quản lý bảng giá, hạn mức sử dụng và lịch sử phiên bản.",
+    icon: "workspace_premium",
+    to: "/admin/plans",
+    tone: "bg-purple-50 text-purple-700",
+  },
+  {
     title: "Quản lý người dùng",
     description: "Xem danh sách, thông tin và trạng thái tài khoản.",
     icon: "group",
@@ -52,7 +59,7 @@ export default function AdminDashboardPage() {
           <p className="mt-1 text-sm text-slate-400">Các chức năng quản trị chính</p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {quickActions.map((action) => (
             <Link
               key={action.to}
