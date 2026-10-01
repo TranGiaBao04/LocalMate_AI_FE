@@ -28,7 +28,12 @@ import SavedTripDetailPage from "./pages/trip/SavedTripDetailPage";
 
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
+const AdminPlansPage = lazy(() => import("./pages/admin/AdminPlansPage"));
+const AdminTransactionsPage = lazy(() => import("./pages/admin/AdminTransactionsPage"));
 const AdminSectionPlaceholder = lazy(() => import("./pages/admin/AdminSectionPlaceholder"));
+
+// Mục đã có trang thật; mục còn lại hiện placeholder
+const ADMIN_PAGES = { plans: AdminPlansPage, transactions: AdminTransactionsPage };
 
 export default function App() {
   const { pathname } = useLocation();
@@ -81,17 +86,20 @@ export default function App() {
           }
         >
           <Route index element={<AdminDashboardPage />} />
-          {ADMIN_SECTIONS.map((section) => (
-            <Route
-              key={section.path}
-              path={section.path}
-              element={
-                <AdminRoute permissions={section.permissions}>
-                  <AdminSectionPlaceholder section={section} />
-                </AdminRoute>
-              }
-            />
-          ))}
+          {ADMIN_SECTIONS.map((section) => {
+            const Page = ADMIN_PAGES[section.path];
+            return (
+              <Route
+                key={section.path}
+                path={section.path}
+                element={
+                  <AdminRoute permissions={section.permissions}>
+                    {Page ? <Page /> : <AdminSectionPlaceholder section={section} />}
+                  </AdminRoute>
+                }
+              />
+            );
+          })}
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
 

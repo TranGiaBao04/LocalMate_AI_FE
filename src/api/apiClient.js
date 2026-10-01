@@ -84,6 +84,49 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
   return data;
 }
 
+async function requestBlob(path, { method = "GET", auth = true } = {}) {
+  const headers = {};
+  const token = auth ? getToken() : null;
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers,
+  });
+
+  if (!res.ok) {
+    const isJson = res.headers.get("content-type")?.includes("json");
+    const data = isJson ? await res.json().catch(() => null) : null;
+    const code = data?.code || data?.extensions?.code || null;
+    const errors = data?.errors || null;
+    throw new ApiError(buildErrorMessage(res.status, data), res.status, code, errors, data);
+  }
+
+  const blob = await res.blob();
+
+  const disposition = res.headers.get("content-disposition");
+  let fileName = null;
+  if (disposition) {
+    const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utf8Match) {
+      try {
+        fileName = decodeURIComponent(utf8Match[1]);
+      } catch {
+        fileName = utf8Match[1];
+      }
+    } else {
+      const match = disposition.match(/filename="?([^";]+)"?/i);
+      if (match) fileName = match[1];
+    }
+  }
+
+  if (fileName) {
+    blob.fileName = fileName;
+  }
+
+  return blob;
+}
+
 export const apiClient = {
   get: (path, options) => request(path, { ...options, method: "GET" }),
   post: (path, body, options) =>
@@ -93,4 +136,5 @@ export const apiClient = {
   patch: (path, body, options) =>
     request(path, { ...options, method: "PATCH", body }),
   delete: (path, options) => request(path, { ...options, method: "DELETE" }),
+  getBlob: (path, options) => requestBlob(path, { ...options, method: "GET" }),
 };

@@ -43,4 +43,5 @@ export const adminApiClient = {
   put: (path, body, options) => handleAdminRequest(() => apiClient.put(path, body, options)),
   patch: (path, body, options) => handleAdminRequest(() => apiClient.patch(path, body, options)),
   delete: (path, options) => handleAdminRequest(() => apiClient.delete(path, options)),
+  getBlob: (path, options) => handleAdminRequest(() => apiClient.getBlob(path, options)),
 };
