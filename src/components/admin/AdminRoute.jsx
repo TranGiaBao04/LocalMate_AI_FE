@@ -31,7 +31,7 @@ export default function AdminRoute({ children }) {
           from: location.pathname,
           message: tokenExpired
             ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."
-            : "Vui lòng đăng nhập bằng tài khoản Admin.",
+            : undefined,
         }}
       />
     );
