@@ -121,13 +121,17 @@ function TransactionDetailContent({
       // 2. Refresh parent list & summary
       onReconciled?.(result);
     } catch (err) {
+      // 403 Forbidden is already handled by adminApiClient dispatching ADMIN_API_EVENTS.FORBIDDEN
+      // and displayed globally by AdminLayout. Do not emit duplicate local toast.
+      if (err?.status === 403) {
+        return;
+      }
+
       let errorMsg = err?.message || "Không thể thực hiện đối soát giao dịch.";
       if (err?.status === 503 || err?.code === "payment_provider_unavailable") {
         errorMsg = "PayOS hiện không khả dụng. Không có trạng thái giao dịch nào bị thay đổi.";
       } else if (err?.status === 502 || err?.code === "payment_provider_mismatch") {
         errorMsg = "Dữ liệu trả về từ nhà cung cấp không khớp giao dịch.";
-      } else if (err?.status === 403) {
-        errorMsg = "Bạn không có quyền thực hiện đối soát giao dịch (yêu cầu quyền ManagePlans).";
       } else if (err?.status === 404 || err?.code === "transaction_not_found") {
         errorMsg = "Không tìm thấy giao dịch để đối soát.";
       }

@@ -69,7 +69,7 @@ export default function AdminTransactionsPage() {
   const [detailOpen, setDetailOpen] = useState(false);
 
   // Notification state
-  const [notice, setNotice] = useState(null); // { type: "success" | "error", message: string }
+  const [notice, setNotice] = useState(null); // { type: "success" | "info" | "error", message: string }
 
   const showNotice = useCallback((type, message) => {
     setNotice({ type, message });
@@ -399,15 +399,25 @@ export default function AdminTransactionsPage() {
           className={`fixed right-5 top-5 z-[80] flex max-w-md items-start gap-3 rounded-2xl border p-4 shadow-xl backdrop-blur-md transition ${
             notice.type === "success"
               ? "border-emerald-200 bg-white text-emerald-900"
-              : "border-rose-200 bg-white text-rose-900"
+              : notice.type === "info"
+                ? "border-blue-200 bg-white text-blue-900"
+                : "border-rose-200 bg-white text-rose-900"
           }`}
         >
           <span
             className={`material-symbols-outlined text-[22px] ${
-              notice.type === "success" ? "text-emerald-600" : "text-rose-600"
+              notice.type === "success"
+                ? "text-emerald-600"
+                : notice.type === "info"
+                  ? "text-blue-600"
+                  : "text-rose-600"
             }`}
           >
-            {notice.type === "success" ? "check_circle" : "error"}
+            {notice.type === "success"
+              ? "check_circle"
+              : notice.type === "info"
+                ? "info"
+                : "error"}
           </span>
           <div className="flex-1 text-sm font-medium leading-relaxed">
             {notice.message}
