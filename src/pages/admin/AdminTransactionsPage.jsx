@@ -11,6 +11,7 @@ import {
   PLAN_DISPLAY_NAMES,
 } from "../../utils/subscriptionUtils";
 import { downloadBlob } from "../../utils/exportFiles";
+import { TransactionDetailDrawer } from "../../components/admin/transactions";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Tất cả trạng thái" },
@@ -63,14 +64,28 @@ export default function AdminTransactionsPage() {
   // Export state
   const [exporting, setExporting] = useState(false);
 
+  // Detail drawer state (FE-133, FE-134)
+  const [selectedTransactionId, setSelectedTransactionId] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
   // Notification state
-  const [notice, setNotice] = useState(null); // { type: "success" | "error", message: string }
+  const [notice, setNotice] = useState(null); // { type: "success" | "info" | "error", message: string }
 
   const showNotice = useCallback((type, message) => {
     setNotice({ type, message });
     setTimeout(() => {
       setNotice((prev) => (prev?.message === message ? null : prev));
     }, 4500);
+  }, []);
+
+  const handleOpenDetail = useCallback((id) => {
+    setSelectedTransactionId(id);
+    setDetailOpen(true);
+  }, []);
+
+  const handleCloseDetail = useCallback(() => {
+    setDetailOpen(false);
+    setSelectedTransactionId(null);
   }, []);
 
   // Validate date range
@@ -177,6 +192,10 @@ export default function AdminTransactionsPage() {
     setSummaryLoading(true);
     setRefreshTrigger((k) => k + 1);
   }, []);
+
+  const handleReconciled = useCallback(() => {
+    reloadData();
+  }, [reloadData]);
 
   // Handle Sort
   const handleSort = (key) => {
@@ -349,8 +368,26 @@ export default function AdminTransactionsPage() {
           return <StatusBadge status={config.status} label={config.label} />;
         },
       },
+      {
+        key: "actions",
+        header: "Thao tác",
+        className: "text-right",
+        cellClassName: "text-right",
+        render: (row) => (
+          <button
+            type="button"
+            onClick={() => handleOpenDetail(row.id)}
+            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#1d3e82] transition hover:bg-blue-50 hover:text-[#17366f]"
+            title="Xem chi tiết giao dịch"
+            aria-label={`Xem chi tiết đơn hàng #${row.providerOrderCode || row.id}`}
+          >
+            <span className="material-symbols-outlined text-[16px]">visibility</span>
+            <span>Xem chi tiết</span>
+          </button>
+        ),
+      },
     ],
-    []
+    [handleOpenDetail]
   );
 
   return (
@@ -362,15 +399,25 @@ export default function AdminTransactionsPage() {
           className={`fixed right-5 top-5 z-[80] flex max-w-md items-start gap-3 rounded-2xl border p-4 shadow-xl backdrop-blur-md transition ${
             notice.type === "success"
               ? "border-emerald-200 bg-white text-emerald-900"
-              : "border-rose-200 bg-white text-rose-900"
+              : notice.type === "info"
+                ? "border-blue-200 bg-white text-blue-900"
+                : "border-rose-200 bg-white text-rose-900"
           }`}
         >
           <span
             className={`material-symbols-outlined text-[22px] ${
-              notice.type === "success" ? "text-emerald-600" : "text-rose-600"
+              notice.type === "success"
+                ? "text-emerald-600"
+                : notice.type === "info"
+                  ? "text-blue-600"
+                  : "text-rose-600"
             }`}
           >
-            {notice.type === "success" ? "check_circle" : "error"}
+            {notice.type === "success"
+              ? "check_circle"
+              : notice.type === "info"
+                ? "info"
+                : "error"}
           </span>
           <div className="flex-1 text-sm font-medium leading-relaxed">
             {notice.message}
@@ -675,6 +722,15 @@ export default function AdminTransactionsPage() {
           actionLabel: hasActiveFilters ? "Xóa bộ lọc" : undefined,
           onAction: hasActiveFilters ? handleClearFilters : undefined,
         }}
+      />
+
+      {/* Transaction Detail Drawer (FE-133, FE-134) */}
+      <TransactionDetailDrawer
+        isOpen={detailOpen}
+        transactionId={selectedTransactionId}
+        onClose={handleCloseDetail}
+        onReconciled={handleReconciled}
+        showNotice={showNotice}
       />
     </div>
   );
