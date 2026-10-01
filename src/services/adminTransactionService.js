@@ -115,4 +115,20 @@ export const adminTransactionService = {
     const queryString = searchParams.toString();
     return adminApiClient.getBlob(`/admin/transactions/export.csv${queryString ? `?${queryString}` : ""}`);
   },
+
+  /**
+   * Lấy chi tiết giao dịch theo ID (bao gồm thông tin đơn hàng, lịch sử trạng thái, biên nhận webhook)
+   * @param {string} id
+   */
+  getTransactionDetail: (id) => {
+    return adminApiClient.get(`/admin/transactions/${id}`);
+  },
+
+  /**
+   * Thực hiện đối soát giao dịch với PayOS
+   * @param {string} id
+   */
+  reconcileTransaction: (id) => {
+    return adminApiClient.post(`/admin/transactions/${id}/reconcile`);
+  },
 };
