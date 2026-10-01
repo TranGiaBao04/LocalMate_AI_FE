@@ -105,6 +105,8 @@ export default function AdminTransactionsPage() {
   // Fetch summary cards
   useEffect(() => {
     if (dateError) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSummaryLoading(false);
       return;
     }
 
@@ -133,6 +135,8 @@ export default function AdminTransactionsPage() {
   // Fetch transactions table data
   useEffect(() => {
     if (dateError) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLoading(false);
       return;
     }
 
@@ -216,8 +220,7 @@ export default function AdminTransactionsPage() {
     try {
       setExporting(true);
       const blob = await adminTransactionService.exportTransactions(canonicalFilters);
-      const fallbackName = `localmate-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
-      const fileName = blob?.fileName || fallbackName;
+      const fileName = blob?.fileName || "localmate-transactions.csv";
       downloadBlob(blob, fileName);
       showNotice("success", "Xuất tệp CSV giao dịch thành công.");
     } catch (err) {
