@@ -131,4 +131,15 @@ export const adminTransactionService = {
   reconcileTransaction: (id) => {
     return adminApiClient.post(`/admin/transactions/${id}/reconcile`);
   },
+
+  /**
+   * Khôi phục quyền hội viên (entitlement) theo kỳ lịch sử đã xác minh
+   * @param {string} id Mã giao dịch
+   * @param {string} reason Lý do khôi phục (1-500 ký tự)
+   */
+  repairEntitlement: (id, reason) => {
+    return adminApiClient.post(`/admin/transactions/${id}/repair-entitlement`, {
+      reason,
+    });
+  },
 };
