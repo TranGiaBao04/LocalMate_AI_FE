@@ -7,6 +7,9 @@ import {
 } from "../../utils/formatCurrency";
 import { formatPlannedDate } from "../../utils/vnTime";
 import TimelineItemDirections from "../../components/TimelineItemDirections";
+import { itineraryPurchaseService } from "../../services/itineraryPurchaseService";
+import SingleItineraryPaymentModal from "../../components/itineraryPurchase/SingleItineraryPaymentModal";
+import { formatPlanPrice } from "../../utils/subscriptionUtils";
 
 const ITEM_ERROR_MESSAGES = {
   cannot_delete_last_item: "Lịch trình cần ít nhất một địa điểm nên không xoá được chặng cuối cùng.",
@@ -14,6 +17,9 @@ const ITEM_ERROR_MESSAGES = {
   already_finalized: "Lịch trình này đã được chốt rồi.",
   itinerary_item_not_found: "Không tìm thấy địa điểm này. Hãy tải lại lịch trình.",
   saved_trip_quota_exceeded: "Bạn đã đạt giới hạn lịch trình được lưu của gói hiện tại.",
+  entitlement_consumed: "Lượt mua lẻ này đã được sử dụng trước đó.",
+  entitlement_not_found: "Không tìm thấy quyền mua lẻ hợp lệ.",
+  invalid_funding: "Nguồn thanh toán lịch trình không hợp lệ.",
 };
 
 // Thời gian đi từ chặng trước. Auto dùng số BE đã tính; chọn phương tiện cụ thể thì dùng field theo phương tiện
@@ -52,6 +58,9 @@ export default function DraftItineraryPage() {
   const location = useLocation();
   const { currentTrip, finalizeTrip, deleteItem } = useTrip();
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [showSinglePurchaseModal, setShowSinglePurchaseModal] = useState(false);
+  const [availability, setAvailability] = useState(null);
+  const [, setLoadingAvailability] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [deletingItemId, setDeletingItemId] = useState(null);
   const [deleteError, setDeleteError] = useState("");
@@ -59,6 +68,116 @@ export default function DraftItineraryPage() {
   const [finalizeErrorCode, setFinalizeErrorCode] = useState("");
   const [quotaMetadata, setQuotaMetadata] = useState(null);
   const [toastMessage, setToastMessage] = useState(location.state?.toast ?? "");
+
+  const fetchAvailability = async () => {
+    setLoadingAvailability(true);
+    try {
+      const data = await itineraryPurchaseService.getAvailability();
+      setAvailability(data);
+      return data;
+    } catch {
+      return null;
+    } finally {
+      setLoadingAvailability(false);
+    }
+  };
+
+  const handleOpenFinalizeModal = () => {
+    setFinalizeError("");
+    setFinalizeErrorCode("");
+    setShowFinalizeModal(true);
+    fetchAvailability();
+  };
+
+  const handleCloseFinalizeModal = () => {
+    setShowFinalizeModal(false);
+  };
+
+  const handleFinalize = async () => {
+    setFinalizing(true);
+    setFinalizeError("");
+    setFinalizeErrorCode("");
+    setQuotaMetadata(null);
+    try {
+      await finalizeTrip(currentTrip.id, { fundingSource: "Normal" });
+      setShowFinalizeModal(false);
+      navigate("/finalized");
+    } catch (err) {
+      setFinalizeErrorCode(err.code || "");
+      setQuotaMetadata(err.data?.extensions || err.data || null);
+      setFinalizeError(ITEM_ERROR_MESSAGES[err.code] ?? err.message);
+      if (err.code === "saved_trip_quota_exceeded") {
+        fetchAvailability();
+      }
+    } finally {
+      setFinalizing(false);
+    }
+  };
+
+  const handleFinalizeWithSingleEntitlement = async (entitlementIdToUse = null) => {
+    setFinalizing(true);
+    setFinalizeError("");
+    setFinalizeErrorCode("");
+    try {
+      let targetEntitlementId = entitlementIdToUse;
+      if (!targetEntitlementId) {
+        const myData = await itineraryPurchaseService.getMyEntitlements();
+        const available = myData?.entitlements?.find(
+          (e) => (e.available === true || e.consumedAt == null),
+        );
+        targetEntitlementId = available?.entitlementId || available?.id;
+      }
+
+      if (!targetEntitlementId) {
+        throw new Error(
+          "Không tìm thấy lượt mua lẻ khả dụng nào. Vui lòng thử lại.",
+        );
+      }
+
+      await finalizeTrip(currentTrip.id, {
+        fundingSource: "SingleEntitlement",
+        entitlementId: targetEntitlementId,
+      });
+      setShowFinalizeModal(false);
+      setShowSinglePurchaseModal(false);
+      navigate("/finalized");
+    } catch (err) {
+      setFinalizeErrorCode(err.code || "");
+      setFinalizeError(ITEM_ERROR_MESSAGES[err.code] ?? err.message);
+      fetchAvailability();
+    } finally {
+      setFinalizing(false);
+    }
+  };
+
+  const handleUsePurchasedEntitlement = async (entitlement) => {
+    const entitlementId = entitlement?.entitlementId || entitlement?.id;
+    if (entitlementId) {
+      await handleFinalizeWithSingleEntitlement(entitlementId);
+    } else {
+      setShowSinglePurchaseModal(false);
+      setShowFinalizeModal(true);
+      fetchAvailability();
+    }
+  };
+
+  const handleClosePurchaseModal = () => {
+    setShowSinglePurchaseModal(false);
+    fetchAvailability();
+  };
+
+  const handleDeleteItem = async (itemId) => {
+    setDeleteError("");
+    setDeletingItemId(itemId);
+    try {
+      await deleteItem(currentTrip.id, itemId);
+      setToastMessage("Đã xoá địa điểm khỏi lịch trình");
+    } catch (err) {
+      setDeleteError(ITEM_ERROR_MESSAGES[err.code] ?? err.message);
+    } finally {
+      setDeletingItemId(null);
+    }
+  };
 
   useEffect(() => {
     if (!toastMessage) return undefined;
@@ -89,37 +208,6 @@ export default function DraftItineraryPage() {
       </div>
     );
   }
-
-  const handleFinalize = async () => {
-    setFinalizing(true);
-    setFinalizeError("");
-    setFinalizeErrorCode("");
-    setQuotaMetadata(null);
-    try {
-      await finalizeTrip(currentTrip.id);
-      setShowFinalizeModal(false);
-      navigate("/finalized");
-    } catch (err) {
-      setFinalizeErrorCode(err.code || "");
-      setQuotaMetadata(err.data?.extensions || err.data || null);
-      setFinalizeError(ITEM_ERROR_MESSAGES[err.code] ?? err.message);
-    } finally {
-      setFinalizing(false);
-    }
-  };
-
-  const handleDeleteItem = async (itemId) => {
-    setDeleteError("");
-    setDeletingItemId(itemId);
-    try {
-      await deleteItem(currentTrip.id, itemId);
-      setToastMessage("Đã xoá địa điểm khỏi lịch trình");
-    } catch (err) {
-      setDeleteError(ITEM_ERROR_MESSAGES[err.code] ?? err.message);
-    } finally {
-      setDeletingItemId(null);
-    }
-  };
 
   return (
     <div className="app-shell flex flex-col">
@@ -344,7 +432,7 @@ export default function DraftItineraryPage() {
           Tạo lại
         </button>
         <button
-          onClick={() => setShowFinalizeModal(true)}
+          onClick={handleOpenFinalizeModal}
           className="flex-1 py-3 bg-primary text-on-primary rounded-full font-semibold text-button active:scale-95 transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-1"
         >
           Chốt lịch trình
@@ -363,92 +451,253 @@ export default function DraftItineraryPage() {
         </div>
       )}
 
-      {showFinalizeModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">
-          <div className="w-full max-w-md bg-surface rounded-t-lg p-stack-lg space-y-stack-md animate-fade-in-up lg:rounded-lg">
-            <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
-            <h3 className="text-title-md font-bold text-on-surface text-center">
-              Xác nhận chốt lịch trình?
-            </h3>
-            <p className="text-body-md text-on-surface-variant text-center">
-              Lịch trình sẽ được lưu và sẵn sàng sử dụng.
-            </p>
-            <div className="card space-y-1">
-              <p className="text-body-md text-on-surface">
-                📍 {currentTrip.mainArea}
-              </p>
-              <p className="text-body-md text-on-surface">
-                ⏱ {currentTrip.durationHours} tiếng · {currentTrip.items.length}{" "}
-                địa điểm
-              </p>
-              <p className="text-body-md text-on-surface">
-                💰 ~{formatCurrencyShort(currentTrip.estimatedBudget)}/người
-              </p>
-            </div>
-            {finalizeError && (
-              finalizeErrorCode === "saved_trip_quota_exceeded" ? (
-                <div
-                  role="alert"
-                  className="rounded-xl border border-error/20 bg-error-container/10 p-stack-md space-y-3"
-                >
-                  <div className="flex items-start gap-2">
-                    <span className="material-symbols-outlined text-error text-[20px] shrink-0 mt-0.5">
-                      folder_off
-                    </span>
-                    <div className="space-y-1">
-                      <p className="font-semibold text-body-md text-error">
-                        {finalizeError}
-                      </p>
-                      <p className="text-body-sm text-on-surface-variant">
-                        Nâng cấp gói dịch vụ để lưu thêm nhiều lịch trình yêu thích không giới hạn.
-                      </p>
+      {showFinalizeModal && (() => {
+        const isExhausted =
+          finalizeErrorCode === "saved_trip_quota_exceeded" ||
+          (availability != null && availability.normalFinalizeAvailable === false);
+        const unusedCount = availability?.unusedEntitlementCount ?? 0;
+        const singleTripPrice = availability?.price ?? 29000;
+        const quotaDisplay =
+          availability?.normalSavedTripLimit != null
+            ? `${availability.normalSavedTripsUsed}/${availability.normalSavedTripLimit}`
+            : quotaMetadata?.limit != null
+              ? `${quotaMetadata.used ?? quotaMetadata.limit}/${quotaMetadata.limit}`
+              : null;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">
+            <div className="w-full max-w-md bg-surface rounded-t-lg p-stack-lg space-y-stack-md animate-fade-in-up lg:rounded-lg">
+              <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
+
+              {isExhausted && unusedCount > 0 ? (
+                /* CASE 2: Normal exhausted BUT user has unused single entitlements */
+                <>
+                  <h3 className="text-title-md font-bold text-on-surface text-center">
+                    Chốt bằng lượt mua lẻ
+                  </h3>
+                  <p className="text-body-md text-on-surface-variant text-center">
+                    Lịch trình này sẽ được lưu vĩnh viễn và không bị tính vào giới hạn gói.
+                  </p>
+
+                  <div className="card space-y-1">
+                    <p className="text-body-md text-on-surface">
+                      📍 {currentTrip.mainArea}
+                    </p>
+                    <p className="text-body-md text-on-surface">
+                      ⏱ {currentTrip.durationHours} tiếng · {currentTrip.items.length}{" "}
+                      địa điểm
+                    </p>
+                    <p className="text-body-md text-on-surface">
+                      💰 ~{formatCurrencyShort(currentTrip.estimatedBudget)}/người
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-1.5 text-left">
+                    <div className="flex items-center gap-2 text-primary font-semibold text-body-sm">
+                      <span className="material-symbols-outlined text-[20px]">
+                        confirmation_number
+                      </span>
+                      <span>
+                        Bạn đang có {unusedCount} lượt mua lẻ chưa sử dụng
+                      </span>
+                    </div>
+                    <p className="text-body-xs text-on-surface-variant leading-relaxed">
+                      Bạn đã dùng hết lượt lưu theo gói hiện tại{quotaDisplay ? ` (${quotaDisplay} lịch trình)` : ""}.
+                      Bạn có thể sử dụng 1 lượt mua lẻ để chốt lịch trình này ngay.
+                    </p>
+                  </div>
+
+                  {finalizeError && finalizeErrorCode !== "saved_trip_quota_exceeded" && (
+                    <p role="alert" className="text-label-md text-error bg-error-container/10 rounded-lg px-3 py-2">
+                      {finalizeError}
+                    </p>
+                  )}
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCloseFinalizeModal}
+                      disabled={finalizing}
+                      className="flex-1 py-3 border border-outline-variant text-on-surface-variant rounded-full font-semibold active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      Quay lại
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleFinalizeWithSingleEntitlement()}
+                      disabled={finalizing}
+                      className="flex-1 py-3 bg-primary text-on-primary rounded-full font-semibold active:scale-95 transition-all shadow-lg shadow-primary/30 disabled:opacity-60 flex items-center justify-center gap-1.5"
+                    >
+                      {finalizing ? "Đang chốt..." : "Dùng 1 lượt để chốt"}
+                    </button>
+                  </div>
+                </>
+              ) : isExhausted && unusedCount === 0 ? (
+                /* CASE 3: Normal exhausted AND no single entitlements */
+                <>
+                  <h3 className="text-title-md font-bold text-on-surface text-center">
+                    Đã đạt giới hạn lưu lịch trình
+                  </h3>
+                  <p className="text-body-md text-on-surface-variant text-center">
+                    Gói hiện tại của bạn đã đạt giới hạn số lịch trình được lưu.
+                  </p>
+
+                  <div className="card space-y-1">
+                    <p className="text-body-md text-on-surface">
+                      📍 {currentTrip.mainArea}
+                    </p>
+                    <p className="text-body-md text-on-surface">
+                      ⏱ {currentTrip.durationHours} tiếng · {currentTrip.items.length}{" "}
+                      địa điểm
+                    </p>
+                    <p className="text-body-md text-on-surface">
+                      💰 ~{formatCurrencyShort(currentTrip.estimatedBudget)}/người
+                    </p>
+                  </div>
+
+                  <div
+                    role="alert"
+                    className="rounded-xl border border-error/20 bg-error-container/10 p-stack-md space-y-3"
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="material-symbols-outlined text-error text-[20px] shrink-0 mt-0.5">
+                        folder_off
+                      </span>
+                      <div className="space-y-1">
+                        <p className="font-semibold text-body-md text-error">
+                          {finalizeError || "Bạn đã đạt giới hạn lịch trình được lưu của gói hiện tại."}
+                        </p>
+                        <p className="text-body-sm text-on-surface-variant">
+                          Bạn có thể mua thêm 1 lượt lưu cho riêng lịch trình này hoặc nâng cấp gói để lưu thêm không giới hạn.
+                        </p>
+                      </div>
+                    </div>
+
+                    {(quotaDisplay || (quotaMetadata && (quotaMetadata.limit != null || quotaMetadata.used != null))) && (
+                      <div className="bg-surface rounded-lg p-3 text-body-sm border border-outline-variant/10 flex justify-between text-on-surface">
+                        <span>Đã lưu:</span>
+                        <span className="font-semibold">
+                          {quotaDisplay || `${quotaMetadata.used ?? quotaMetadata.limit} / ${quotaMetadata.limit}`} lịch trình
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="space-y-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFinalizeModal(false);
+                          setShowSinglePurchaseModal(true);
+                        }}
+                        className="w-full py-2.5 px-4 bg-primary text-on-primary rounded-full font-semibold text-label-md flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">
+                          shopping_bag
+                        </span>
+                        Mua thêm 1 lịch trình — {formatPlanPrice(singleTripPrice)}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFinalizeModal(false);
+                          navigate("/subscription");
+                        }}
+                        className="w-full py-2.5 px-4 bg-surface-container-high text-on-surface rounded-full font-semibold text-label-md flex items-center justify-center gap-2 hover:bg-surface-container-highest transition-all"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">
+                          workspace_premium
+                        </span>
+                        Nâng cấp gói dịch vụ
+                      </button>
                     </div>
                   </div>
 
-                  {quotaMetadata && (quotaMetadata.limit != null || quotaMetadata.used != null) && (
-                    <div className="bg-surface rounded-lg p-3 text-body-sm border border-outline-variant/10 flex justify-between text-on-surface">
-                      <span>Đã lưu:</span>
-                      <span className="font-semibold">
-                        {quotaMetadata.used ?? quotaMetadata.limit} / {quotaMetadata.limit} lịch trình
+                  <button
+                    type="button"
+                    onClick={handleCloseFinalizeModal}
+                    className="w-full py-3 border border-outline-variant text-on-surface-variant rounded-full font-semibold active:scale-95 transition-all"
+                  >
+                    Quay lại
+                  </button>
+                </>
+              ) : (
+                /* CASE 1: Normal finalize available */
+                <>
+                  <h3 className="text-title-md font-bold text-on-surface text-center">
+                    Xác nhận chốt lịch trình?
+                  </h3>
+                  <p className="text-body-md text-on-surface-variant text-center">
+                    Lịch trình sẽ được lưu và sẵn sàng sử dụng.
+                  </p>
+
+                  <div className="card space-y-1">
+                    <p className="text-body-md text-on-surface">
+                      📍 {currentTrip.mainArea}
+                    </p>
+                    <p className="text-body-md text-on-surface">
+                      ⏱ {currentTrip.durationHours} tiếng · {currentTrip.items.length}{" "}
+                      địa điểm
+                    </p>
+                    <p className="text-body-md text-on-surface">
+                      💰 ~{formatCurrencyShort(currentTrip.estimatedBudget)}/người
+                    </p>
+                  </div>
+
+                  {unusedCount > 0 && (
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 flex items-center gap-2.5 text-on-surface-variant text-body-sm text-left">
+                      <span className="material-symbols-outlined text-primary text-[20px] shrink-0">
+                        info
+                      </span>
+                      <span>
+                        Bạn đang dùng lượt lưu theo gói hiện tại. Bạn còn{" "}
+                        <strong className="text-primary font-bold">
+                          {unusedCount}
+                        </strong>{" "}
+                        lượt mua lẻ dự phòng.
                       </span>
                     </div>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFinalizeModal(false);
-                      navigate("/subscription");
-                    }}
-                    className="w-full py-2.5 px-4 bg-primary text-on-primary rounded-full font-semibold text-label-md flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-sm"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
-                    Nâng cấp gói để lưu thêm
-                  </button>
-                </div>
-              ) : (
-                <p role="alert" className="text-label-md text-error bg-error-container/10 rounded-lg px-3 py-2">
-                  {finalizeError}
-                </p>
-              )
-            )}
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowFinalizeModal(false)}
-                className="flex-1 py-3 border border-outline-variant text-on-surface-variant rounded-full font-semibold active:scale-95 transition-all"
-              >
-                Quay lại
-              </button>
-              <button
-                onClick={handleFinalize}
-                disabled={finalizing}
-                className="flex-1 py-3 bg-primary text-on-primary rounded-full font-semibold active:scale-95 transition-all shadow-lg shadow-primary/30 disabled:opacity-60"
-              >
-                {finalizing ? "Đang chốt..." : "Chốt lịch trình"}
-              </button>
+                  {finalizeError && (
+                    <p role="alert" className="text-label-md text-error bg-error-container/10 rounded-lg px-3 py-2">
+                      {finalizeError}
+                    </p>
+                  )}
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCloseFinalizeModal}
+                      disabled={finalizing}
+                      className="flex-1 py-3 border border-outline-variant text-on-surface-variant rounded-full font-semibold active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      Quay lại
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleFinalize}
+                      disabled={finalizing}
+                      className="flex-1 py-3 bg-primary text-on-primary rounded-full font-semibold active:scale-95 transition-all shadow-lg shadow-primary/30 disabled:opacity-60"
+                    >
+                      {finalizing ? "Đang chốt..." : "Chốt lịch trình"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-        </div>
+        );
+      })()}
+
+      {showSinglePurchaseModal && (
+        <SingleItineraryPaymentModal
+          isOpen={showSinglePurchaseModal}
+          onClose={handleClosePurchaseModal}
+          draftTripId={currentTrip.id}
+          availability={availability}
+          onUseEntitlement={handleUsePurchasedEntitlement}
+        />
       )}
     </div>
   );

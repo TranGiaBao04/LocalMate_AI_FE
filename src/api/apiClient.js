@@ -53,7 +53,7 @@ function getToken() {
   return localStorage.getItem(STORAGE_KEYS.TOKEN);
 }
 
-async function request(path, { method = "GET", body, auth = true } = {}) {
+async function request(path, { method = "GET", body, auth = true, withMeta = false } = {}) {
   const headers = { "Content-Type": "application/json" };
   const token = auth ? getToken() : null;
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -64,7 +64,7 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  if (res.status === 204) return null;
+  if (res.status === 204) return withMeta ? { status: 204, data: null } : null;
 
   const isJson = res.headers.get("content-type")?.includes("json");
   const data = isJson ? await res.json().catch(() => null) : null;
@@ -79,6 +79,10 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
       }));
     }
     throw new ApiError(buildErrorMessage(res.status, data, code), res.status, code, errors, data);
+  }
+
+  if (withMeta) {
+    return { status: res.status, data };
   }
 
   return data;
@@ -131,6 +135,8 @@ export const apiClient = {
   get: (path, options) => request(path, { ...options, method: "GET" }),
   post: (path, body, options) =>
     request(path, { ...options, method: "POST", body }),
+  postWithMeta: (path, body, options) =>
+    request(path, { ...options, method: "POST", body, withMeta: true }),
   put: (path, body, options) =>
     request(path, { ...options, method: "PUT", body }),
   patch: (path, body, options) =>
