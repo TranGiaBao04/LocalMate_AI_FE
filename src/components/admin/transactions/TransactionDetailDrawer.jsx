@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import StatusBadge from "../ui/StatusBadge";
 import ConfirmDialog from "../ui/ConfirmDialog";
+import EntitlementRepairPanel from "./EntitlementRepairPanel";
+import EntitlementRepairDialog from "./EntitlementRepairDialog";
 import { adminTransactionService } from "../../../services/adminTransactionService";
 import {
   formatVnDateTime,
@@ -41,6 +43,8 @@ function TransactionDetailContent({
   const [error, setError] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reconciling, setReconciling] = useState(false);
+  const [repairDialogOpen, setRepairDialogOpen] = useState(false);
+  const [repairing, setRepairing] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -77,13 +81,19 @@ function TransactionDetailContent({
   // Handle ESC key to close drawer
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === "Escape" && !reconciling && !confirmOpen) {
+      if (
+        event.key === "Escape" &&
+        !reconciling &&
+        !repairing &&
+        !confirmOpen &&
+        !repairDialogOpen
+      ) {
         onClose?.();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [reconciling, confirmOpen, onClose]);
+  }, [reconciling, repairing, confirmOpen, repairDialogOpen, onClose]);
 
   const handleRetry = () => {
     setLoading(true);
@@ -141,6 +151,86 @@ function TransactionDetailContent({
     }
   };
 
+  // Handle Entitlement Repair Action
+  const handleConfirmRepair = async (reason) => {
+    const trimmedReason = reason?.trim();
+    if (!transactionId || !trimmedReason || repairing) return;
+
+    try {
+      setRepairing(true);
+      const response = await adminTransactionService.repairEntitlement(
+        transactionId,
+        trimmedReason
+      );
+
+      // Handle HTTP 200 outcomes: backend BE-127 returns `result`
+      if (response?.result === "Repaired") {
+        showNotice?.(
+          "success",
+          "Đã khôi phục entitlement theo kỳ lịch sử đã xác minh."
+        );
+      } else if (response?.result === "AlreadyGranted") {
+        showNotice?.(
+          "info",
+          "Giao dịch đã có entitlement được ghi nhận. Không có quyền nào được cấp thêm."
+        );
+      } else {
+        showNotice?.("success", "Thao tác khôi phục entitlement đã hoàn tất.");
+      }
+
+      setRepairDialogOpen(false);
+
+      // Refresh transaction DETAIL only (avoid unnecessary list/summary fetches)
+      setLoading(true);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      // 403 Forbidden is handled globally by adminApiClient / AdminLayout.
+      // Do not emit duplicate local toast.
+      if (err?.status === 403) {
+        setRepairDialogOpen(false);
+        return;
+      }
+
+      // 409 Conflict / Ineligible: show safe local notice, close dialog, refresh detail
+      if (err?.status === 409) {
+        let noticeMsg = "Thao tác không thực hiện được ở trạng thái hiện tại. Dữ liệu đã được làm mới.";
+        if (err?.code === "entitlement_repair_not_eligible") {
+          noticeMsg = "Giao dịch hiện không còn đủ điều kiện khôi phục. Dữ liệu đã được làm mới.";
+        } else if (err?.code === "entitlement_repair_conflict") {
+          noticeMsg = "Bằng chứng entitlement hiện có xung đột với yêu cầu khôi phục. Dữ liệu đã được làm mới.";
+        } else if (err?.message) {
+          noticeMsg = err.message;
+        }
+        showNotice?.("error", noticeMsg);
+
+        setRepairDialogOpen(false);
+        setLoading(true);
+        setRefreshKey((k) => k + 1);
+        return;
+      }
+
+      // 400 Bad Request
+      if (err?.status === 400) {
+        showNotice?.("error", err?.message || "Yêu cầu khôi phục không hợp lệ.");
+        return;
+      }
+
+      // 404 Not Found
+      if (err?.status === 404 || err?.code === "transaction_not_found") {
+        showNotice?.("error", "Không tìm thấy giao dịch để khôi phục entitlement.");
+        setRepairDialogOpen(false);
+        setLoading(true);
+        setRefreshKey((k) => k + 1);
+        return;
+      }
+
+      // 500 / Unexpected error
+      showNotice?.("error", err?.message || "Không thể khôi phục entitlement.");
+    } finally {
+      setRepairing(false);
+    }
+  };
+
   const handleCopyId = (id) => {
     if (!id) return;
     navigator.clipboard?.writeText(id);
@@ -157,7 +247,13 @@ function TransactionDetailContent({
       role="presentation"
       className="fixed inset-0 z-[85] flex justify-end bg-slate-950/45 backdrop-blur-sm transition-opacity"
       onClick={(e) => {
-        if (e.target === e.currentTarget && !reconciling && !confirmOpen) {
+        if (
+          e.target === e.currentTarget &&
+          !reconciling &&
+          !repairing &&
+          !confirmOpen &&
+          !repairDialogOpen
+        ) {
           onClose?.();
         }
       }}
@@ -203,7 +299,7 @@ function TransactionDetailContent({
           <button
             type="button"
             onClick={onClose}
-            disabled={reconciling}
+            disabled={reconciling || repairing}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
             aria-label="Đóng chi tiết"
           >
@@ -358,7 +454,14 @@ function TransactionDetailContent({
                 </div>
               </section>
 
-              {/* Section 2: Lịch sử chuyển trạng thái (Status History Timeline) */}
+              {/* Section 2: Quyền hội viên & Section 3: Lịch sử khôi phục entitlement */}
+              <EntitlementRepairPanel
+                detail={detail}
+                onOpenRepair={() => setRepairDialogOpen(true)}
+                repairing={repairing}
+              />
+
+              {/* Section 4: Lịch sử chuyển trạng thái (Status History Timeline) */}
               <section aria-labelledby="status-history-heading" className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 id="status-history-heading" className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -507,7 +610,7 @@ function TransactionDetailContent({
             <button
               type="button"
               onClick={onClose}
-              disabled={reconciling}
+              disabled={reconciling || repairing}
               className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
             >
               Đóng
@@ -528,6 +631,23 @@ function TransactionDetailContent({
         onConfirm={handleConfirmReconcile}
         onCancel={() => !reconciling && setConfirmOpen(false)}
       />
+
+      {/* Entitlement Repair Dialog */}
+      <EntitlementRepairDialog
+        open={repairDialogOpen}
+        onClose={() => !repairing && setRepairDialogOpen(false)}
+        onConfirm={handleConfirmRepair}
+        submitting={repairing}
+        planName={
+          PLAN_DISPLAY_NAMES[transaction?.planCode] ||
+          transaction?.planName ||
+          transaction?.planCode ||
+          "—"
+        }
+        proposedStartsAt={detail?.repairEligibility?.proposedStartsAt}
+        proposedEndsAt={detail?.repairEligibility?.proposedEndsAt}
+        reconstructionMode={detail?.repairEligibility?.reconstructionMode}
+      />
     </div>
   );
 }
@@ -543,6 +663,7 @@ export default function TransactionDetailDrawer({
 
   return (
     <TransactionDetailContent
+      key={transactionId}
       transactionId={transactionId}
       onClose={onClose}
       onReconciled={onReconciled}

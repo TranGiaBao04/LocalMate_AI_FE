@@ -28,12 +28,13 @@ import SavedTripDetailPage from "./pages/trip/SavedTripDetailPage";
 
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
+const AdminStationsPage = lazy(() => import("./pages/admin/AdminStationsPage"));
 const AdminPlansPage = lazy(() => import("./pages/admin/AdminPlansPage"));
 const AdminTransactionsPage = lazy(() => import("./pages/admin/AdminTransactionsPage"));
 const AdminSectionPlaceholder = lazy(() => import("./pages/admin/AdminSectionPlaceholder"));
 
 // Mục đã có trang thật; mục còn lại hiện placeholder
-const ADMIN_PAGES = { plans: AdminPlansPage, transactions: AdminTransactionsPage };
+const ADMIN_PAGES = { stations: AdminStationsPage, plans: AdminPlansPage, transactions: AdminTransactionsPage };
 
 export default function App() {
   const { pathname } = useLocation();
