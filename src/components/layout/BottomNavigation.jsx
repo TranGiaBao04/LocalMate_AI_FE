@@ -3,6 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useTrip } from "../../context/TripContext";
 import { useSubscription } from "../../context/SubscriptionContext";
 import { PLAN_CODES, PLAN_DISPLAY_NAMES } from "../../utils/subscriptionUtils";
+import { canAccessAdmin } from "../../utils/adminAccess";
 import logo from "../../assets/logo.jpg";
 
 const NAV_ITEMS = [
@@ -34,7 +35,7 @@ const matchesPath = (pathname, path) =>
 const isItemActive = (pathname, item) =>
   (item.activePaths ?? [item.path]).some((path) => matchesPath(pathname, path));
 
-function NavigationItem({ item, isActive, onClick, variant = "bottom" }) {
+export function NavigationItem({ item, isActive, onClick, variant = "bottom" }) {
   const activeClass =
     variant === "side" ? "bg-navy text-white" : "text-navy bg-navy/10";
   const idleClass =
@@ -138,7 +139,7 @@ export function SideNavigation() {
       </nav>
 
       <div className="mt-auto flex flex-col gap-3">
-        {user?.role === "Admin" && (
+        {canAccessAdmin(user) && (
           <button
             type="button"
             onClick={() => navigate("/admin")}

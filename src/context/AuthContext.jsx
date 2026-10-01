@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { STORAGE_KEYS } from "../constants";
+import { AUTH_EVENTS } from "../api/apiClient";
 import { authService } from "../services/authService";
 
 const AuthContext = createContext(null);
@@ -51,6 +52,21 @@ export function AuthProvider({ children }) {
         setIsDemo(false);
       })
       .finally(() => setInitializing(false));
+  }, []);
+
+  const [sessionNotice, setSessionNotice] = useState("");
+
+  // BE-83: tài khoản bị khoá/không còn tồn tại ⇒ đăng xuất, giữ lời nhắn cho trang đăng nhập.
+  useEffect(() => {
+    const handleSessionEnded = (event) => {
+      localStorage.removeItem(STORAGE_KEYS.TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.IS_DEMO);
+      setUser(null);
+      setIsDemo(false);
+      setSessionNotice(event.detail?.message || "");
+    };
+    window.addEventListener(AUTH_EVENTS.SESSION_ENDED, handleSessionEnded);
+    return () => window.removeEventListener(AUTH_EVENTS.SESSION_ENDED, handleSessionEnded);
   }, []);
 
   const completePersistedLogin = async (session) => {
@@ -113,6 +129,13 @@ export function AuthProvider({ children }) {
     if (!isDemo) setUser(profile);
   };
 
+  // Quyền đổi có hiệu lực ngay ở BE (BE-82) ⇒ nạp lại profile để cập nhật menu admin
+  const refreshProfile = async () => {
+    const profile = await authService.getProfile();
+    if (!isDemo) setUser(profile);
+    return profile;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -126,6 +149,9 @@ export function AuthProvider({ children }) {
         register,
         logout,
         applyUserProfile,
+        refreshProfile,
+        sessionNotice,
+        clearSessionNotice: () => setSessionNotice(""),
       }}
     >
       {children}

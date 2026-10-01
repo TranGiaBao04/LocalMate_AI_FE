@@ -1,4 +1,4 @@
-import { apiClient } from "./apiClient";
+import { apiClient, isSessionEndingError } from "./apiClient";
 import { STORAGE_KEYS } from "../constants";
 
 export const ADMIN_API_EVENTS = {
@@ -21,6 +21,8 @@ async function handleAdminRequest(request) {
   try {
     return await request();
   } catch (error) {
+    // account_locked / account_not_found: apiClient đã phát sự kiện đăng xuất chung
+    if (isSessionEndingError(error)) throw error;
     if (error?.status === 401) {
       clearSession();
       emitAdminApiEvent(ADMIN_API_EVENTS.UNAUTHORIZED, {

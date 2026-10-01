@@ -27,11 +27,6 @@ export function getStoredTokenPayload() {
   return decodeJwtPayload(localStorage.getItem(STORAGE_KEYS.TOKEN));
 }
 
-export function getStoredTokenRole() {
-  const role = getStoredTokenPayload()?.role;
-  return Array.isArray(role) ? role[0] : role ?? null;
-}
-
 export function isStoredTokenExpired() {
   const expiresAt = getStoredTokenPayload()?.exp;
   return typeof expiresAt !== "number" || expiresAt * 1000 <= Date.now();

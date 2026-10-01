@@ -5,6 +5,7 @@ import BottomNavigation, {
 } from "./components/layout/BottomNavigation";
 import { useAuth } from "./context/AuthContext";
 import AdminRoute from "./components/admin/AdminRoute";
+import { ADMIN_SECTIONS } from "./components/admin/adminSections";
 
 import WelcomePage from "./pages/auth/WelcomePage";
 import LoginPage from "./pages/auth/LoginPage";
@@ -73,17 +74,24 @@ export default function App() {
           path="/admin"
           element={
             <AdminRoute>
-            <Suspense fallback={<div className="min-h-screen bg-[#f4f6fa]" />}>
+            <Suspense fallback={<div className="min-h-screen bg-background" />}>
               <AdminLayout />
             </Suspense>
             </AdminRoute>
           }
         >
           <Route index element={<AdminDashboardPage />} />
-          <Route path="users" element={<AdminSectionPlaceholder />} />
-          <Route path="places" element={<AdminSectionPlaceholder />} />
-          <Route path="transactions" element={<AdminSectionPlaceholder />} />
-          <Route path="feedback" element={<AdminSectionPlaceholder />} />
+          {ADMIN_SECTIONS.map((section) => (
+            <Route
+              key={section.path}
+              path={section.path}
+              element={
+                <AdminRoute permissions={section.permissions}>
+                  <AdminSectionPlaceholder section={section} />
+                </AdminRoute>
+              }
+            />
+          ))}
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
 
