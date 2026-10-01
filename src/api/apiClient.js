@@ -24,7 +24,18 @@ const STATUS_MESSAGES = {
   429: "Bạn thao tác quá nhanh. Vui lòng thử lại sau.",
 };
 
-function buildErrorMessage(status, data) {
+export const AUTH_EVENTS = { SESSION_ENDED: "localmate:session-ended" };
+
+// BE-83: API cần đăng nhập (và cả login) trả các mã này ⇒ token hiện tại không còn dùng được.
+const SESSION_ENDING_MESSAGES = {
+  account_locked: "Tài khoản đã bị khoá, vui lòng liên hệ hỗ trợ.",
+  account_not_found: "Tài khoản không còn tồn tại. Vui lòng đăng nhập lại.",
+};
+
+export const isSessionEndingError = (err) => Boolean(SESSION_ENDING_MESSAGES[err?.code]);
+
+function buildErrorMessage(status, data, code) {
+  if (SESSION_ENDING_MESSAGES[code]) return SESSION_ENDING_MESSAGES[code];
   // ValidationProblem theo field (vd PlannedDate, StartTime). Bỏ qua lỗi parse JSON ("$.startTime"),
   // vì nội dung là thông báo mặc định tiếng Anh của .NET.
   const fieldErrors = Object.entries(data?.errors ?? {})
@@ -61,7 +72,13 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
   if (!res.ok) {
     const code = data?.code || data?.extensions?.code || null;
     const errors = data?.errors || null;
-    throw new ApiError(buildErrorMessage(res.status, data), res.status, code, errors, data);
+    // Chỉ khi request có gửi token: AuthContext nghe sự kiện để đăng xuất.
+    if (token && SESSION_ENDING_MESSAGES[code]) {
+      window.dispatchEvent(new CustomEvent(AUTH_EVENTS.SESSION_ENDED, {
+        detail: { message: SESSION_ENDING_MESSAGES[code] },
+      }));
+    }
+    throw new ApiError(buildErrorMessage(res.status, data, code), res.status, code, errors, data);
   }
 
   return data;

@@ -707,7 +707,7 @@ export default function AdminTransactionsPage() {
         pagination={{
           page,
           totalPages,
-          totalItems: totalCount,
+          totalCount,
         }}
         onPageChange={(newPage) => {
           setLoading(true);

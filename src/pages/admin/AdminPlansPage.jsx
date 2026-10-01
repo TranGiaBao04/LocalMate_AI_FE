@@ -513,7 +513,7 @@ export default function AdminPlansPage() {
         pagination={{
           page,
           totalPages,
-          totalItems: totalCount,
+          totalCount,
         }}
         onPageChange={(newPage) => {
           setLoading(true);

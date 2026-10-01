@@ -6,6 +6,7 @@ const statusStyles = {
   inactive: "bg-slate-100 text-slate-600 ring-slate-500/15",
   failed: "bg-rose-50 text-rose-700 ring-rose-600/15",
   blocked: "bg-rose-50 text-rose-700 ring-rose-600/15",
+  locked: "bg-rose-50 text-rose-700 ring-rose-600/15",
   info: "bg-blue-50 text-blue-700 ring-blue-600/15",
 };
 

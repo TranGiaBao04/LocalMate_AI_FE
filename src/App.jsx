@@ -5,6 +5,7 @@ import BottomNavigation, {
 } from "./components/layout/BottomNavigation";
 import { useAuth } from "./context/AuthContext";
 import AdminRoute from "./components/admin/AdminRoute";
+import { ADMIN_SECTIONS } from "./components/admin/adminSections";
 
 import WelcomePage from "./pages/auth/WelcomePage";
 import LoginPage from "./pages/auth/LoginPage";
@@ -31,6 +32,9 @@ const AdminStationsPage = lazy(() => import("./pages/admin/AdminStationsPage"));
 const AdminPlansPage = lazy(() => import("./pages/admin/AdminPlansPage"));
 const AdminTransactionsPage = lazy(() => import("./pages/admin/AdminTransactionsPage"));
 const AdminSectionPlaceholder = lazy(() => import("./pages/admin/AdminSectionPlaceholder"));
+
+// Mục đã có trang thật; mục còn lại hiện placeholder
+const ADMIN_PAGES = { stations: AdminStationsPage, plans: AdminPlansPage, transactions: AdminTransactionsPage };
 
 export default function App() {
   const { pathname } = useLocation();
@@ -76,20 +80,27 @@ export default function App() {
           path="/admin"
           element={
             <AdminRoute>
-            <Suspense fallback={<div className="min-h-screen bg-[#f4f6fa]" />}>
+            <Suspense fallback={<div className="min-h-screen bg-background" />}>
               <AdminLayout />
             </Suspense>
             </AdminRoute>
           }
         >
           <Route index element={<AdminDashboardPage />} />
-          <Route path="stations" element={<AdminStationsPage />} />
-          <Route path="users" element={<AdminSectionPlaceholder />} />
-          <Route path="places" element={<AdminSectionPlaceholder />} />
-          <Route path="import" element={<AdminSectionPlaceholder />} />
-          <Route path="plans" element={<AdminPlansPage />} />
-          <Route path="transactions" element={<AdminTransactionsPage />} />
-          <Route path="permissions" element={<AdminSectionPlaceholder />} />
+          {ADMIN_SECTIONS.map((section) => {
+            const Page = ADMIN_PAGES[section.path];
+            return (
+              <Route
+                key={section.path}
+                path={section.path}
+                element={
+                  <AdminRoute permissions={section.permissions}>
+                    {Page ? <Page /> : <AdminSectionPlaceholder section={section} />}
+                  </AdminRoute>
+                }
+              />
+            );
+          })}
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
 

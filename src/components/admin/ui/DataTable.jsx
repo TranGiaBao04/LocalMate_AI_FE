@@ -65,7 +65,7 @@ export default function DataTable({
 
       {pagination && pagination.totalPages > 1 && (
         <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-          <span>Trang {pagination.page} / {pagination.totalPages}{pagination.totalItems != null ? ` · ${pagination.totalItems} kết quả` : ""}</span>
+          <span>Trang {pagination.page} / {pagination.totalPages}{pagination.totalCount != null ? ` · ${pagination.totalCount} kết quả` : ""}</span>
           <div className="flex gap-2">
             <button type="button" disabled={pagination.page <= 1} onClick={() => onPageChange?.(pagination.page - 1)} className="rounded-lg border border-slate-200 px-3 py-2 font-semibold transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Trước</button>
             <button type="button" disabled={pagination.page >= pagination.totalPages} onClick={() => onPageChange?.(pagination.page + 1)} className="rounded-lg border border-slate-200 px-3 py-2 font-semibold transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Sau</button>

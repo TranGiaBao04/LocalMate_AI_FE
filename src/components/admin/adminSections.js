@@ -1,0 +1,69 @@
+import { ADMIN_PERMISSIONS as P } from "../../constants";
+
+// Các mục Admin Portal theo design Figma "LocalMate" + quyền BE cần (có 1 trong số đó là vào được).
+// Dùng chung cho sidebar, route, breadcrumb, dashboard. `group` là mục giữa của breadcrumb.
+export const ADMIN_SECTIONS = [
+  {
+    path: "stations",
+    label: "Quản lý Ga Metro",
+    group: "Dữ liệu Metro",
+    icon: "directions_subway",
+    permissions: [P.MANAGE_PLACES],
+    description: "Xem 14 ga và độ phủ địa điểm quanh mỗi ga.",
+    tone: "bg-sky-50 text-sky-700",
+  },
+  {
+    path: "places",
+    label: "Địa điểm & Tiện ích",
+    group: "Dữ liệu Metro",
+    icon: "location_on",
+    permissions: [P.MANAGE_PLACES],
+    description: "Tạo, sửa, duyệt và xác minh địa điểm.",
+    tone: "bg-emerald-50 text-emerald-700",
+  },
+  {
+    path: "import",
+    label: "Nhập dữ liệu Excel",
+    group: "Dữ liệu Metro",
+    icon: "upload_file",
+    permissions: [P.MANAGE_PLACES],
+    description: "Nhập hàng loạt địa điểm từ file CSV/Excel.",
+    tone: "bg-teal-50 text-teal-700",
+  },
+  {
+    path: "plans",
+    label: "Gói thành viên",
+    group: "Gói cước & Doanh thu",
+    icon: "sell",
+    permissions: [P.MANAGE_PLANS],
+    description: "Cấu hình gói, giá và lượt tạo lịch trình.",
+    tone: "bg-amber-50 text-amber-700",
+  },
+  {
+    path: "transactions",
+    label: "Giao dịch PayOS",
+    group: "Gói cước & Doanh thu",
+    icon: "payments",
+    permissions: [P.VIEW_REVENUE, P.MANAGE_PLANS],
+    description: "Tra cứu và đối soát giao dịch thanh toán.",
+    tone: "bg-orange-50 text-orange-700",
+  },
+  {
+    path: "users",
+    label: "Quản lý Users",
+    group: "Người dùng & Phân quyền",
+    icon: "group",
+    permissions: [P.MANAGE_USERS],
+    description: "Xem danh sách, khoá và mở khoá tài khoản.",
+    tone: "bg-blue-50 text-blue-700",
+  },
+  {
+    path: "roles",
+    label: "Phân quyền & Quản trị",
+    group: "Người dùng & Phân quyền",
+    icon: "admin_panel_settings",
+    permissions: [P.MANAGE_ROLES],
+    description: "Tạo role, chọn quyền và gán role cho người dùng.",
+    tone: "bg-violet-50 text-violet-700",
+  },
+];

@@ -29,3 +29,12 @@ export const STORAGE_KEYS = {
   TRIP_REQUEST: "localmate_trip_request",
   GUEST_TOUR_DISMISSED: "localmate_guest_tour_dismissed",
 };
+
+// Mã quyền admin, khớp LocalMateAI.Application/Security/Permissions.cs (BE-82)
+export const ADMIN_PERMISSIONS = {
+  MANAGE_PLACES: "ManagePlaces",
+  MANAGE_PLANS: "ManagePlans",
+  VIEW_REVENUE: "ViewRevenue",
+  MANAGE_USERS: "ManageUsers",
+  MANAGE_ROLES: "ManageRoles",
+};

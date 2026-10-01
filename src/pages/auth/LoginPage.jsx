@@ -1,13 +1,14 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { canAccessAdmin } from "../../utils/adminAccess";
 import GoogleSignInButton from "../../components/auth/GoogleSignInButton";
 import logo from "../../assets/logo.jpg";
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loginWithGoogle, loginDemo } = useAuth();
+  const { login, loginWithGoogle, loginDemo, sessionNotice, clearSessionNotice } = useAuth();
 
   const [email, setEmail] = useState(
     () => location.state?.registeredEmail || "",
@@ -18,10 +19,14 @@ export default function LoginPage() {
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const googleLoginInFlight = useRef(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() => sessionNotice);
   const [success, setSuccess] = useState(
-    () => location.state?.message || "",
+    () => (sessionNotice ? "" : location.state?.message || ""),
   );
+
+  useEffect(() => {
+    if (sessionNotice) clearSessionNotice();
+  }, [sessionNotice, clearSessionNotice]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -46,7 +51,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const { user } = await login(trimmedEmail, password);
-      navigate(user?.role === "Admin" ? "/admin" : "/home");
+      navigate(canAccessAdmin(user) ? "/admin" : "/home");
     } catch (err) {
       if (err.code === "invalid_credentials" || err.status === 401) {
         setError("Email hoặc mật khẩu không chính xác.");
@@ -81,13 +86,15 @@ export default function LoginPage() {
     setError("");
     setSuccess("");
     try {
-      await loginWithGoogle(idToken);
-      navigate("/home");
+      const { user } = await loginWithGoogle(idToken);
+      navigate(canAccessAdmin(user) ? "/admin" : "/home");
     } catch (err) {
       if (err.code === "account_link_required") {
         setError("Email này đã có tài khoản LocalMate. Vui lòng đăng nhập bằng email và mật khẩu.");
       } else if (err.code === "account_conflict") {
         setError("Không thể liên kết tài khoản Google. Vui lòng thử lại sau.");
+      } else if (err.code === "account_locked") {
+        setError(err.message);
       } else if (err.code === "invalid_google_token" || err.status === 400 || err.status === 401) {
         setError("Xác thực Google không hợp lệ. Vui lòng thử lại.");
       } else if (!err.status) {
