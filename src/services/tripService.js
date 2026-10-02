@@ -51,20 +51,22 @@ export const tripService = {
     return getTripById(tripId);
   },
   finalizeTrip: async (tripId, funding = null) => {
+    const input = funding == null
+      ? { fundingSource: "Normal" }
+      : typeof funding === "string" ? { fundingSource: funding } : funding;
+    if (!input || typeof input !== "object" || Array.isArray(input)) {
+      throw new TypeError("Nguồn chốt lịch trình không hợp lệ.");
+    }
     let body;
-    if (funding != null) {
-      if (typeof funding === "string") {
-        body = { fundingSource: funding };
-      } else if (typeof funding === "object") {
-        if (funding.fundingSource === "SingleEntitlement" || funding.entitlementId) {
-          body = {
-            fundingSource: "SingleEntitlement",
-            entitlementId: funding.entitlementId,
-          };
-        } else if (funding.fundingSource === "Normal") {
-          body = { fundingSource: "Normal" };
-        }
-      }
+    if (input.fundingSource === "Normal" && !("entitlementId" in input)) {
+      body = { fundingSource: "Normal" };
+    } else if (input.fundingSource === "SingleEntitlement" &&
+      typeof input.entitlementId === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.entitlementId) &&
+      input.entitlementId !== "00000000-0000-0000-0000-000000000000") {
+      body = { fundingSource: "SingleEntitlement", entitlementId: input.entitlementId };
+    } else {
+      throw new TypeError("Cần chọn rõ Normal hoặc SingleEntitlement cùng quyền hợp lệ.");
     }
     await apiClient.post(`/trips/${tripId}/finalize`, body);
     return getTripById(tripId);

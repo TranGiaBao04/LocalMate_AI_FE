@@ -6,6 +6,7 @@ import SubscriptionPage from "../src/pages/subscription/SubscriptionPage";
 import PaymentReturnPage from "../src/pages/subscription/PaymentReturnPage";
 import { subscriptionService } from "../src/services/subscriptionService";
 import { itineraryPurchaseService } from "../src/services/itineraryPurchaseService";
+import { saveSinglePaymentIntent } from "../src/utils/itineraryPurchaseSession";
 import * as AuthContextModule from "../src/context/AuthContext";
 import * as SubscriptionContextModule from "../src/context/SubscriptionContext";
 import {
@@ -1524,10 +1525,7 @@ describe("FE-UP3: Server-Authoritative Payment Lifecycle", () => {
   // ==========================================================================
   it("P40: payment return page with mismatched query orderId does not fall back to Single", async () => {
     // Single intent exists for different order
-    sessionStorage.setItem(
-      "localmate_single_payment_intent",
-      JSON.stringify({ orderId: "single-existing-123", flow: "single" })
-    );
+    saveSinglePaymentIntent("user-123", { orderId: "single-existing-123", productKind: "SingleItinerary" });
 
     mockContexts();
     const singleGetOrderSpy = vi.spyOn(itineraryPurchaseService, "getOrder");
