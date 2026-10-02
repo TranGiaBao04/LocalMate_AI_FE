@@ -1,16 +1,25 @@
 import { adminApiClient } from "../api/adminApiClient";
 
-const toQuery = (params) => new URLSearchParams(params).toString();
+// Bỏ tham số rỗng để BE dùng mặc định (from/to: 30 ngày gần nhất, month: tháng hiện tại)
+const toQuery = (params) =>
+  new URLSearchParams(
+    Object.entries(params).filter(([, value]) => value != null && value !== ""),
+  ).toString();
 
-// Hợp đồng đề xuất cho BE-86/87/88. from/to: "yyyy-MM-dd" theo giờ VN, gồm cả 2 đầu. Tiền: VNĐ.
+// BE F2 Dashboard, cần quyền ViewRevenue. from/to "yyyy-MM-dd" giờ VN, gồm cả 2 đầu; month "yyyy-MM".
+// Tiền là VNĐ đầy đủ. BE cache 5 phút, `generatedAt` là giờ UTC.
 export const adminDashboardService = {
-  // BE-86 → { from, to, newUsers, generatedItineraries, paidItineraries, revenue }
+  // → { from, to, newUsers, tripsCreated, paidOrders, revenue, currency, generatedAt }
   getSummary: ({ from, to }) =>
     adminApiClient.get(`/admin/dashboard/summary?${toQuery({ from, to })}`),
-  // BE-87 → [{ date: "yyyy-MM-dd", revenue, paidOrders }], đủ mọi ngày trong khoảng
+  // → { from, to, currency, totalRevenue, days: [{ date, revenue, paidOrders }], generatedAt }, đủ mọi ngày
   getRevenueDaily: ({ from, to }) =>
     adminApiClient.get(`/admin/dashboard/revenue-daily?${toQuery({ from, to })}`),
-  // BE-88 → [{ stationId, stationName, stationOrder, tripCount }], giảm dần theo tripCount
-  getTopStations: ({ from, to, limit = 5 }) =>
+  // → { from, to, totalTrips, stations: [{ order, name, tripCount, sharePercent }], generatedAt }
+  getTopStations: ({ from, to, limit }) =>
     adminApiClient.get(`/admin/dashboard/top-stations?${toQuery({ from, to, limit })}`),
+  // → { month, target, revenue, paidOrders, remaining, progressPercent, daysElapsed, daysInMonth,
+  //     projected, isAchieved, currency, generatedAt }
+  getBreakEven: ({ month }) =>
+    adminApiClient.get(`/admin/dashboard/break-even?${toQuery({ month })}`),
 };

@@ -52,3 +52,13 @@ export function formatPlannedDate(isoDate) {
     month: "2-digit",
   }).format(new Date(`${isoDate}T00:00:00Z`));
 }
+
+// "2026-10-01T14:40:37Z" (UTC) -> "21:40" giờ VN
+export function formatTimeInVietnam(isoDateTime) {
+  return new Intl.DateTimeFormat("vi-VN", {
+    timeZone: VN_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(isoDateTime));
+}
