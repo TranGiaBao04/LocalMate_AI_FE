@@ -9,7 +9,7 @@ export const ADMIN_SECTIONS = [
     group: "Dữ liệu Metro",
     icon: "directions_subway",
     permissions: [P.MANAGE_PLACES],
-    description: "Xem 14 ga và độ phủ địa điểm quanh mỗi ga.",
+    description: "Xem 14 ga, số địa điểm theo trạng thái, loại và ga thiếu dữ liệu.",
     tone: "bg-sky-50 text-sky-700",
   },
   {
@@ -65,5 +65,14 @@ export const ADMIN_SECTIONS = [
     permissions: [P.MANAGE_ROLES],
     description: "Tạo role, chọn quyền và gán role cho người dùng.",
     tone: "bg-violet-50 text-violet-700",
+  },
+  {
+    path: "settings",
+    label: "Cấu hình hệ thống",
+    group: "Hệ thống",
+    icon: "tune",
+    permissions: [P.MANAGE_SETTINGS],
+    description: "Chỉnh ngưỡng ga, tốc độ di chuyển, mục tiêu hoà vốn...",
+    tone: "bg-slate-100 text-slate-700",
   },
 ];
