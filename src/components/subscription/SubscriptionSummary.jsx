@@ -1,9 +1,14 @@
-import { PLAN_CODES, PLAN_DISPLAY_NAMES, formatVnDateTime } from "../../utils/subscriptionUtils";
+import {
+  formatVnDateTime,
+  isPaidSubscription,
+  isFreeSubscription,
+  getPlanDisplayName,
+} from "../../utils/subscriptionUtils";
 
-export default function SubscriptionSummary({ subscription, loading, onRenew }) {
+export default function SubscriptionSummary({ subscription, loading, onRenew, plans = [] }) {
   if (loading) {
     return (
-      <div className="card animate-pulse space-y-4">
+      <div className="card animate-pulse space-y-4" data-testid="subscription-summary-loading">
         <div className="h-6 w-32 bg-surface-container-high rounded" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="h-20 bg-surface-container-high rounded" />
@@ -13,21 +18,63 @@ export default function SubscriptionSummary({ subscription, loading, onRenew }) 
     );
   }
 
-  const currentPlan = subscription?.plan || PLAN_CODES.FREE;
-  const planDisplayName = PLAN_DISPLAY_NAMES[currentPlan] || currentPlan;
-  const isPaid = currentPlan === PLAN_CODES.TRIP_PASS || currentPlan === PLAN_CODES.MEMBERSHIP;
-  const endsAtFormatted = subscription?.endsAt ? formatVnDateTime(subscription.endsAt) : null;
+  const isFree = isFreeSubscription(subscription);
+  const isPaid = isPaidSubscription(subscription);
 
-  const generateUsed = subscription?.usage?.generateUsed ?? 0;
-  const generateLimit = subscription?.usage?.generateLimit;
-  const resetAtFormatted = subscription?.usage?.resetAt
+  // If subscription is missing, malformed, or neither valid Free nor valid Paid, fail safely
+  if (!isFree && !isPaid) {
+    return (
+      <div
+        className="card space-y-3 border border-outline-variant/30 bg-surface p-6 text-center"
+        data-testid="subscription-summary-unavailable"
+      >
+        <div className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center mx-auto text-on-surface-variant">
+          <span className="material-symbols-outlined text-[24px]">sync_problem</span>
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-title-md font-bold text-on-surface">
+            Không thể tải thông tin gói
+          </h3>
+          <p className="text-body-md text-on-surface-variant">
+            Chưa thể lấy thông tin gói cước và hạn mức của bạn từ máy chủ.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentPlan = subscription.plan;
+  const planDisplayName = getPlanDisplayName(currentPlan, plans);
+
+  const effectiveUntilFormatted = subscription.effectiveUntil
+    ? formatVnDateTime(subscription.effectiveUntil)
+    : null;
+  const endsAtFormatted = subscription.endsAt
+    ? formatVnDateTime(subscription.endsAt)
+    : null;
+  const hasDistinctBoundaries =
+    effectiveUntilFormatted &&
+    endsAtFormatted &&
+    subscription.effectiveUntil !== subscription.endsAt;
+
+  const generateLimit = subscription.usage?.generateLimit;
+  const generateUsed = subscription.usage?.generateUsed;
+  const isGenerateUnlimited = generateLimit === null;
+  const resetAtFormatted = subscription.usage?.resetAt
     ? formatVnDateTime(subscription.usage.resetAt)
     : null;
 
-  const savedTripsUsed = subscription?.savedTrips?.used ?? 0;
-  const savedTripsLimit = subscription?.savedTrips?.limit;
+  const savedTripsLimit = subscription.savedTrips?.limit;
+  const savedTripsUsed = subscription.savedTrips?.used;
+  const isSavedTripsUnlimited = savedTripsLimit === null;
   const isSavedTripsOverLimit =
-    savedTripsLimit != null && savedTripsUsed > savedTripsLimit;
+    typeof savedTripsLimit === "number" &&
+    typeof savedTripsUsed === "number" &&
+    savedTripsUsed > savedTripsLimit;
+
+  const generatePeriodLabel = isFree
+    ? "Lượt tạo lịch trình tháng này"
+    : "Lượt tạo lịch trình";
 
   return (
     <div className="card space-y-5 border border-outline-variant/30 bg-gradient-to-br from-surface to-surface-container-lowest shadow-sm">
@@ -67,17 +114,52 @@ export default function SubscriptionSummary({ subscription, loading, onRenew }) 
         )}
       </div>
 
-      {/* Expiry for Paid plans */}
-      {isPaid && endsAtFormatted && (
-        <div className="flex items-center gap-2 text-body-md text-on-surface-variant bg-surface-container-low px-3.5 py-2.5 rounded-xl">
-          <span className="material-symbols-outlined text-primary text-[20px]">
-            schedule
-          </span>
-          <span>
-            Hết hạn vào:{" "}
-            <strong className="text-on-surface">{endsAtFormatted}</strong>
-          </span>
-        </div>
+      {/* Expiry / Effective boundaries for Paid plans */}
+      {isPaid && (
+        <>
+          {hasDistinctBoundaries ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-body-md text-on-surface-variant bg-surface-container-low px-3.5 py-2.5 rounded-xl">
+                <span className="material-symbols-outlined text-primary text-[20px]">
+                  event_available
+                </span>
+                <span>
+                  Kỳ hiện tại đến:{" "}
+                  <strong className="text-on-surface">{effectiveUntilFormatted}</strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-body-md text-on-surface-variant bg-surface-container-low px-3.5 py-2.5 rounded-xl">
+                <span className="material-symbols-outlined text-primary text-[20px]">
+                  schedule
+                </span>
+                <span>
+                  Đã thanh toán đến:{" "}
+                  <strong className="text-on-surface">{endsAtFormatted}</strong>
+                </span>
+              </div>
+            </div>
+          ) : effectiveUntilFormatted ? (
+            <div className="flex items-center gap-2 text-body-md text-on-surface-variant bg-surface-container-low px-3.5 py-2.5 rounded-xl">
+              <span className="material-symbols-outlined text-primary text-[20px]">
+                schedule
+              </span>
+              <span>
+                Kỳ hiện tại đến:{" "}
+                <strong className="text-on-surface">{effectiveUntilFormatted}</strong>
+              </span>
+            </div>
+          ) : endsAtFormatted ? (
+            <div className="flex items-center gap-2 text-body-md text-on-surface-variant bg-surface-container-low px-3.5 py-2.5 rounded-xl">
+              <span className="material-symbols-outlined text-primary text-[20px]">
+                schedule
+              </span>
+              <span>
+                Đã thanh toán đến:{" "}
+                <strong className="text-on-surface">{endsAtFormatted}</strong>
+              </span>
+            </div>
+          ) : null}
+        </>
       )}
 
       {/* Quota Usage Grid */}
@@ -85,23 +167,25 @@ export default function SubscriptionSummary({ subscription, loading, onRenew }) 
         {/* Lượt tạo lịch trình */}
         <div className="rounded-2xl border border-outline-variant/20 bg-surface p-4 space-y-2">
           <div className="flex items-center justify-between text-label-md text-on-surface-variant">
-            <span>Lượt tạo lịch trình tháng này</span>
+            <span>{generatePeriodLabel}</span>
             <span className="material-symbols-outlined text-primary text-[18px]">
               auto_awesome
             </span>
           </div>
           <div className="text-title-lg font-bold text-on-surface">
-            {generateLimit == null ? (
+            {isGenerateUnlimited ? (
               <span className="text-primary">Không giới hạn</span>
-            ) : (
+            ) : typeof generateLimit === "number" ? (
               <span>
-                {generateUsed} / {generateLimit}
+                {typeof generateUsed === "number" ? generateUsed : "—"} / {generateLimit}
               </span>
+            ) : (
+              <span className="text-on-surface-variant font-normal">Chưa có thông tin</span>
             )}
           </div>
-          {generateLimit != null && resetAtFormatted && (
+          {typeof generateLimit === "number" && resetAtFormatted && (
             <p className="text-label-sm text-text-muted">
-              Làm mới lượt vào {resetAtFormatted}
+              Làm mới vào {resetAtFormatted}
             </p>
           )}
         </div>
@@ -115,12 +199,14 @@ export default function SubscriptionSummary({ subscription, loading, onRenew }) 
             </span>
           </div>
           <div className="text-title-lg font-bold text-on-surface">
-            {savedTripsLimit == null ? (
+            {isSavedTripsUnlimited ? (
               <span className="text-primary">Không giới hạn</span>
-            ) : (
+            ) : typeof savedTripsLimit === "number" ? (
               <span>
-                {savedTripsUsed} / {savedTripsLimit}
+                {typeof savedTripsUsed === "number" ? savedTripsUsed : "—"} / {savedTripsLimit}
               </span>
+            ) : (
+              <span className="text-on-surface-variant font-normal">Chưa có thông tin</span>
             )}
           </div>
           {isSavedTripsOverLimit ? (

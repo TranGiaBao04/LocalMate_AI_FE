@@ -87,3 +87,47 @@ export function formatPlanPrice(price) {
   if (price === 0 || price == null) return "0đ";
   return `${new Intl.NumberFormat("vi-VN").format(price)}đ`;
 }
+
+/**
+ * Authoritatively determines if a subscription state represents a paid plan.
+ * Does not restrict to hard-coded builtin plan codes.
+ * Free plan has plan === "Free" (case-insensitive).
+ * A paid plan must have plan !== "Free" and at least one valid effective lifecycle boundary.
+ */
+export function isPaidSubscription(sub) {
+  if (!sub || typeof sub !== "object") return false;
+  if (typeof sub.plan !== "string" || !sub.plan.trim()) return false;
+  const isFreePlan = sub.plan.trim().toLowerCase() === "free";
+  if (isFreePlan) return false;
+  // A current paid period is represented by Backend effective lifecycle boundaries.
+  const hasEffectiveBoundary = Boolean(
+    (typeof sub.endsAt === "string" && sub.endsAt.trim()) ||
+    (typeof sub.effectiveUntil === "string" && sub.effectiveUntil.trim())
+  );
+  if (!hasEffectiveBoundary) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Authoritatively determines if a subscription state represents a Free plan.
+ */
+export function isFreeSubscription(sub) {
+  if (!sub || typeof sub !== "object") return false;
+  if (typeof sub.plan !== "string" || !sub.plan.trim()) return false;
+  return sub.plan.trim().toLowerCase() === "free";
+}
+
+/**
+ * Resolves a presentation-safe display name for a plan code.
+ * Preferred order: catalog name -> known display name mapping -> raw plan code.
+ */
+export function getPlanDisplayName(planCode, catalogPlans = []) {
+  if (!planCode) return "";
+  const catalogPlan = Array.isArray(catalogPlans)
+    ? catalogPlans.find((p) => p.code === planCode)
+    : null;
+  if (catalogPlan?.name) return catalogPlan.name;
+  return PLAN_DISPLAY_NAMES[planCode] || planCode;
+}

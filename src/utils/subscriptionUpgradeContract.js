@@ -575,37 +575,33 @@ export function isMySubscription(data) {
 export function safeNormalizeMySubscription(data) {
   if (!isMySubscription(data)) return null;
 
-  const usage =
-    data.usage && typeof data.usage === "object"
-      ? {
-          generateUsed: data.usage.generateUsed,
-          generateLimit:
-            data.usage.generateLimit !== undefined
-              ? data.usage.generateLimit
-              : undefined,
-          resetAt:
-            data.usage.resetAt !== undefined ? data.usage.resetAt : null,
-        }
-      : null;
-
-  const savedTrips =
-    data.savedTrips && typeof data.savedTrips === "object"
-      ? {
-          used: data.savedTrips.used,
-          limit:
-            data.savedTrips.limit !== undefined
-              ? data.savedTrips.limit
-              : undefined,
-        }
-      : null;
-
   return {
     plan: data.plan,
-    endsAt: data.endsAt !== undefined ? data.endsAt : null,
-    usage,
-    savedTrips,
+    endsAt: data.endsAt !== undefined ? data.endsAt : undefined,
+    usage:
+      data.usage && typeof data.usage === "object"
+        ? {
+            generateUsed: data.usage.generateUsed,
+            generateLimit:
+              data.usage.generateLimit !== undefined
+                ? data.usage.generateLimit
+                : undefined,
+            resetAt:
+              data.usage.resetAt !== undefined ? data.usage.resetAt : undefined,
+          }
+        : undefined,
+    savedTrips:
+      data.savedTrips && typeof data.savedTrips === "object"
+        ? {
+            used: data.savedTrips.used,
+            limit:
+              data.savedTrips.limit !== undefined
+                ? data.savedTrips.limit
+                : undefined,
+          }
+        : undefined,
     effectiveUntil:
-      data.effectiveUntil !== undefined ? data.effectiveUntil : null,
+      data.effectiveUntil !== undefined ? data.effectiveUntil : undefined,
   };
 }
 

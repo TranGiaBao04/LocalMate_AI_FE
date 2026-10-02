@@ -2,15 +2,15 @@ import { PLAN_CODES, PLAN_DISPLAY_NAMES, formatPlanPrice } from "../../utils/sub
 
 export default function PlanCard({
   plan,
-  currentPlanCode = PLAN_CODES.FREE,
+  currentPlanCode = null,
   onSelect,
   onRenew,
   isDemo = false,
   loading = false,
 }) {
   const planCode = plan?.code;
-  const isCurrentPlan = currentPlanCode === planCode;
-  const displayName = PLAN_DISPLAY_NAMES[planCode] || planCode;
+  const isCurrentPlan = Boolean(currentPlanCode && currentPlanCode === planCode);
+  const displayName = plan?.name || PLAN_DISPLAY_NAMES[planCode] || planCode;
   const isMembership = planCode === PLAN_CODES.MEMBERSHIP;
   const isTripPass = planCode === PLAN_CODES.TRIP_PASS;
   const isFree =
@@ -24,14 +24,18 @@ export default function PlanCard({
 
   // Quota benefits
   const generateBenefit =
-    plan.generateLimit == null
+    plan.generateLimit === null
       ? "Tạo lịch trình AI không giới hạn"
-      : `${plan.generateLimit} lượt tạo lịch trình`;
+      : typeof plan.generateLimit === "number"
+        ? `${plan.generateLimit} lượt tạo lịch trình`
+        : "Lượt tạo lịch trình";
 
   const savedTripsBenefit =
-    plan.savedTripLimit == null
+    plan.savedTripLimit === null
       ? "Lịch trình đã chốt không giới hạn"
-      : `Tối đa ${plan.savedTripLimit} lịch trình đã chốt`;
+      : typeof plan.savedTripLimit === "number"
+        ? `Tối đa ${plan.savedTripLimit} lịch trình đã chốt`
+        : "Lịch trình đã chốt";
 
   // Action button rendering
   const renderAction = () => {
@@ -77,14 +81,24 @@ export default function PlanCard({
           <div className="text-center py-1.5 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
             Gói đang dùng
           </div>
-          <button
-            type="button"
-            onClick={onRenew}
-            disabled={loading}
-            className="w-full py-2.5 rounded-xl border-2 border-primary text-primary hover:bg-primary/5 font-bold text-label-md transition-all active:scale-98"
-          >
-            {loading ? "Đang xử lý..." : `Gia hạn ${displayName}`}
-          </button>
+          {onRenew ? (
+            <button
+              type="button"
+              onClick={onRenew}
+              disabled={loading}
+              className="w-full py-2.5 rounded-xl border-2 border-primary text-primary hover:bg-primary/5 font-bold text-label-md transition-all active:scale-98"
+            >
+              {loading ? "Đang xử lý..." : `Gia hạn ${displayName}`}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="w-full py-3 rounded-xl bg-surface-container-high text-on-surface-variant font-semibold text-label-md cursor-default"
+            >
+              Gói hiện tại
+            </button>
+          )}
         </div>
       );
     }

@@ -8,7 +8,7 @@ import PaymentCheckoutModal from "../../components/subscription/PaymentCheckoutM
 import CheckoutQuoteDialog from "../../components/subscription/CheckoutQuoteDialog";
 import { useSubscriptionCheckoutQuote } from "../../hooks/useSubscriptionCheckoutQuote";
 import { subscriptionService } from "../../services/subscriptionService";
-import { PLAN_CODES } from "../../utils/subscriptionUtils";
+import { isPaidSubscription, isFreeSubscription } from "../../utils/subscriptionUtils";
 import {
   extractErrorCode,
   extractPendingPaymentMetadata,
@@ -55,7 +55,9 @@ export default function SubscriptionPage() {
 
   const isQuoteDialogOpen = Boolean(selectedPlanCode);
 
-  const currentPlanCode = subscription?.plan || PLAN_CODES.FREE;
+  const isFree = isFreeSubscription(subscription);
+  const isPaid = isPaidSubscription(subscription);
+  const currentPlanCode = isPaid || isFree ? subscription?.plan : null;
 
   // Đồng bộ lại gói cước hiện tại hoặc danh mục gói khi gặp mã lỗi phân loại từ báo giá
   useEffect(() => {
@@ -296,7 +298,7 @@ export default function SubscriptionPage() {
 
   // Xử lý gia hạn gói hiện tại
   const handleRenew = async () => {
-    if (isDemo) return;
+    if (isDemo || !isPaidSubscription(subscription)) return;
     setPageError("");
     setPageSuccess("");
     setActionLoading(true);
@@ -381,6 +383,7 @@ export default function SubscriptionPage() {
       if (code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PAYMENT_REVIEW_REQUIRED) {
         setPageError(getCustomerErrorMessage(code));
       } else if (code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.NO_ACTIVE_SUBSCRIPTION) {
+        refreshSubscription();
         setPageError(
           "Bạn chưa có gói trả phí nào đang hoạt động để gia hạn. Vui lòng chọn gói mới.",
         );
@@ -551,7 +554,8 @@ export default function SubscriptionPage() {
             <SubscriptionSummary
               subscription={subscription}
               loading={subscriptionLoading}
-              onRenew={handleRenew}
+              onRenew={isPaidSubscription(subscription) ? handleRenew : undefined}
+              plans={plans}
             />
           </section>
         )}
@@ -614,7 +618,7 @@ export default function SubscriptionPage() {
                   plan={plan}
                   currentPlanCode={currentPlanCode}
                   onSelect={handleSelectPlan}
-                  onRenew={handleRenew}
+                  onRenew={isPaid ? handleRenew : undefined}
                   isDemo={isDemo}
                   loading={actionLoading}
                 />
