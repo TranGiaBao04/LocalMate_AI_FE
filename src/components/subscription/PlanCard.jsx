@@ -13,7 +13,10 @@ export default function PlanCard({
   const displayName = PLAN_DISPLAY_NAMES[planCode] || planCode;
   const isMembership = planCode === PLAN_CODES.MEMBERSHIP;
   const isTripPass = planCode === PLAN_CODES.TRIP_PASS;
-  const isFree = planCode === PLAN_CODES.FREE;
+  const isFree =
+    planCode === PLAN_CODES.FREE ||
+    planCode?.toLowerCase() === "free" ||
+    plan?.price === 0;
 
   // Duration text
   const durationText = plan.durationDays
@@ -24,7 +27,7 @@ export default function PlanCard({
   const generateBenefit =
     plan.generateLimit == null
       ? "Tạo lịch trình AI không giới hạn"
-      : `${plan.generateLimit} lượt tạo lịch trình / tháng`;
+      : `${plan.generateLimit} lượt tạo lịch trình`;
 
   const savedTripsBenefit =
     plan.savedTripLimit == null
@@ -57,8 +60,8 @@ export default function PlanCard({
       );
     }
 
-    // Persisted User Logic
-    if (currentPlanCode === PLAN_CODES.FREE) {
+    // Persisted User Logic - Backend classification is authoritative
+    if (isCurrentPlan) {
       if (isFree) {
         return (
           <button
@@ -71,96 +74,49 @@ export default function PlanCard({
         );
       }
       return (
+        <div className="flex flex-col gap-2">
+          <div className="text-center py-1.5 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
+            Gói đang dùng
+          </div>
+          <button
+            type="button"
+            onClick={onRenew}
+            disabled={loading}
+            className="w-full py-2.5 rounded-xl border-2 border-primary text-primary hover:bg-primary/5 font-bold text-label-md transition-all active:scale-98"
+          >
+            {loading ? "Đang xử lý..." : `Gia hạn ${displayName}`}
+          </button>
+        </div>
+      );
+    }
+
+    if (isFree) {
+      return (
         <button
           type="button"
-          onClick={() => onSelect(planCode)}
-          disabled={loading}
-          className={`w-full py-3 rounded-xl font-bold text-label-md transition-all active:scale-98 shadow-sm ${
-            isMembership
-              ? "bg-primary text-on-primary hover:bg-primary/90 shadow-primary/20"
-              : "bg-navy-dark text-white hover:bg-navy-darkest"
-          }`}
+          disabled
+          className="w-full py-3 rounded-xl bg-surface-container-high text-text-faint font-semibold text-label-md cursor-not-allowed"
         >
-          {loading ? "Đang xử lý..." : `Chọn ${displayName}`}
+          Không khả dụng
         </button>
       );
     }
 
-    if (currentPlanCode === PLAN_CODES.TRIP_PASS) {
-      if (isFree) {
-        return (
-          <button
-            type="button"
-            disabled
-            className="w-full py-3 rounded-xl bg-surface-container-high text-text-faint font-semibold text-label-md cursor-not-allowed"
-          >
-            Không khả dụng
-          </button>
-        );
-      }
-      if (isTripPass) {
-        return (
-          <div className="flex flex-col gap-2">
-            <div className="text-center py-1.5 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
-              Gói đang dùng
-            </div>
-            <button
-              type="button"
-              onClick={onRenew}
-              disabled={loading}
-              className="w-full py-2.5 rounded-xl border-2 border-primary text-primary hover:bg-primary/5 font-bold text-label-md transition-all active:scale-98"
-            >
-              {loading ? "Đang xử lý..." : "Gia hạn Trip Pass"}
-            </button>
-          </div>
-        );
-      }
-      if (isMembership) {
-        return (
-          <button
-            type="button"
-            onClick={() => onSelect(planCode)}
-            disabled={loading}
-            className="w-full py-3 rounded-xl bg-primary text-on-primary hover:bg-primary/90 font-bold text-label-md transition-all active:scale-98 shadow-md shadow-primary/25"
-          >
-            {loading ? "Đang xử lý..." : "Nâng cấp Membership"}
-          </button>
-        );
-      }
-    }
-
-    if (currentPlanCode === PLAN_CODES.MEMBERSHIP) {
-      if (isFree || isTripPass) {
-        return (
-          <button
-            type="button"
-            disabled
-            className="w-full py-3 rounded-xl bg-surface-container-high text-text-faint font-semibold text-label-md cursor-not-allowed"
-          >
-            {isTripPass ? "Đã gồm trong Membership" : "Không khả dụng"}
-          </button>
-        );
-      }
-      if (isMembership) {
-        return (
-          <div className="flex flex-col gap-2">
-            <div className="text-center py-1.5 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
-              Gói cao nhất
-            </div>
-            <button
-              type="button"
-              onClick={onRenew}
-              disabled={loading}
-              className="w-full py-2.5 rounded-xl border-2 border-primary text-primary hover:bg-primary/5 font-bold text-label-md transition-all active:scale-98"
-            >
-              {loading ? "Đang xử lý..." : "Gia hạn Membership"}
-            </button>
-          </div>
-        );
-      }
-    }
-
-    return null;
+    // Any paid target plan is selectable; backend quote & error authoritatively classifies
+    return (
+      <button
+        type="button"
+        onClick={() => onSelect(planCode)}
+        disabled={loading}
+        className={`w-full py-3 rounded-xl font-bold text-label-md transition-all active:scale-98 shadow-sm ${
+          isMembership
+            ? "bg-primary text-on-primary hover:bg-primary/90 shadow-primary/20"
+            : "bg-navy-dark text-white hover:bg-navy-darkest"
+        }`}
+      >
+        {loading ? "Đang xử lý..." : `Chọn ${displayName}`}
+      </button>
+    );
   };
 
   return (

@@ -608,3 +608,64 @@ export function safeNormalizeMySubscription(data) {
       data.effectiveUntil !== undefined ? data.effectiveUntil : null,
   };
 }
+
+// ============================================================================
+// 7. PRESENTATION-SAFE ERROR & QUOTE TYPE LABELS
+// ============================================================================
+
+/**
+ * Presentation-safe Vietnamese labels for frozen customer subscription error codes.
+ * Pure display mappings - does not drive business classification.
+ * @readonly
+ */
+export const CUSTOMER_ERROR_MESSAGES = Object.freeze({
+  [CUSTOMER_SUBSCRIPTION_ERROR_CODES.INVALID_PLAN_CODE]:
+    "Gói dịch vụ không hợp lệ hoặc không còn khả dụng.",
+  [CUSTOMER_SUBSCRIPTION_ERROR_CODES.PLAN_ALREADY_ACTIVE]:
+    "Gói này hiện đang hoạt động trên tài khoản của bạn.",
+  [CUSTOMER_SUBSCRIPTION_ERROR_CODES.ALREADY_COVERED_BY_HIGHER_PLAN]:
+    "Gói hiện tại của bạn đã bao gồm đầy đủ quyền lợi này.",
+  [CUSTOMER_SUBSCRIPTION_ERROR_CODES.TARGET_PLAN_ALREADY_SCHEDULED]:
+    "Gói này đã được lên lịch kích hoạt trong tương lai trên tài khoản của bạn.",
+  [CUSTOMER_SUBSCRIPTION_ERROR_CODES.PENDING_ORDER_EXISTS]:
+    "Bạn đang có giao dịch chưa hoàn tất cho gói này.",
+  [CUSTOMER_SUBSCRIPTION_ERROR_CODES.ANOTHER_PENDING_ORDER]:
+    "Bạn đang có một giao dịch chưa hoàn tất khác.",
+  [CUSTOMER_SUBSCRIPTION_ERROR_CODES.PAYMENT_REVIEW_REQUIRED]:
+    "Giao dịch đang cần kiểm tra đối soát, vui lòng liên hệ bộ phận hỗ trợ.",
+  [CUSTOMER_SUBSCRIPTION_ERROR_CODES.PAYMENT_GATEWAY_UNAVAILABLE]:
+    "Cổng thanh toán PayOS tạm thời chưa thể kết nối. Vui lòng thử lại sau ít phút.",
+  [CUSTOMER_SUBSCRIPTION_ERROR_CODES.NO_ACTIVE_SUBSCRIPTION]:
+    "Bạn chưa có gói trả phí nào đang hoạt động để gia hạn. Vui lòng chọn gói mới.",
+  [CUSTOMER_SUBSCRIPTION_ERROR_CODES.PERSISTED_ACCOUNT_REQUIRED]:
+    "Chức năng thanh toán yêu cầu tài khoản đã được đăng ký và lưu trên hệ thống.",
+  [CUSTOMER_SUBSCRIPTION_ERROR_CODES.ACCOUNT_LOCKED]:
+    "Tài khoản của bạn hiện đang bị khóa.",
+  [CUSTOMER_SUBSCRIPTION_ERROR_CODES.ACCOUNT_NOT_FOUND]:
+    "Không tìm thấy thông tin tài khoản trên hệ thống.",
+});
+
+/**
+ * Presentation-safe Vietnamese display labels for checkout quote types.
+ * @readonly
+ */
+export const CHECKOUT_QUOTE_TYPE_LABELS = Object.freeze({
+  [CHECKOUT_QUOTE_TYPE.PURCHASE]: "Mua gói",
+  [CHECKOUT_QUOTE_TYPE.UPGRADE]: "Nâng cấp gói",
+});
+
+/**
+ * Resolves a presentation-safe error message from a code and fallback error message.
+ * @param {string|null} code
+ * @param {string} [fallbackMessage]
+ * @returns {string}
+ */
+export function getCustomerErrorMessage(code, fallbackMessage) {
+  if (code && CUSTOMER_ERROR_MESSAGES[code]) {
+    return CUSTOMER_ERROR_MESSAGES[code];
+  }
+  return (
+    fallbackMessage ||
+    "Không thể thực hiện yêu cầu lúc này. Vui lòng thử lại sau ít phút."
+  );
+}
