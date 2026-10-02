@@ -15,8 +15,7 @@ export default function PlanCard({
   const isTripPass = planCode === PLAN_CODES.TRIP_PASS;
   const isFree =
     planCode === PLAN_CODES.FREE ||
-    planCode?.toLowerCase() === "free" ||
-    plan?.price === 0;
+    String(planCode).toLowerCase() === "free";
 
   // Duration text
   const durationText = plan.durationDays

@@ -38,28 +38,21 @@ export default function SubscriptionPage() {
 
   const [paymentIntent, setPaymentIntent] = useState(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [selectedQuoteTarget, setSelectedQuoteTarget] = useState(null);
-  const [quoteTargetOwner, setQuoteTargetOwner] = useState(user?.id);
-
-  // Đóng dialog và reset mục tiêu báo giá khi tài khoản / người dùng thay đổi
-  if (quoteTargetOwner !== user?.id) {
-    setQuoteTargetOwner(user?.id);
-    setSelectedQuoteTarget(null);
-  }
-
-  const isQuoteDialogOpen = Boolean(selectedQuoteTarget && quoteTargetOwner === user?.id);
 
   const {
     quote,
     loading: quoteLoading,
     error: quoteError,
+    selectedPlanCode,
     requestQuote,
     clearQuote,
   } = useSubscriptionCheckoutQuote({ ownerId: user?.id });
 
+  const isQuoteDialogOpen = Boolean(selectedPlanCode);
+
   const currentPlanCode = subscription?.plan || PLAN_CODES.FREE;
 
-  // Đồng bộ lại gói cước hiện tại khi gặp mã lỗi phân loại từ báo giá
+  // Đồng bộ lại gói cước hiện tại hoặc danh mục gói khi gặp mã lỗi phân loại từ báo giá
   useEffect(() => {
     if (quoteError) {
       const code = extractErrorCode(quoteError);
@@ -68,9 +61,11 @@ export default function SubscriptionPage() {
         code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.ALREADY_COVERED_BY_HIGHER_PLAN
       ) {
         refreshSubscription();
+      } else if (code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.INVALID_PLAN_CODE) {
+        refreshPlans();
       }
     }
-  }, [quoteError, refreshSubscription]);
+  }, [quoteError, refreshSubscription, refreshPlans]);
 
   // Khôi phục phiên thanh toán đang chờ từ sessionStorage (Session Resume)
   useEffect(() => {
@@ -145,13 +140,10 @@ export default function SubscriptionPage() {
     if (isDemo || !planCode) return;
     setPageError("");
     setPageSuccess("");
-    setSelectedQuoteTarget(planCode);
-    setQuoteTargetOwner(user?.id);
     requestQuote(planCode);
   };
 
   const handleCloseQuoteDialog = () => {
-    setSelectedQuoteTarget(null);
     clearQuote();
   };
 
@@ -172,7 +164,6 @@ export default function SubscriptionPage() {
       const response = await subscriptionService.checkout(planCode);
 
       // Đóng dialog báo giá và dọn dẹp state quote
-      setSelectedQuoteTarget(null);
       clearQuote();
 
       // Dữ liệu từ phản hồi checkout là authoritative (Order Ledger)
@@ -198,7 +189,6 @@ export default function SubscriptionPage() {
       if (code === "pending_order_exists") {
         const reusable = extractReusableIntent(err, planCode, "purchase");
         if (reusable) {
-          setSelectedQuoteTarget(null);
           clearQuote();
           sessionStorage.setItem(ACTIVE_PAYMENT_SESSION_KEY, JSON.stringify(reusable));
           setPaymentIntent(reusable);
@@ -210,16 +200,13 @@ export default function SubscriptionPage() {
       if (code === "plan_already_active") {
         refreshSubscription();
         setPageError(getCustomerErrorMessage(code));
-        setSelectedQuoteTarget(null);
         clearQuote();
       } else if (code === "already_covered_by_higher_plan") {
         refreshSubscription();
         setPageError(getCustomerErrorMessage(code));
-        setSelectedQuoteTarget(null);
         clearQuote();
       } else if (code === "target_plan_already_scheduled") {
         setPageError(getCustomerErrorMessage(code));
-        setSelectedQuoteTarget(null);
         clearQuote();
       } else if (err.status === 502 || code === "payment_gateway_unavailable") {
         setPageError(

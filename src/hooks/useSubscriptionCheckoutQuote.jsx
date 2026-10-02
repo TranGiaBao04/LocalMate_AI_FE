@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { subscriptionService } from "../services/subscriptionService";
 import { safeNormalizeCheckoutQuote } from "../utils/subscriptionUpgradeContract";
 
@@ -34,6 +34,23 @@ export function useSubscriptionCheckoutQuote({ ownerId = null } = {}) {
 
   const generationRef = useRef(0);
   const currentTargetRef = useRef(null);
+  const ownerRef = useRef(ownerId);
+
+  // Invalidate in-flight requests and reset state immediately if owner changes
+  useEffect(() => {
+    if (ownerRef.current !== ownerId) {
+      ownerRef.current = ownerId;
+      generationRef.current += 1;
+      currentTargetRef.current = null;
+      setQuoteState({
+        ownerId: null,
+        targetPlanCode: null,
+        quote: null,
+        error: null,
+        loading: false,
+      });
+    }
+  }, [ownerId]);
 
   // Derive state based on matching owner: if owner changed, old quote is ignored automatically
   const isMatchingOwner = quoteState.ownerId === ownerId;
@@ -59,6 +76,7 @@ export function useSubscriptionCheckoutQuote({ ownerId = null } = {}) {
       const generation = ++generationRef.current;
       currentTargetRef.current = planCode;
       const requestOwner = ownerId;
+      ownerRef.current = ownerId;
 
       setQuoteState({
         ownerId: requestOwner,
@@ -71,10 +89,11 @@ export function useSubscriptionCheckoutQuote({ ownerId = null } = {}) {
       try {
         const raw = await subscriptionService.getCheckoutQuote(planCode);
 
-        // Stale-response guard: verify generation and target planCode
+        // Stale-response guard: verify generation, target planCode, and owner identity
         if (
           generation !== generationRef.current ||
-          currentTargetRef.current !== planCode
+          currentTargetRef.current !== planCode ||
+          ownerRef.current !== requestOwner
         ) {
           return null;
         }
@@ -107,7 +126,8 @@ export function useSubscriptionCheckoutQuote({ ownerId = null } = {}) {
       } catch (err) {
         if (
           generation !== generationRef.current ||
-          currentTargetRef.current !== planCode
+          currentTargetRef.current !== planCode ||
+          ownerRef.current !== requestOwner
         ) {
           return null;
         }

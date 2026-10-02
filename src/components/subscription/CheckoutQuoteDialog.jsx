@@ -51,14 +51,25 @@ export default function CheckoutQuoteDialog({
   if (!isOpen) return null;
 
   const errorCode = extractErrorCode(error);
+  const status =
+    typeof error?.status === "number"
+      ? error.status
+      : typeof error?.data?.status === "number"
+        ? error.data.status
+        : null;
+
   const isPlanAlreadyActive =
-    errorCode === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PLAN_ALREADY_ACTIVE;
+    errorCode === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PLAN_ALREADY_ACTIVE &&
+    (status === 409 || status === null);
   const isAlreadyCovered =
-    errorCode === CUSTOMER_SUBSCRIPTION_ERROR_CODES.ALREADY_COVERED_BY_HIGHER_PLAN;
+    errorCode === CUSTOMER_SUBSCRIPTION_ERROR_CODES.ALREADY_COVERED_BY_HIGHER_PLAN &&
+    (status === 409 || status === null);
   const isTargetScheduled =
-    errorCode === CUSTOMER_SUBSCRIPTION_ERROR_CODES.TARGET_PLAN_ALREADY_SCHEDULED;
+    errorCode === CUSTOMER_SUBSCRIPTION_ERROR_CODES.TARGET_PLAN_ALREADY_SCHEDULED &&
+    (status === 409 || status === null);
   const isInvalidPlan =
-    errorCode === CUSTOMER_SUBSCRIPTION_ERROR_CODES.INVALID_PLAN_CODE;
+    errorCode === CUSTOMER_SUBSCRIPTION_ERROR_CODES.INVALID_PLAN_CODE &&
+    (status === 400 || status === null);
 
   const targetPlanCode = quote?.planCode;
   const displayName = targetPlanCode
@@ -261,7 +272,9 @@ export default function CheckoutQuoteDialog({
               {/* Financial summary card */}
               <div className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30 space-y-3">
                 <div className="flex items-center justify-between text-body-md">
-                  <span className="text-on-surface-variant">Giá niêm yết gói mới:</span>
+                  <span className="text-on-surface-variant">
+                    {isUpgrade ? "Giá niêm yết gói mới:" : "Giá gói:"}
+                  </span>
                   <span
                     data-testid="quote-list-price"
                     className="font-semibold text-on-surface"

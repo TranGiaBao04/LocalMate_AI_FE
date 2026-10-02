@@ -398,7 +398,7 @@ describe("FE-UP2: Subscription Checkout Quote & Classification UX", () => {
   it("Q10: already_covered_by_higher_plan → blocked state → no checkout", () => {
     const error = { code: "already_covered_by_higher_plan", status: 409 };
 
-    render(
+    const { rerender } = render(
       <CheckoutQuoteDialog
         isOpen={true}
         onClose={vi.fn()}
@@ -414,6 +414,20 @@ describe("FE-UP2: Subscription Checkout Quote & Classification UX", () => {
     // Blocked: NO checkout / confirm button
     expect(screen.queryByTestId("quote-confirm-button")).not.toBeInTheDocument();
     expect(screen.getByTestId("quote-cancel-button")).toHaveTextContent("Đóng");
+
+    // HTTP status mismatch: status 500 must NOT show the blocked downgrade state
+    const serverError = { code: "already_covered_by_higher_plan", status: 500, message: "Internal server error" };
+    rerender(
+      <CheckoutQuoteDialog
+        isOpen={true}
+        onClose={vi.fn()}
+        quote={null}
+        error={serverError}
+        onConfirm={vi.fn()}
+      />
+    );
+    expect(screen.queryByText("Đã bao gồm trong gói hiện tại")).not.toBeInTheDocument();
+    expect(screen.getByText("Không thể lấy báo giá")).toBeInTheDocument();
   });
 
   // ==========================================================================
@@ -477,6 +491,36 @@ describe("FE-UP2: Subscription Checkout Quote & Classification UX", () => {
 
     expect(screen.getByText("Gói cước không hợp lệ")).toBeInTheDocument();
     expect(screen.queryByTestId("quote-confirm-button")).not.toBeInTheDocument();
+
+    // Verify invalid_plan_code on SubscriptionPage triggers refreshPlans to clear stale catalog
+    const refreshPlansMock = vi.fn();
+    vi.spyOn(SubscriptionContextModule, "useSubscription").mockReturnValue({
+      plans: [{ code: "OldStalePlan", price: 10000 }],
+      subscription: { plan: "Free" },
+      plansLoading: false,
+      plansError: null,
+      subscriptionLoading: false,
+      subscriptionError: null,
+      refreshPlans: refreshPlansMock,
+      refreshSubscription: vi.fn(),
+      refreshAll: vi.fn(),
+    });
+    vi.spyOn(AuthContextModule, "useAuth").mockReturnValue({
+      user: { id: "user-123" },
+      isDemo: false,
+      isLoggedIn: true,
+    });
+
+    render(
+      <MemoryRouter>
+        <SubscriptionPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Chọn OldStalePlan/i }));
+    await waitFor(() => {
+      expect(refreshPlansMock).toHaveBeenCalled();
+    });
   });
 
   // ==========================================================================
@@ -559,14 +603,20 @@ describe("FE-UP2: Subscription Checkout Quote & Classification UX", () => {
   // ==========================================================================
   it("Q14: account/owner change: old quote ignored", async () => {
     let hook;
-    vi.spyOn(subscriptionService, "getCheckoutQuote").mockResolvedValue({
-      planCode: "Membership",
-      type: "Upgrade",
-      listPrice: 59000,
-      creditAmount: 19000,
-      amount: 40000,
-      durationDays: 30,
-      credits: [],
+    let resolveQuote;
+    vi.spyOn(subscriptionService, "getCheckoutQuote").mockImplementation(() => {
+      return new Promise((resolve) => {
+        resolveQuote = () =>
+          resolve({
+            planCode: "Membership",
+            type: "Upgrade",
+            listPrice: 59000,
+            creditAmount: 19000,
+            amount: 40000,
+            durationDays: 30,
+            credits: [],
+          });
+      });
     });
 
     const { rerender } = render(
@@ -578,13 +628,14 @@ describe("FE-UP2: Subscription Checkout Quote & Classification UX", () => {
       />
     );
 
-    await act(async () => {
-      await hook.requestQuote("Membership");
+    // Alice starts in-flight request
+    act(() => {
+      hook.requestQuote("Membership");
     });
 
-    expect(hook.quote?.planCode).toBe("Membership");
+    expect(hook.loading).toBe(true);
 
-    // Owner switches to Bob
+    // Owner switches to Bob while request is in flight
     rerender(
       <HookTestComponent
         ownerId="owner-Bob"
@@ -594,7 +645,26 @@ describe("FE-UP2: Subscription Checkout Quote & Classification UX", () => {
       />
     );
 
-    // Old quote from Alice MUST be ignored / cleared for Bob
+    expect(hook.quote).toBeNull();
+    expect(hook.loading).toBe(false);
+
+    // In-flight request from Alice resolves now
+    await act(async () => {
+      resolveQuote();
+    });
+
+    // Bob still has null quote
+    expect(hook.quote).toBeNull();
+
+    // Alice switches back: Alice must NOT have the old stale quote either
+    rerender(
+      <HookTestComponent
+        ownerId="owner-Alice"
+        onHook={(h) => {
+          hook = h;
+        }}
+      />
+    );
     expect(hook.quote).toBeNull();
   });
 
@@ -953,5 +1023,20 @@ describe("FE-UP2: Subscription Checkout Quote & Classification UX", () => {
     expect(renewCustom).toBeEnabled();
     fireEvent.click(renewCustom);
     expect(onRenewMock).toHaveBeenCalled();
+
+    // 5. Custom plan with price: 0 is NOT classified as Free/disabled
+    rerender(
+      <PlanCard
+        plan={{ code: "ZERO_PRICE_CUSTOM", price: 0, durationDays: 14 }}
+        currentPlanCode="TripPass"
+        onSelect={onSelectMock}
+        onRenew={onRenewMock}
+      />
+    );
+
+    const chooseZeroPrice = screen.getByRole("button", { name: /Chọn ZERO_PRICE_CUSTOM/i });
+    expect(chooseZeroPrice).toBeEnabled();
+    fireEvent.click(chooseZeroPrice);
+    expect(onSelectMock).toHaveBeenCalledWith("ZERO_PRICE_CUSTOM");
   });
 });
