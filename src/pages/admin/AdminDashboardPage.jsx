@@ -22,13 +22,9 @@ import {
 import { ADMIN_PERMISSIONS } from "../../constants";
 import { adminDashboardService } from "../../services/adminDashboardService";
 import { adminPlaceService } from "../../services/adminPlaceService";
-import { masterDataService } from "../../services/masterDataService";
-import { placeService } from "../../services/placeService";
+import { adminStationService } from "../../services/adminStationService";
 import { hasAnyPermission } from "../../utils/adminAccess";
 import { formatPlannedDate, formatTimeInVietnam, minutesNowInVietnam, todayInVietnam } from "../../utils/vnTime";
-
-// Ga dưới mức này (địa điểm trong 800 m) dễ gặp insufficient_candidates khi tạo lịch trình
-const LOW_COVERAGE_THRESHOLD = 5;
 
 const CARD = "rounded-2xl border border-[#eef1f8] bg-white shadow-[0_1px_2px_rgba(15,23,42,.04)]";
 const SELECT_CLASS =
@@ -69,18 +65,8 @@ function getGreeting() {
   return "Chào buổi tối";
 }
 
-// 14 ga (master-data) + số địa điểm quanh ga (metro-clusters: 800 m, mỗi địa điểm chỉ gán ga gần nhất).
-// Ga chưa có địa điểm không xuất hiện trong clusters ⇒ 0.
-async function loadStationCoverage() {
-  const [masterData, clusters] = await Promise.all([
-    masterDataService.getMasterData(),
-    placeService.getMetroClusters(),
-  ]);
-  const countByStation = new Map((clusters ?? []).map((cluster) => [cluster.stationId, cluster.placeCount]));
-  return (masterData?.metroStations ?? [])
-    .map((station) => ({ ...station, placeCount: countByStation.get(station.id) ?? 0 }))
-    .sort((a, b) => a.order - b.order);
-}
+// Đủ 14 ga, số Active khớp metro-clusters; ngưỡng thiếu và bán kính lấy từ Cấu hình hệ thống
+const loadStationCoverage = () => adminStationService.getStations();
 
 // BE-93 đổi admin/places sang PagedResult ⇒ khi đó cần API đếm riêng thay vì tải cả danh sách
 async function loadPlaceSummary() {
@@ -227,9 +213,9 @@ function DataPanel({ title, description, action, icon, source, pendingText, empt
   );
 }
 
-function coverageTone(count) {
-  if (count === 0) return { bar: "bg-error", text: "text-error" };
-  if (count < LOW_COVERAGE_THRESHOLD) return { bar: "bg-amber-400", text: "text-amber-600" };
+function coverageTone(station) {
+  if (station.totals.active === 0) return { bar: "bg-error", text: "text-error" };
+  if (station.isUnderstocked) return { bar: "bg-amber-400", text: "text-amber-600" };
   return { bar: "bg-navy-mid", text: "text-navy-darkest" };
 }
 
@@ -260,13 +246,15 @@ export default function AdminDashboardPage() {
   const topStations = useDashboardData(loadTopStations, canViewRevenue);
   const breakEven = useDashboardData(loadBreakEven, canViewRevenue);
 
-  const stations = coverage.data ?? [];
-  const stationsWithData = stations.filter((station) => station.placeCount > 0).length;
-  const totalPlaces = stations.reduce((sum, station) => sum + station.placeCount, 0);
+  const stations = coverage.data?.stations ?? [];
+  const minActivePlaces = coverage.data?.minActivePlacesPerStation;
+  const radiusMeters = coverage.data?.radiusMeters;
+  const stationsWithData = stations.filter((station) => station.totals.active > 0).length;
+  const totalPlaces = stations.reduce((sum, station) => sum + station.totals.active, 0);
   const lowStations = stations
-    .filter((station) => station.placeCount < LOW_COVERAGE_THRESHOLD)
-    .sort((a, b) => a.placeCount - b.placeCount || a.order - b.order);
-  const maxCount = Math.max(1, ...stations.map((station) => station.placeCount));
+    .filter((station) => station.isUnderstocked)
+    .sort((a, b) => a.totals.active - b.totals.active || a.order - b.order);
+  const maxCount = Math.max(1, ...stations.map((station) => station.totals.active));
   const isLoading = (source) => source.status === "loading";
 
   const handlePresetChange = (key) => {
@@ -310,7 +298,11 @@ export default function AdminDashboardPage() {
           <SectionHeading
             id="coverage-title"
             title="Dữ liệu địa điểm quanh ga"
-            description="Địa điểm trong bán kính 800 m, mỗi địa điểm tính cho ga gần nhất."
+            description={
+              radiusMeters
+                ? `Địa điểm đang hoạt động trong bán kính ${countFormatter.format(radiusMeters)} m, mỗi địa điểm tính cho ga gần nhất.`
+                : "Địa điểm đang hoạt động quanh ga, mỗi địa điểm tính cho ga gần nhất."
+            }
             action={
               <Link to="/admin/stations" className="inline-flex items-center gap-1 text-sm font-semibold text-navy-mid hover:text-navy-darkest">
                 Quản lý Ga Metro
@@ -348,7 +340,11 @@ export default function AdminDashboardPage() {
               loading={isLoading(coverage)}
               value={coverage.data ? lowStations.length : "—"}
               suffix={coverage.data ? "ga" : null}
-              caption={`Dưới ${LOW_COVERAGE_THRESHOLD} địa điểm, dễ không tạo được lịch trình`}
+              caption={
+                minActivePlaces
+                  ? `Dưới ${minActivePlaces} địa điểm, dễ không tạo được lịch trình`
+                  : "Dưới ngưỡng tối thiểu, dễ không tạo được lịch trình"
+              }
             />
             <MetricCard
               label="Chờ duyệt"
@@ -367,7 +363,7 @@ export default function AdminDashboardPage() {
                 <h3 className="font-bold text-navy-darkest">Độ phủ theo ga</h3>
                 <div className="flex flex-wrap gap-3 text-xs text-text-muted">
                   <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-navy-mid" />Đủ dữ liệu</span>
-                  <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-400" />Dưới {LOW_COVERAGE_THRESHOLD}</span>
+                  <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-400" />Dưới {minActivePlaces ?? "ngưỡng"}</span>
                   <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-error" />Chưa có</span>
                 </div>
               </div>
@@ -381,7 +377,7 @@ export default function AdminDashboardPage() {
               ) : (
                 <ul className="mt-4 grid gap-x-8 sm:grid-cols-2">
                   {stations.map((station) => {
-                    const tone = coverageTone(station.placeCount);
+                    const tone = coverageTone(station);
                     return (
                       <li key={station.id} className="flex items-center gap-3 border-b border-[#f1f3f9] py-3">
                         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-surface-container-low text-xs font-bold text-navy-darkest">
@@ -390,10 +386,10 @@ export default function AdminDashboardPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
                             <p className="truncate text-sm font-semibold text-on-surface">{station.name}</p>
-                            <span className={`shrink-0 text-sm font-bold ${tone.text}`}>{station.placeCount}</span>
+                            <span className={`shrink-0 text-sm font-bold ${tone.text}`}>{station.totals.active}</span>
                           </div>
                           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-container-low">
-                            <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${(station.placeCount / maxCount) * 100}%` }} />
+                            <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${(station.totals.active / maxCount) * 100}%` }} />
                           </div>
                         </div>
                       </li>
@@ -425,7 +421,7 @@ export default function AdminDashboardPage() {
               ) : (
                 <ul className="mt-4 flex-1 space-y-2">
                   {lowStations.map((station) => {
-                    const tone = coverageTone(station.placeCount);
+                    const tone = coverageTone(station);
                     return (
                       <li key={station.id} className="flex items-center justify-between gap-3 rounded-[10px] bg-surface px-3.5 py-2.5">
                         <span className="min-w-0 truncate text-sm font-medium text-on-surface">
@@ -433,7 +429,7 @@ export default function AdminDashboardPage() {
                           {station.name}
                         </span>
                         <span className={`shrink-0 text-xs font-semibold ${tone.text}`}>
-                          {station.placeCount === 0 ? "Chưa có" : `${station.placeCount} địa điểm`}
+                          {station.totals.active === 0 ? "Chưa có" : `${station.totals.active} địa điểm`} · thiếu {station.shortfall}
                         </span>
                       </li>
                     );

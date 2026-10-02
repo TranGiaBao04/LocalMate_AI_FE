@@ -31,10 +31,16 @@ const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage")
 const AdminStationsPage = lazy(() => import("./pages/admin/AdminStationsPage"));
 const AdminPlansPage = lazy(() => import("./pages/admin/AdminPlansPage"));
 const AdminTransactionsPage = lazy(() => import("./pages/admin/AdminTransactionsPage"));
+const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
 const AdminSectionPlaceholder = lazy(() => import("./pages/admin/AdminSectionPlaceholder"));
 
 // Mục đã có trang thật; mục còn lại hiện placeholder
-const ADMIN_PAGES = { stations: AdminStationsPage, plans: AdminPlansPage, transactions: AdminTransactionsPage };
+const ADMIN_PAGES = {
+  stations: AdminStationsPage,
+  plans: AdminPlansPage,
+  transactions: AdminTransactionsPage,
+  settings: AdminSettingsPage,
+};
 
 export default function App() {
   const { pathname } = useLocation();

@@ -62,3 +62,14 @@ export function formatTimeInVietnam(isoDateTime) {
     hourCycle: "h23",
   }).format(new Date(isoDateTime));
 }
+
+// "2026-10-02T03:15:00Z" (UTC) -> "10:15 02/10/2026" giờ VN
+export function formatDateTimeInVietnam(isoDateTime) {
+  const day = new Intl.DateTimeFormat("vi-VN", {
+    timeZone: VN_TZ,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(isoDateTime));
+  return `${formatTimeInVietnam(isoDateTime)} ${day}`;
+}
