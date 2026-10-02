@@ -211,6 +211,13 @@ describe("FE-UP1: Subscription Upgrade Contract Boundary", () => {
       listPrice: 59000,
       creditAmount: 10000,
     });
+
+    // Shape checks reject missing required fields or invalid amounts
+    expect(isPaymentIntent({ orderId: "123", amount: 50000 })).toBe(false); // missing status
+    expect(isPaymentIntent({ orderId: "123", status: "Pending" })).toBe(false); // missing amount
+    expect(isPaymentIntent({ orderId: "", amount: 50000, status: "Pending" })).toBe(false); // empty orderId
+    expect(isPaymentIntent({ orderId: "123", amount: NaN, status: "Pending" })).toBe(false); // NaN amount
+    expect(isPaymentIntent({ orderId: "123", amount: -10, status: "Pending" })).toBe(false); // negative amount
   });
 
   // --------------------------------------------------------------------------
@@ -261,6 +268,13 @@ describe("FE-UP1: Subscription Upgrade Contract Boundary", () => {
     expect(normalized).not.toHaveProperty("productKind");
     expect(normalized).not.toHaveProperty("planVersionId");
     expect(normalized).not.toHaveProperty("periodId");
+
+    // Shape checks reject missing required fields or invalid amounts
+    expect(isOwnedSubscriptionOrder({ orderId: "123", amount: 50000 })).toBe(false); // missing status and planCode
+    expect(isOwnedSubscriptionOrder({ orderId: "123", amount: 50000, status: "Paid" })).toBe(false); // missing planCode
+    expect(isOwnedSubscriptionOrder({ orderId: "123", amount: 50000, planCode: "Membership" })).toBe(false); // missing status
+    expect(isOwnedSubscriptionOrder({ orderId: "123", amount: -1, status: "Paid", planCode: "Membership" })).toBe(false); // negative amount
+    expect(isOwnedSubscriptionOrder({ orderId: "123", amount: NaN, status: "Paid", planCode: "Membership" })).toBe(false); // NaN amount
   });
 
   // --------------------------------------------------------------------------
@@ -320,6 +334,45 @@ describe("FE-UP1: Subscription Upgrade Contract Boundary", () => {
     };
     expect(isCheckoutQuote(invalidRenewalQuote)).toBe(false);
     expect(safeNormalizeCheckoutQuote(invalidRenewalQuote)).toBeNull();
+
+    // Financial numbers must be finite and non-negative
+    expect(isCheckoutQuote({ ...purchaseQuote, listPrice: NaN })).toBe(false);
+    expect(isCheckoutQuote({ ...purchaseQuote, creditAmount: NaN })).toBe(false);
+    expect(isCheckoutQuote({ ...purchaseQuote, amount: -1 })).toBe(false);
+    expect(isCheckoutQuote({ ...purchaseQuote, durationDays: NaN })).toBe(false);
+    expect(isCheckoutQuote({ ...purchaseQuote, durationDays: -5 })).toBe(false);
+
+    // Malformed credits elements are rejected
+    expect(
+      isCheckoutQuote({
+        ...purchaseQuote,
+        credits: [{ planCode: "", planName: "Pass", remainingDays: 5, creditAmount: 1000 }],
+      })
+    ).toBe(false);
+    expect(
+      isCheckoutQuote({
+        ...purchaseQuote,
+        credits: [{ planCode: "Pass", planName: "Pass", remainingDays: -1, creditAmount: 1000 }],
+      })
+    ).toBe(false);
+    expect(
+      isCheckoutQuote({
+        ...purchaseQuote,
+        credits: [{ planCode: "Pass", planName: "Pass", remainingDays: NaN, creditAmount: 1000 }],
+      })
+    ).toBe(false);
+    expect(
+      isCheckoutQuote({
+        ...purchaseQuote,
+        credits: [{ planCode: "Pass", planName: "Pass", remainingDays: 5, creditAmount: -100 }],
+      })
+    ).toBe(false);
+    expect(
+      isCheckoutQuote({
+        ...purchaseQuote,
+        credits: [{ planCode: "Pass", planName: "Pass", remainingDays: 5, creditAmount: NaN }],
+      })
+    ).toBe(false);
   });
 
   // --------------------------------------------------------------------------
@@ -566,8 +619,46 @@ describe("FE-UP1: Subscription Upgrade Contract Boundary", () => {
     expect(extMeta).not.toBeNull();
     expect(extMeta.orderId).toBe("ord-ext");
     expect(extMeta.checkoutUrl).toBe("https://pay.payos.vn/ext");
+    expect(extMeta.type).toBe("Upgrade");
     expect(extMeta).not.toHaveProperty("status");
     expect(extMeta).not.toHaveProperty("planCode");
+
+    // 14f: RFC ProblemDetails type URI at root does not pollute type when extensions.type exists
+    const rfcProblemWithExtType = {
+      type: "https://tools.ietf.org/html/rfc9110#section-15.5.10",
+      title: "Conflict",
+      status: 409,
+      code: "pending_order_exists",
+      orderId: "ord-rfc-1",
+      amount: 49000,
+      extensions: {
+        type: "Upgrade",
+        listPrice: 59000,
+        creditAmount: 10000,
+      },
+    };
+    const rfcMeta1 = extractPendingPaymentMetadata(rfcProblemWithExtType);
+    expect(rfcMeta1).not.toBeNull();
+    expect(rfcMeta1.orderId).toBe("ord-rfc-1");
+    expect(rfcMeta1.type).toBe("Upgrade"); // NOT the RFC URI!
+    expect(rfcMeta1).not.toHaveProperty("status");
+    expect(rfcMeta1).not.toHaveProperty("planCode");
+
+    // 14g: RFC ProblemDetails type URI at root without extensions.type produces undefined type
+    const rfcProblemWithoutExtType = {
+      type: "https://tools.ietf.org/html/rfc9110#section-15.5.10",
+      title: "Conflict",
+      status: 409,
+      code: "pending_order_exists",
+      orderId: "ord-rfc-2",
+      amount: 49000,
+    };
+    const rfcMeta2 = extractPendingPaymentMetadata(rfcProblemWithoutExtType);
+    expect(rfcMeta2).not.toBeNull();
+    expect(rfcMeta2.orderId).toBe("ord-rfc-2");
+    expect(rfcMeta2.type).toBeUndefined(); // NOT the RFC URI!
+    expect(rfcMeta2).not.toHaveProperty("status");
+    expect(rfcMeta2).not.toHaveProperty("planCode");
   });
 
   // --------------------------------------------------------------------------
@@ -714,6 +805,26 @@ describe("FE-UP1: Subscription Upgrade Contract Boundary", () => {
     expect(isUnlimitedQuota(0)).toBe(false); // 0 is zero, not unlimited
     expect(isUnlimitedQuota(10)).toBe(false);
     expect(isUnlimitedQuota(undefined)).toBe(false); // Missing is not unlimited
+
+    // Missing / undefined quota must remain undefined and NOT be coerced to null (unlimited)
+    const missingQuotaSub = {
+      plan: "TripPass",
+      usage: {
+        generateUsed: 5,
+        // generateLimit omitted / undefined
+        resetAt: "2026-11-02T16:00:00Z",
+      },
+      savedTrips: {
+        used: 1,
+        // limit omitted / undefined
+      },
+    };
+    expect(isMySubscription(missingQuotaSub)).toBe(true);
+    const normalizedMissing = safeNormalizeMySubscription(missingQuotaSub);
+    expect(normalizedMissing.usage.generateLimit).toBeUndefined();
+    expect(isUnlimitedQuota(normalizedMissing.usage.generateLimit)).toBe(false);
+    expect(normalizedMissing.savedTrips.limit).toBeUndefined();
+    expect(isUnlimitedQuota(normalizedMissing.savedTrips.limit)).toBe(false);
   });
 
   // --------------------------------------------------------------------------

@@ -336,6 +336,18 @@ export function isUnlimitedQuota(limit) {
 // 5. SAFE METADATA EXTRACTION (409 CONFLICT)
 // ============================================================================
 
+function isRfcProblemUri(value) {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  return (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("about:") ||
+    trimmed.includes("tools.ietf.org") ||
+    trimmed.includes("rfc")
+  );
+}
+
 /**
  * Extracts safe 409 Conflict ProblemDetails financial metadata.
  *
@@ -368,6 +380,18 @@ export function extractPendingPaymentMetadata(source) {
   }
 
   const getField = (field) => {
+    if (field === "type") {
+      // ProblemDetails RFC 7807/9110 defines root `type` as a problem type URI (e.g. "https://tools.ietf.org/...").
+      // The payment order type ("Purchase" | "Renewal" | "Upgrade") is stored in extensions.type,
+      // or at root when extensions are flattened without an RFC URI.
+      if (typeof ext.type === "string" && !isRfcProblemUri(ext.type)) {
+        return ext.type.trim();
+      }
+      if (typeof payload.type === "string" && !isRfcProblemUri(payload.type)) {
+        return payload.type.trim();
+      }
+      return undefined;
+    }
     if (payload[field] !== undefined) return payload[field];
     if (ext[field] !== undefined) return ext[field];
     return undefined;
@@ -408,10 +432,14 @@ export function isCheckoutQuote(data) {
     return false;
   }
   if (
-    typeof data.listPrice !== "number" ||
-    typeof data.creditAmount !== "number" ||
-    typeof data.amount !== "number" ||
-    typeof data.durationDays !== "number"
+    !Number.isFinite(data.listPrice) ||
+    data.listPrice < 0 ||
+    !Number.isFinite(data.creditAmount) ||
+    data.creditAmount < 0 ||
+    !Number.isFinite(data.amount) ||
+    data.amount < 0 ||
+    !Number.isFinite(data.durationDays) ||
+    data.durationDays < 0
   ) {
     return false;
   }
@@ -422,9 +450,12 @@ export function isCheckoutQuote(data) {
       c &&
       typeof c === "object" &&
       typeof c.planCode === "string" &&
+      Boolean(c.planCode.trim()) &&
       typeof c.planName === "string" &&
-      typeof c.remainingDays === "number" &&
-      typeof c.creditAmount === "number"
+      Number.isFinite(c.remainingDays) &&
+      c.remainingDays >= 0 &&
+      Number.isFinite(c.creditAmount) &&
+      c.creditAmount >= 0
   );
 }
 
@@ -463,7 +494,8 @@ export function safeNormalizeCheckoutQuote(data) {
 export function isPaymentIntent(data) {
   if (!data || typeof data !== "object") return false;
   if (typeof data.orderId !== "string" || !data.orderId.trim()) return false;
-  if (typeof data.amount !== "number") return false;
+  if (!Number.isFinite(data.amount) || data.amount < 0) return false;
+  if (typeof data.status !== "string" || !data.status.trim()) return false;
   return true;
 }
 
@@ -496,7 +528,9 @@ export function safeNormalizePaymentIntent(data) {
 export function isOwnedSubscriptionOrder(data) {
   if (!data || typeof data !== "object") return false;
   if (typeof data.orderId !== "string" || !data.orderId.trim()) return false;
-  if (typeof data.amount !== "number") return false;
+  if (typeof data.status !== "string" || !data.status.trim()) return false;
+  if (typeof data.planCode !== "string" || !data.planCode.trim()) return false;
+  if (!Number.isFinite(data.amount) || data.amount < 0) return false;
   return true;
 }
 
@@ -529,7 +563,7 @@ export function safeNormalizeOwnedSubscriptionOrder(data) {
  */
 export function isMySubscription(data) {
   if (!data || typeof data !== "object") return false;
-  if (typeof data.plan !== "string") return false;
+  if (typeof data.plan !== "string" || !data.plan.trim()) return false;
   return true;
 }
 
@@ -545,8 +579,12 @@ export function safeNormalizeMySubscription(data) {
     data.usage && typeof data.usage === "object"
       ? {
           generateUsed: data.usage.generateUsed,
-          generateLimit: data.usage.generateLimit ?? null,
-          resetAt: data.usage.resetAt ?? null,
+          generateLimit:
+            data.usage.generateLimit !== undefined
+              ? data.usage.generateLimit
+              : undefined,
+          resetAt:
+            data.usage.resetAt !== undefined ? data.usage.resetAt : null,
         }
       : null;
 
@@ -554,15 +592,19 @@ export function safeNormalizeMySubscription(data) {
     data.savedTrips && typeof data.savedTrips === "object"
       ? {
           used: data.savedTrips.used,
-          limit: data.savedTrips.limit ?? null,
+          limit:
+            data.savedTrips.limit !== undefined
+              ? data.savedTrips.limit
+              : undefined,
         }
       : null;
 
   return {
     plan: data.plan,
-    endsAt: data.endsAt ?? null,
+    endsAt: data.endsAt !== undefined ? data.endsAt : null,
     usage,
     savedTrips,
-    effectiveUntil: data.effectiveUntil ?? null,
+    effectiveUntil:
+      data.effectiveUntil !== undefined ? data.effectiveUntil : null,
   };
 }
