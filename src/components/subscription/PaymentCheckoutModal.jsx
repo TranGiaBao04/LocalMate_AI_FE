@@ -14,7 +14,7 @@ export default function PaymentCheckoutModal({
   onRetryPayment,
   onRetryCheckout,
 }) {
-  const [orderStatus, setOrderStatus] = useState(() => paymentIntent?.status || PAYMENT_ORDER_STATUS.PENDING);
+  const [orderStatus, setOrderStatus] = useState(() => paymentIntent?.status ?? "unknown");
   const [secondsLeft, setSecondsLeft] = useState(() => {
     if (!paymentIntent?.expiresAt) return 0;
     const diffMs = new Date(paymentIntent.expiresAt).getTime() - Date.now();
@@ -63,7 +63,7 @@ export default function PaymentCheckoutModal({
       reqSeqRef.current += 1;
       isCheckingRef.current = false;
 
-      setOrderStatus(paymentIntent?.status || PAYMENT_ORDER_STATUS.PENDING);
+      setOrderStatus(paymentIntent?.status ?? "unknown");
       setPollError("");
       const diffMs = expiresAt ? new Date(expiresAt).getTime() - Date.now() : 0;
       setSecondsLeft(Math.max(0, Math.floor(diffMs / 1000)));
@@ -76,6 +76,7 @@ export default function PaymentCheckoutModal({
     } else if (paymentIntent?.status && paymentIntent.status !== lastStatusRef.current) {
       lastStatusRef.current = paymentIntent.status;
       reqSeqRef.current += 1;
+      isCheckingRef.current = false;
       setOrderStatus(paymentIntent.status);
     }
   }, [orderId, ownerId, paymentIntent?.status, expiresAt, stopPolling]);
@@ -500,7 +501,7 @@ export default function PaymentCheckoutModal({
               </div>
               <div>
                 <h4 className="text-title-lg font-bold text-on-surface">
-                  Trạng thái giao dịch: {orderStatus}
+                  Trạng thái giao dịch: {orderStatus === "unknown" ? "Chưa xác định" : orderStatus}
                 </h4>
                 <p className="text-body-md text-on-surface-variant mt-1.5">
                   Hệ thống đang ghi nhận trạng thái từ máy chủ. Vui lòng kiểm tra lại.

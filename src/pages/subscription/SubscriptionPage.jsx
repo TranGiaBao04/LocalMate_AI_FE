@@ -72,6 +72,14 @@ export default function SubscriptionPage() {
     }
   }, [quoteError, refreshSubscription, refreshPlans]);
 
+  // Đảm bảo ranh giới tài khoản: Đóng modal thanh toán và huỷ intent nếu người dùng thay đổi hoặc đăng xuất
+  const [prevUserId, setPrevUserId] = useState(user?.id);
+  if (prevUserId !== user?.id) {
+    setPrevUserId(user?.id);
+    setPaymentIntent(null);
+    setIsPaymentModalOpen(false);
+  }
+
   // Khôi phục phiên thanh toán đang chờ từ owner-scoped session (Session Resume)
   // Backend GET /orders/{orderId} là cơ quan thẩm quyền duy nhất xác nhận trạng thái
   useEffect(() => {
@@ -124,6 +132,7 @@ export default function SubscriptionPage() {
             creditAmount: order.creditAmount,
             ownerId: user.id,
           };
+          saveSubscriptionPaymentSession(user.id, reviewIntent);
           setPaymentIntent(reviewIntent);
           setIsPaymentModalOpen(true);
         } else if (
@@ -229,18 +238,22 @@ export default function SubscriptionPage() {
             return;
           }
 
+          const isReviewRequired =
+            code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PAYMENT_REVIEW_REQUIRED ||
+            order?.status === PAYMENT_ORDER_STATUS.REVIEW_REQUIRED;
+
           const intent = {
             orderId: metadata.orderId,
-            status: order?.status,
-            planCode: order?.planCode || planCode,
-            flow: order?.type === "Upgrade" ? "upgrade" : "purchase",
+            status: order?.status || (isReviewRequired ? PAYMENT_ORDER_STATUS.REVIEW_REQUIRED : undefined),
+            planCode: order?.planCode || (code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.ANOTHER_PENDING_ORDER ? undefined : planCode),
+            flow: order?.type === "Upgrade" ? "upgrade" : order?.type === "Renewal" ? "renew" : "purchase",
             amount: order?.amount ?? metadata.amount,
             expiresAt: order?.expiresAt || metadata.expiresAt || null,
             type: order?.type || metadata.type,
             listPrice: order?.listPrice ?? metadata.listPrice,
             creditAmount: order?.creditAmount ?? metadata.creditAmount,
-            qrCode: metadata.qrCode || null,
-            checkoutUrl: metadata.checkoutUrl || null,
+            qrCode: isReviewRequired ? null : (metadata.qrCode || null),
+            checkoutUrl: isReviewRequired ? null : (metadata.checkoutUrl || null),
             ownerId: user?.id,
           };
 
@@ -339,18 +352,22 @@ export default function SubscriptionPage() {
             return;
           }
 
+          const isReviewRequired =
+            code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PAYMENT_REVIEW_REQUIRED ||
+            order?.status === PAYMENT_ORDER_STATUS.REVIEW_REQUIRED;
+
           const intent = {
             orderId: metadata.orderId,
-            status: order?.status,
-            planCode: order?.planCode || subscription?.plan,
+            status: order?.status || (isReviewRequired ? PAYMENT_ORDER_STATUS.REVIEW_REQUIRED : undefined),
+            planCode: order?.planCode || (code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.ANOTHER_PENDING_ORDER ? undefined : subscription?.plan),
             flow: "renew",
             amount: order?.amount ?? metadata.amount,
             expiresAt: order?.expiresAt || metadata.expiresAt || null,
             type: order?.type || metadata.type,
             listPrice: order?.listPrice ?? metadata.listPrice,
             creditAmount: order?.creditAmount ?? metadata.creditAmount,
-            qrCode: metadata.qrCode || null,
-            checkoutUrl: metadata.checkoutUrl || null,
+            qrCode: isReviewRequired ? null : (metadata.qrCode || null),
+            checkoutUrl: isReviewRequired ? null : (metadata.checkoutUrl || null),
             ownerId: user?.id,
           };
 

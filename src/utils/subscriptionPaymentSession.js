@@ -131,7 +131,19 @@ export function clearSubscriptionPaymentSession(ownerId) {
 
   try {
     sessionStorage.removeItem(key);
-    sessionStorage.removeItem(LEGACY_ACTIVE_PAYMENT_SESSION_KEY);
+
+    // Only clear legacy key alias if it belongs to this owner or has invalid/no owner
+    const legacyRaw = sessionStorage.getItem(LEGACY_ACTIVE_PAYMENT_SESSION_KEY);
+    if (legacyRaw) {
+      try {
+        const parsed = JSON.parse(legacyRaw);
+        if (!parsed?.ownerId || parsed.ownerId === String(ownerId).trim()) {
+          sessionStorage.removeItem(LEGACY_ACTIVE_PAYMENT_SESSION_KEY);
+        }
+      } catch {
+        sessionStorage.removeItem(LEGACY_ACTIVE_PAYMENT_SESSION_KEY);
+      }
+    }
   } catch {
     // Ignore
   }

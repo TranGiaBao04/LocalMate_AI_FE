@@ -29,11 +29,17 @@ export default function PaymentReturnPage({ mode = "success" }) {
   // Xác định luồng sản phẩm tách biệt rõ ràng
   // TUYỆT ĐỐI KHÔNG fallback sang Single khi gặp lỗi Subscription
   const flow = useMemo(() => {
+    // 1. Khớp chính xác orderId với Single intent
     if (singleIntent?.orderId && searchOrderId === singleIntent.orderId) return "single";
+    // 2. Khớp chính xác orderId với Subscription session
     if (subscriptionOrderId && searchOrderId === subscriptionOrderId) return "subscription";
-    if (singleIntent?.orderId && !subscriptionOrderId) return "single";
-    if (subscriptionOrderId) return "subscription";
-    return "subscription"; // Mặc định là subscription nếu không có explicit Single evidence
+    // 3. Nếu không có query orderId, ưu tiên khôi phục intent cục bộ
+    if (!searchOrderId) {
+      if (subscriptionOrderId) return "subscription";
+      if (singleIntent?.orderId) return "single";
+    }
+    // 4. Khi có orderId lạ không khớp, mặc định là subscription (sản phẩm chính) - KHÔNG suy diễn Single
+    return "subscription";
   }, [singleIntent?.orderId, subscriptionOrderId, searchOrderId]);
 
   const targetOrderId =
@@ -60,6 +66,13 @@ export default function PaymentReturnPage({ mode = "success" }) {
       stopPolling();
     };
   }, [stopPolling]);
+
+  const [prevTargetOrderId, setPrevTargetOrderId] = useState(targetOrderId);
+  if (prevTargetOrderId !== targetOrderId) {
+    setPrevTargetOrderId(targetOrderId);
+    setOrder(null);
+    setError("");
+  }
 
   // Luôn tra cứu đơn hàng từ server cho cả luồng return và cancel
   // Redirect query hoặc cancel param KHÔNG được tự ý gán Paid/Failed/Expired
@@ -318,7 +331,41 @@ export default function PaymentReturnPage({ mode = "success" }) {
           )
         ) : (
           /* ================= SUBSCRIPTION FLOW (SERVER AUTHORITATIVE) ================= */
-          order?.status === PAYMENT_ORDER_STATUS.PAID ? (
+          error ? (
+            <>
+              <div className="w-20 h-20 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center mx-auto shadow-sm">
+                <span className="material-symbols-outlined text-[48px]">
+                  info
+                </span>
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-title-lg font-bold text-on-surface">
+                  Thông tin thanh toán
+                </h2>
+                <p className="text-body-md text-on-surface-variant">
+                  {error}
+                </p>
+              </div>
+              <div className="space-y-3 pt-2">
+                {targetOrderId && (
+                  <button
+                    type="button"
+                    onClick={handleRetryLookup}
+                    className="w-full py-3.5 px-4 rounded-xl bg-primary text-on-primary font-bold text-label-md hover:bg-primary/90 transition-all shadow-sm"
+                  >
+                    Thử kiểm tra lại
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => navigate("/subscription")}
+                  className="w-full py-3.5 px-4 rounded-xl bg-surface-container-high text-on-surface font-bold text-label-md hover:bg-surface-container-highest transition-all"
+                >
+                  Về trang gói dịch vụ
+                </button>
+              </div>
+            </>
+          ) : order?.status === PAYMENT_ORDER_STATUS.PAID ? (
             <>
               <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
                 <span

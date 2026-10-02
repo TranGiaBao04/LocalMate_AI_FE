@@ -223,5 +223,21 @@ describe("FE-UP1: Payment & Account Transport Boundary", () => {
       expect(getSubscriptionPaymentSession(undefined)).toBeNull();
       expect(getSubscriptionPaymentSession("")).toBeNull();
     });
+
+    it("clearing session for account B does not erase account A legacy alias", () => {
+      sessionStorage.clear();
+      saveSubscriptionPaymentSession("user-a", { orderId: "order-a-123" });
+      saveSubscriptionPaymentSession("user-b", { orderId: "order-b-456" });
+
+      sessionStorage.setItem(
+        "localmate_active_payment_intent",
+        JSON.stringify({ ownerId: "user-a", orderId: "order-a-123" })
+      );
+
+      clearSubscriptionPaymentSession("user-b");
+
+      expect(getSubscriptionPaymentSession("user-a")).not.toBeNull();
+      expect(sessionStorage.getItem("localmate_active_payment_intent")).toContain("order-a-123");
+    });
   });
 });

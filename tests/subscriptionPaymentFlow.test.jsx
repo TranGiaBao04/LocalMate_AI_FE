@@ -1393,4 +1393,262 @@ describe("FE-UP3: Server-Authoritative Payment Lifecycle", () => {
     expect(session.qrCode).toBe("qr-p36");
     expect(session.checkoutUrl).toBe("https://pay.payos.vn/p36");
   });
+
+  // ==========================================================================
+  // P37: undefined status in modal does not coerce to Pending
+  // ==========================================================================
+  it("P37: undefined status in modal does not coerce to Pending", () => {
+    const paymentIntent = {
+      orderId: "order-p37",
+      status: undefined,
+      qrCode: "qr-p37-should-not-show",
+      amount: 59000,
+    };
+
+    render(
+      <PaymentCheckoutModal
+        isOpen={true}
+        onClose={vi.fn()}
+        paymentIntent={paymentIntent}
+      />
+    );
+
+    // Must NOT coerce to Pending or display QR code
+    expect(screen.queryByText("Chờ thanh toán")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Mở ứng dụng Ngân hàng/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Trạng thái giao dịch: Chưa xác định/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Kiểm tra lại" })).toBeInTheDocument();
+  });
+
+  // ==========================================================================
+  // P38: 409 payment_review_required with QR metadata strips QR and presents review view
+  // ==========================================================================
+  it("P38: 409 payment_review_required with QR metadata strips QR and presents review view", async () => {
+    mockContexts();
+    vi.spyOn(subscriptionService, "getCheckoutQuote").mockResolvedValue({
+      planCode: "Membership",
+      type: "Purchase",
+      listPrice: 59000,
+      creditAmount: 0,
+      amount: 59000,
+      durationDays: 30,
+      credits: [],
+    });
+
+    vi.spyOn(subscriptionService, "checkout").mockRejectedValue({
+      status: 409,
+      code: "payment_review_required",
+      data: {
+        orderId: "order-p38-rev",
+        qrCode: "data:image/png;base64,staleQr",
+        checkoutUrl: "https://pay.payos.vn/stale-url",
+      },
+    });
+
+    vi.spyOn(subscriptionService, "getOrder").mockResolvedValue({
+      orderId: "order-p38-rev",
+      status: PAYMENT_ORDER_STATUS.REVIEW_REQUIRED,
+      planCode: "Membership",
+      amount: 59000,
+      type: PAYMENT_ORDER_TYPE.PURCHASE,
+      listPrice: 59000,
+      creditAmount: 0,
+    });
+
+    render(
+      <MemoryRouter>
+        <SubscriptionPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Chọn Membership/i }));
+    await waitFor(() => expect(screen.getByTestId("quote-confirm-button")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("quote-confirm-button"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Thanh toán đang cần được kiểm tra")).toBeInTheDocument();
+      // Must NOT render stale QR or checkout link
+      expect(screen.queryByText(/Mở ứng dụng Ngân hàng/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Mở trang thanh toán PayOS/i })).not.toBeInTheDocument();
+    });
+  });
+
+  // ==========================================================================
+  // P39: 409 another_pending_order with failed GET does not fabricate requested planCode
+  // ==========================================================================
+  it("P39: 409 another_pending_order with failed GET does not fabricate requested planCode", async () => {
+    mockContexts();
+    vi.spyOn(subscriptionService, "getCheckoutQuote").mockResolvedValue({
+      planCode: "Membership",
+      type: "Purchase",
+      listPrice: 59000,
+      creditAmount: 0,
+      amount: 59000,
+      durationDays: 30,
+      credits: [],
+    });
+
+    vi.spyOn(subscriptionService, "checkout").mockRejectedValue({
+      status: 409,
+      code: "another_pending_order",
+      data: {
+        orderId: "another-order-p39",
+      },
+    });
+
+    // GET order fails (network failure)
+    vi.spyOn(subscriptionService, "getOrder").mockRejectedValue(new Error("Network failed"));
+
+    render(
+      <MemoryRouter>
+        <SubscriptionPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Chọn Membership/i }));
+    await waitFor(() => expect(screen.getByTestId("quote-confirm-button")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("quote-confirm-button"));
+
+    await waitFor(() => {
+      // Must NOT fabricate Membership plan title
+      expect(screen.queryByText(/Thanh toán Membership/i)).not.toBeInTheDocument();
+      // Displays neutral service name or generic title
+      expect(screen.getByText(/Thanh toán Gói cước/i)).toBeInTheDocument();
+    });
+  });
+
+  // ==========================================================================
+  // P40: payment return page with mismatched query orderId does not fall back to Single
+  // ==========================================================================
+  it("P40: payment return page with mismatched query orderId does not fall back to Single", async () => {
+    // Single intent exists for different order
+    sessionStorage.setItem(
+      "localmate_single_payment_intent",
+      JSON.stringify({ orderId: "single-existing-123", flow: "single" })
+    );
+
+    mockContexts();
+    const singleGetOrderSpy = vi.spyOn(itineraryPurchaseService, "getOrder");
+    const subGetOrderSpy = vi.spyOn(subscriptionService, "getOrder").mockResolvedValue({
+      orderId: "sub-unrelated-456",
+      status: PAYMENT_ORDER_STATUS.PAID,
+      planCode: "Membership",
+      amount: 59000,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/payment/success?orderId=sub-unrelated-456"]}>
+        <Routes>
+          <Route path="/payment/success" element={<PaymentReturnPage mode="success" />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      // Must route to subscription, NOT single
+      expect(subGetOrderSpy).toHaveBeenCalledWith("sub-unrelated-456");
+      expect(singleGetOrderSpy).not.toHaveBeenCalled();
+      expect(screen.getByText("Thanh toán thành công!")).toBeInTheDocument();
+      expect(screen.queryByText(/chốt lịch trình/i)).not.toBeInTheDocument();
+    });
+  });
+
+  // ==========================================================================
+  // P41: payment return page resets order and displays error when lookup fails
+  // ==========================================================================
+  it("P41: payment return page resets order and displays error when lookup fails", async () => {
+    mockContexts();
+    vi.spyOn(subscriptionService, "getOrder").mockRejectedValue(new Error("404 payment_order_not_found"));
+
+    render(
+      <MemoryRouter initialEntries={["/payment/success?orderId=unknown-order-p41"]}>
+        <Routes>
+          <Route path="/payment/success" element={<PaymentReturnPage mode="success" />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("404 payment_order_not_found")).toBeInTheDocument();
+      expect(screen.queryByText("Thanh toán thành công!")).not.toBeInTheDocument();
+    });
+  });
+
+  // ==========================================================================
+  // P42: account change on SubscriptionPage clears active payment intent and closes modal
+  // ==========================================================================
+  it("P42: account change on SubscriptionPage clears active payment intent and closes modal", async () => {
+    const authSpy = vi.spyOn(AuthContextModule, "useAuth").mockReturnValue({
+      user: { id: "user-A" },
+      isDemo: false,
+      isLoggedIn: true,
+    });
+
+    vi.spyOn(SubscriptionContextModule, "useSubscription").mockReturnValue({
+      plans: [{ code: "Membership", price: 59000 }],
+      subscription: { plan: "Free" },
+      plansLoading: false,
+      plansError: null,
+      subscriptionLoading: false,
+      subscriptionError: null,
+      refreshPlans: vi.fn(),
+      refreshSubscription: vi.fn(),
+      refreshAll: vi.fn(),
+    });
+
+    vi.spyOn(subscriptionService, "getCheckoutQuote").mockResolvedValue({
+      planCode: "Membership",
+      type: "Purchase",
+      listPrice: 59000,
+      creditAmount: 0,
+      amount: 59000,
+      durationDays: 30,
+      credits: [],
+    });
+
+    vi.spyOn(subscriptionService, "checkout").mockResolvedValue({
+      orderId: "order-user-A",
+      qrCode: "qr-user-A",
+      amount: 59000,
+      status: PAYMENT_ORDER_STATUS.PENDING,
+      type: PAYMENT_ORDER_TYPE.PURCHASE,
+      listPrice: 59000,
+      creditAmount: 0,
+    });
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <SubscriptionPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Chọn Membership/i }));
+    await waitFor(() => expect(screen.getByTestId("quote-confirm-button")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("quote-confirm-button"));
+
+    // User A sees open payment modal
+    await waitFor(() => {
+      expect(screen.getByText("Chờ thanh toán")).toBeInTheDocument();
+    });
+
+    // Account switches to User B (no session)
+    authSpy.mockReturnValue({
+      user: { id: "user-B" },
+      isDemo: false,
+      isLoggedIn: true,
+    });
+
+    rerender(
+      <MemoryRouter>
+        <SubscriptionPage />
+      </MemoryRouter>
+    );
+
+    // User A's payment modal must close
+    await waitFor(() => {
+      expect(screen.queryByText("Chờ thanh toán")).not.toBeInTheDocument();
+    });
+  });
 });
