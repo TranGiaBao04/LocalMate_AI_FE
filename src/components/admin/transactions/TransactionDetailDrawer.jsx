@@ -3,6 +3,7 @@ import StatusBadge from "../ui/StatusBadge";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import EntitlementRepairPanel from "./EntitlementRepairPanel";
 import EntitlementRepairDialog from "./EntitlementRepairDialog";
+import CreditSourcesPanel from "./CreditSourcesPanel";
 import { adminTransactionService } from "../../../services/adminTransactionService";
 import {
   formatVnDateTime,
@@ -24,6 +25,13 @@ const STATUS_BADGE_CONFIG = {
   Pending: { status: "pending", label: "Đang chờ" },
   Failed: { status: "failed", label: "Thất bại" },
   Expired: { status: "inactive", label: "Hết hạn" },
+  ReviewRequired: { status: "info", label: "Cần kiểm tra" },
+};
+
+const OPERATION_LABELS = {
+  Purchase: "Mua",
+  Renewal: "Gia hạn",
+  Upgrade: "Nâng cấp",
 };
 
 function renderStatusPill(status) {
@@ -390,21 +398,35 @@ function TransactionDetailContent({
                     <p className="font-mono text-xs font-medium text-slate-800">{transaction.userEmail || "—"}</p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Gói cước:</span>
+                    <span className="text-xs text-slate-400">Sản phẩm:</span>
                     <p className="font-semibold text-slate-900">
-                      {PLAN_DISPLAY_NAMES[transaction.planCode] || transaction.planName || transaction.planCode || "—"}
+                      {transaction.productKind === "SingleItinerary"
+                        ? "Lịch trình đơn lẻ"
+                        : transaction.planName || transaction.planCode || "Gói đăng ký"}
                     </p>
                   </div>
                   <div>
                     <span className="text-xs text-slate-400">Loại thao tác:</span>
                     <p className="font-semibold text-slate-900">
-                      {transaction.operationType === "Renewal" ? "Gia hạn gói" : "Mua mới gói"}
+                      {OPERATION_LABELS[transaction.operationType] || transaction.operationType || "—"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Số tiền:</span>
+                    <span className="text-xs text-slate-400">Thực trả:</span>
                     <p className="text-base font-bold text-slate-950">
                       {transaction.amount != null ? formatPlanPrice(transaction.amount) : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-400">Credit đã áp dụng:</span>
+                    <p className="text-base font-semibold text-slate-900">
+                      {transaction.creditAmount != null ? formatPlanPrice(transaction.creditAmount) : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-400">Giá gốc:</span>
+                    <p className="text-base font-semibold text-slate-900">
+                      {transaction.listPrice != null ? formatPlanPrice(transaction.listPrice) : "—"}
                     </p>
                   </div>
                   <div>
@@ -453,6 +475,8 @@ function TransactionDetailContent({
                   )}
                 </div>
               </section>
+
+              <CreditSourcesPanel sources={detail.creditSources} />
 
               {/* Section 2: Quyền hội viên & Section 3: Lịch sử khôi phục entitlement */}
               <EntitlementRepairPanel
