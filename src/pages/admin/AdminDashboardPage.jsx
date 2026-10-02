@@ -1,29 +1,65 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { ADMIN_SECTIONS } from "../../components/admin/adminSections";
+import BreakEvenCard from "../../components/admin/dashboard/BreakEvenCard";
+import DashboardRangeFilter from "../../components/admin/dashboard/DashboardRangeFilter";
+import RevenueChart from "../../components/admin/dashboard/RevenueChart";
+import TopStationList from "../../components/admin/dashboard/TopStationList";
+import {
+  DEFAULT_RANGE_PRESET,
+  DEFAULT_STATION_LIMIT,
+  STATION_LIMIT_OPTIONS,
+  countDays,
+  countFormatter,
+  formatDayLabel,
+  formatMonthLabel,
+  getDashboardFieldErrors,
+  recentMonths,
+  resolvePresetRange,
+  vndFormatter,
+} from "../../components/admin/dashboard/dashboardUtils";
 import { ADMIN_PERMISSIONS } from "../../constants";
 import { adminDashboardService } from "../../services/adminDashboardService";
 import { adminPlaceService } from "../../services/adminPlaceService";
 import { masterDataService } from "../../services/masterDataService";
 import { placeService } from "../../services/placeService";
 import { hasAnyPermission } from "../../utils/adminAccess";
-import { addDays, formatPlannedDate, minutesNowInVietnam, todayInVietnam } from "../../utils/vnTime";
+import { formatPlannedDate, formatTimeInVietnam, minutesNowInVietnam, todayInVietnam } from "../../utils/vnTime";
 
 // Ga dưới mức này (địa điểm trong 800 m) dễ gặp insufficient_candidates khi tạo lịch trình
 const LOW_COVERAGE_THRESHOLD = 5;
-const RANGE_OPTIONS = [7, 30];
 
 const CARD = "rounded-2xl border border-[#eef1f8] bg-white shadow-[0_1px_2px_rgba(15,23,42,.04)]";
+const SELECT_CLASS =
+  "h-8 rounded-md border border-[#e3e7f1] bg-white px-2 text-sm text-on-surface outline-none focus:border-navy-mid";
 
-const vndFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
-const countFormatter = new Intl.NumberFormat("vi-VN");
-
+// Số đơn/doanh thu tính theo ngày thanh toán, lịch trình gồm cả trip đã xoá (theo BE).
 const BUSINESS_METRICS = [
   { key: "newUsers", label: "Người dùng mới", icon: "person_add", tone: "bg-blue-50 text-blue-700", suffix: "người" },
-  { key: "generatedItineraries", label: "Lịch trình đã tạo", icon: "route", tone: "bg-emerald-50 text-emerald-700", suffix: "lịch trình" },
-  { key: "paidItineraries", label: "Lịch trình trả phí", icon: "workspace_premium", tone: "bg-amber-50 text-amber-700", suffix: "lịch trình" },
-  { key: "revenue", label: "Doanh thu", icon: "payments", tone: "bg-violet-50 text-violet-700", isMoney: true },
+  {
+    key: "tripsCreated",
+    label: "Lịch trình đã tạo",
+    icon: "route",
+    tone: "bg-emerald-50 text-emerald-700",
+    suffix: "lịch trình",
+    caption: "Gồm AI tạo, áp dụng lịch mẫu và sao chép",
+  },
+  {
+    key: "paidOrders",
+    label: "Đơn đã thanh toán",
+    icon: "workspace_premium",
+    tone: "bg-amber-50 text-amber-700",
+    suffix: "đơn",
+  },
+  {
+    key: "revenue",
+    label: "Doanh thu",
+    icon: "payments",
+    tone: "bg-violet-50 text-violet-700",
+    isMoney: true,
+    caption: "Chưa trừ phí PayOS",
+  },
 ];
 
 function getGreeting() {
@@ -32,9 +68,6 @@ function getGreeting() {
   if (hour < 18) return "Chào buổi chiều";
   return "Chào buổi tối";
 }
-
-// "2026-09-30" -> "30/09"
-const formatDayLabel = (isoDate) => `${isoDate.slice(8, 10)}/${isoDate.slice(5, 7)}`;
 
 // 14 ga (master-data) + số địa điểm quanh ga (metro-clusters: 800 m, mỗi địa điểm chỉ gán ga gần nhất).
 // Ga chưa có địa điểm không xuất hiện trong clusters ⇒ 0.
@@ -61,9 +94,9 @@ async function loadPlaceSummary() {
 
 // Tải 1 khối dữ liệu. status: "idle" (thiếu quyền, không gọi) | "loading" | "ready" | "error"
 // | "unavailable" (BE chưa có endpoint ⇒ 404, hiện "Chờ API" thay vì báo lỗi).
-// Đổi `load` (vd đổi khoảng ngày) ⇒ tự tải lại.
+// fieldErrors: lỗi 400 invalid_dashboard_query theo ô. Đổi `load` (vd đổi khoảng ngày) ⇒ tự tải lại.
 function useDashboardData(load, enabled) {
-  const [state, setState] = useState({ source: null, status: "loading", error: "", data: null });
+  const [state, setState] = useState({ source: null, status: "loading", error: "", fieldErrors: null, data: null });
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
@@ -71,14 +104,16 @@ function useDashboardData(load, enabled) {
     let active = true;
     load()
       .then((data) => {
-        if (active) setState({ source: load, status: "ready", error: "", data });
+        if (active) setState({ source: load, status: "ready", error: "", fieldErrors: null, data });
       })
       .catch((err) => {
         if (!active) return;
+        const fieldErrors = getDashboardFieldErrors(err);
         setState({
           source: load,
           status: err?.status === 404 ? "unavailable" : "error",
-          error: err?.message || "Không tải được dữ liệu.",
+          error: fieldErrors ? "Bộ lọc chưa hợp lệ, kiểm tra lại ô được đánh dấu." : err?.message || "Không tải được dữ liệu.",
+          fieldErrors,
           data: null,
         });
       });
@@ -93,7 +128,13 @@ function useDashboardData(load, enabled) {
   };
 
   const status = !enabled ? "idle" : state.source === load ? state.status : "loading";
-  return { status, error: state.error, data: status === "ready" ? state.data : null, retry };
+  return {
+    status,
+    error: state.error,
+    fieldErrors: status === "error" ? state.fieldErrors : null,
+    data: status === "ready" ? state.data : null,
+    retry,
+  };
 }
 
 function SectionHeading({ id, title, description, badge, action }) {
@@ -147,7 +188,7 @@ function InlineError({ message, onRetry }) {
 }
 
 // Khung 1 panel: tự hiện loading / chờ API / lỗi / rỗng; chỉ render children khi có dữ liệu
-function DataPanel({ title, icon, source, pendingText, emptyText, isEmpty, className = "", children }) {
+function DataPanel({ title, description, action, icon, source, pendingText, emptyText, isEmpty, className = "", children }) {
   let body;
   if (source.status === "loading") {
     body = <div className="mt-5 h-48 animate-pulse rounded-2xl bg-surface-container-low" />;
@@ -174,55 +215,15 @@ function DataPanel({ title, icon, source, pendingText, emptyText, isEmpty, class
 
   return (
     <div className={`${CARD} flex min-h-64 flex-col p-6 ${className}`}>
-      <h3 className="font-bold text-navy-darkest">{title}</h3>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="font-bold text-navy-darkest">{title}</h3>
+          {description && <p className="mt-1 text-sm text-text-muted">{description}</p>}
+        </div>
+        {action}
+      </div>
       {body}
     </div>
-  );
-}
-
-function RevenueChart({ days }) {
-  const max = Math.max(1, ...days.map((day) => day.revenue));
-  return (
-    <div className="mt-5">
-      <div className="flex h-48 items-end gap-1.5">
-        {days.map((day) => (
-          <div
-            key={day.date}
-            title={`${formatDayLabel(day.date)}: ${vndFormatter.format(day.revenue)} · ${day.paidOrders} đơn`}
-            className="flex-1 rounded-t-md bg-navy-mid/80 transition hover:bg-navy-darkest"
-            style={{ height: `${Math.max(2, (day.revenue / max) * 100)}%` }}
-          />
-        ))}
-      </div>
-      <div className="mt-2 flex justify-between text-xs text-text-faint">
-        <span>{formatDayLabel(days[0].date)}</span>
-        <span>{formatDayLabel(days[days.length - 1].date)}</span>
-      </div>
-    </div>
-  );
-}
-
-function TopStationList({ stations }) {
-  const max = Math.max(1, ...stations.map((station) => station.tripCount));
-  return (
-    <ol className="mt-4 space-y-3">
-      {stations.map((station, index) => (
-        <li key={station.stationId} className="flex items-center gap-3">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-surface-container-low text-xs font-bold text-navy-darkest">
-            {index + 1}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <p className="truncate text-sm font-semibold text-on-surface">{station.stationName}</p>
-              <span className="shrink-0 text-sm font-bold text-navy-darkest">{countFormatter.format(station.tripCount)}</span>
-            </div>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-container-low">
-              <div className="h-full rounded-full bg-navy-mid" style={{ width: `${(station.tripCount / max) * 100}%` }} />
-            </div>
-          </div>
-        </li>
-      ))}
-    </ol>
   );
 }
 
@@ -238,21 +239,26 @@ export default function AdminDashboardPage() {
   const canViewRevenue = hasAnyPermission(user, [ADMIN_PERMISSIONS.VIEW_REVENUE]);
   const quickActions = ADMIN_SECTIONS.filter((section) => hasAnyPermission(user, section.permissions));
 
-  const [rangeDays, setRangeDays] = useState(RANGE_OPTIONS[0]);
-  const range = useMemo(() => {
-    const to = todayInVietnam();
-    return { from: addDays(to, -(rangeDays - 1)), to };
-  }, [rangeDays]);
+  const [rangePreset, setRangePreset] = useState(DEFAULT_RANGE_PRESET);
+  const [range, setRange] = useState(() => resolvePresetRange(DEFAULT_RANGE_PRESET));
+  const [stationLimit, setStationLimit] = useState(DEFAULT_STATION_LIMIT);
+  const monthOptions = recentMonths();
+  const [month, setMonth] = useState(monthOptions[0]);
 
   const loadSummary = useCallback(() => adminDashboardService.getSummary(range), [range]);
   const loadRevenueDaily = useCallback(() => adminDashboardService.getRevenueDaily(range), [range]);
-  const loadTopStations = useCallback(() => adminDashboardService.getTopStations(range), [range]);
+  const loadTopStations = useCallback(
+    () => adminDashboardService.getTopStations({ ...range, limit: stationLimit }),
+    [range, stationLimit],
+  );
+  const loadBreakEven = useCallback(() => adminDashboardService.getBreakEven({ month }), [month]);
 
   const coverage = useDashboardData(loadStationCoverage, canManagePlaces);
   const placeSummary = useDashboardData(loadPlaceSummary, canManagePlaces);
   const summary = useDashboardData(loadSummary, canViewRevenue);
   const revenueDaily = useDashboardData(loadRevenueDaily, canViewRevenue);
   const topStations = useDashboardData(loadTopStations, canViewRevenue);
+  const breakEven = useDashboardData(loadBreakEven, canViewRevenue);
 
   const stations = coverage.data ?? [];
   const stationsWithData = stations.filter((station) => station.placeCount > 0).length;
@@ -262,6 +268,24 @@ export default function AdminDashboardPage() {
     .sort((a, b) => a.placeCount - b.placeCount || a.order - b.order);
   const maxCount = Math.max(1, ...stations.map((station) => station.placeCount));
   const isLoading = (source) => source.status === "loading";
+
+  const handlePresetChange = (key) => {
+    if (key === rangePreset) return;
+    setRangePreset(key);
+    // "Tùy chọn": giữ khoảng đang xem tới khi bấm Áp dụng
+    if (key !== "custom") setRange(resolvePresetRange(key));
+  };
+
+  const rangeSources = [summary, revenueDaily, topStations];
+  const rangeErrorSource = rangeSources.find((source) => source.fieldErrors?.from || source.fieldErrors?.to);
+  const rangeFieldErrors = rangeErrorSource
+    ? { from: rangeErrorSource.fieldErrors.from, to: rangeErrorSource.fieldErrors.to }
+    : null;
+  const businessSources = [...rangeSources, breakEven];
+  const refreshing = businessSources.some(isLoading);
+  // BE cache 5 phút ⇒ tải lại trong 5 phút vẫn ra số cũ
+  const refreshBusiness = () => businessSources.forEach((source) => source.retry());
+  const updatedAt = summary.data?.generatedAt;
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-10">
@@ -434,26 +458,32 @@ export default function AdminDashboardPage() {
           <SectionHeading
             id="business-title"
             title="Kinh doanh"
-            description={`${rangeDays} ngày gần nhất, từ ${formatDayLabel(range.from)} đến ${formatDayLabel(range.to)}.`}
+            description={`Từ ${formatDayLabel(range.from)} đến ${formatDayLabel(range.to)} · ${countDays(range)} ngày, theo giờ Việt Nam.`}
             badge={summary.status === "unavailable" ? "Chờ API thống kê" : null}
             action={
-              <div role="group" aria-label="Khoảng thời gian" className="inline-flex rounded-[10px] bg-surface-container-low p-1">
-                {RANGE_OPTIONS.map((days) => (
-                  <button
-                    key={days}
-                    type="button"
-                    aria-pressed={rangeDays === days}
-                    onClick={() => setRangeDays(days)}
-                    className={`rounded-md px-3 py-1.5 text-sm font-semibold transition ${
-                      rangeDays === days ? "bg-white text-navy-darkest shadow-sm" : "text-text-muted hover:text-navy-darkest"
-                    }`}
-                  >
-                    {days} ngày
-                  </button>
-                ))}
-              </div>
+              <DashboardRangeFilter
+                preset={rangePreset}
+                range={range}
+                serverErrors={rangeFieldErrors}
+                onPresetChange={handlePresetChange}
+                onApplyCustom={setRange}
+              />
             }
           />
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted">
+            {updatedAt && <span>Cập nhật lúc {formatTimeInVietnam(updatedAt)}</span>}
+            <span>Số liệu được làm mới sau mỗi 5 phút.</span>
+            <button
+              type="button"
+              onClick={refreshBusiness}
+              disabled={refreshing}
+              className="inline-flex items-center gap-1 font-semibold text-navy-mid transition hover:text-navy-darkest disabled:opacity-50"
+            >
+              <span className={`material-symbols-outlined text-[16px] ${refreshing ? "animate-spin" : ""}`}>refresh</span>
+              Tải lại
+            </button>
+          </div>
 
           {summary.status === "error" && <InlineError message={summary.error} onRetry={summary.retry} />}
 
@@ -470,7 +500,7 @@ export default function AdminDashboardPage() {
                   loading={isLoading(summary)}
                   value={hasValue ? (metric.isMoney ? vndFormatter.format(raw) : countFormatter.format(raw)) : "—"}
                   suffix={hasValue && !metric.isMoney ? metric.suffix : null}
-                  caption={summary.status === "unavailable" ? "Chờ API thống kê" : null}
+                  caption={summary.status === "unavailable" ? "Chờ API thống kê" : metric.caption}
                 />
               );
             })}
@@ -482,23 +512,60 @@ export default function AdminDashboardPage() {
               title="Doanh thu theo ngày"
               icon="monitoring"
               source={revenueDaily}
-              isEmpty={!revenueDaily.data?.length}
+              isEmpty={!revenueDaily.data?.days?.length || revenueDaily.data.totalRevenue === 0}
               pendingText="Biểu đồ doanh thu PayOS từng ngày sẽ hiển thị khi hệ thống có API thống kê."
-              emptyText="Chưa có giao dịch trong khoảng này."
+              emptyText="Chưa có đơn thanh toán trong khoảng này."
             >
-              <RevenueChart days={revenueDaily.data ?? []} />
+              <RevenueChart days={revenueDaily.data?.days ?? []} totalRevenue={revenueDaily.data?.totalRevenue ?? 0} />
             </DataPanel>
             <DataPanel
               title="Ga được chọn nhiều nhất"
               icon="leaderboard"
               source={topStations}
-              isEmpty={!topStations.data?.length}
+              isEmpty={!topStations.data?.stations?.length}
               pendingText="Xếp hạng ga theo số lịch trình được tạo sẽ hiển thị khi hệ thống có API thống kê."
               emptyText="Chưa có lịch trình nào trong khoảng này."
+              action={
+                <label className="flex items-center gap-2 text-xs text-text-muted">
+                  Hiển thị
+                  <select
+                    value={stationLimit}
+                    onChange={(event) => setStationLimit(Number(event.target.value))}
+                    className={SELECT_CLASS}
+                  >
+                    {STATION_LIMIT_OPTIONS.map((limit) => (
+                      <option key={limit} value={limit}>{limit === 14 ? "Tất cả" : `Top ${limit}`}</option>
+                    ))}
+                  </select>
+                </label>
+              }
             >
-              <TopStationList stations={topStations.data ?? []} />
+              <TopStationList stations={topStations.data?.stations ?? []} totalTrips={topStations.data?.totalTrips ?? 0} />
             </DataPanel>
           </div>
+
+          <DataPanel
+            title="Tiến độ hoà vốn"
+            description="Doanh thu tháng so với mục tiêu hoà vốn, không phụ thuộc khoảng ngày ở trên."
+            icon="flag"
+            source={breakEven}
+            pendingText="Tiến độ hoà vốn sẽ hiển thị khi hệ thống có API thống kê."
+            action={
+              <div className="flex flex-col items-end gap-1">
+                <label className="flex items-center gap-2 text-xs text-text-muted">
+                  Tháng
+                  <select value={month} onChange={(event) => setMonth(event.target.value)} className={SELECT_CLASS}>
+                    {monthOptions.map((value) => (
+                      <option key={value} value={value}>{formatMonthLabel(value)}</option>
+                    ))}
+                  </select>
+                </label>
+                {breakEven.fieldErrors?.month && <p className="text-xs text-error">{breakEven.fieldErrors.month}</p>}
+              </div>
+            }
+          >
+            {breakEven.data && <BreakEvenCard data={breakEven.data} />}
+          </DataPanel>
         </section>
       )}
 
