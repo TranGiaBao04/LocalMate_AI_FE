@@ -6,7 +6,7 @@ import { useAuth } from "./AuthContext";
 const TripContext = createContext(null);
 
 export function TripProvider({ children }) {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, isDemo } = useAuth();
   const [request, setRequestState] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.TRIP_REQUEST);
@@ -24,14 +24,43 @@ export function TripProvider({ children }) {
     }
   });
   const [savedTrips, setSavedTrips] = useState([]);
+  const [tripsLoading, setTripsLoading] = useState(false);
+  const [tripsLoaded, setTripsLoaded] = useState(false);
+  const [tripsError, setTripsError] = useState(false);
+  const [tripsReloadKey, setTripsReloadKey] = useState(0);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
+    let active = true;
+    if (!isLoggedIn || isDemo) {
+      queueMicrotask(() => {
+        if (!active) return;
+        setSavedTrips([]);
+        setTripsLoading(false);
+        setTripsLoaded(false);
+        setTripsError(false);
+      });
+      return () => { active = false; };
+    }
+    queueMicrotask(() => {
+      if (!active) return;
+      setTripsLoading(true);
+      setTripsLoaded(false);
+      setTripsError(false);
+    });
     tripService
       .getTrips()
-      .then(setSavedTrips)
-      .catch(() => setSavedTrips([]));
-  }, [isLoggedIn]);
+      .then((trips) => {
+        if (active) setSavedTrips(trips);
+      })
+      .catch(() => {
+        if (active) setTripsError(true);
+      })
+      .finally(() => {
+        if (active) setTripsLoading(false);
+        if (active) setTripsLoaded(true);
+      });
+    return () => { active = false; };
+  }, [isLoggedIn, isDemo, tripsReloadKey]);
 
   const setRequest = (r) => {
     setRequestState(r);
@@ -54,10 +83,27 @@ export function TripProvider({ children }) {
     });
   };
 
+  // Cập nhật trip mới nhất từ server vào currentTrip; chỉ cập nhật savedTrips nếu trip đã có sẵn trong đó
+  const syncTrip = (trip) => {
+    if (currentTrip?.id === trip.id) setCurrentTrip(trip);
+    setSavedTrips((prev) => prev.map((t) => (t.id === trip.id ? trip : t)));
+    return trip;
+  };
+
+  const refreshTrip = async (tripId) =>
+    syncTrip(await tripService.getTripById(tripId));
+
+  const fetchTrip = async (tripId) => {
+    const trip = await tripService.getTripById(tripId);
+    upsertSavedTrip(trip);
+    return trip;
+  };
+
   const generateTrip = async (req) => tripService.generateTrip(req);
 
   const saveTrip = async (trip) => {
-    const saved = await tripService.saveTrip(trip);
+    const saved = await tripService.saveTrip(trip.id);
+    if (currentTrip?.id === saved.id) setCurrentTrip(saved);
     upsertSavedTrip(saved);
     return saved;
   };
@@ -67,25 +113,28 @@ export function TripProvider({ children }) {
     setSavedTrips((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const finalizeTrip = async (tripId) => {
-    const updated = await tripService.finalizeTrip(tripId);
-    if (currentTrip?.id === tripId) setCurrentTrip(updated);
+  const finalizeTrip = async (tripId, funding = null) => {
+    const updated = await tripService.finalizeTrip(tripId, funding);
+    syncTrip(updated);
     upsertSavedTrip(updated);
     return updated;
   };
 
   const replaceItem = async (tripId, itemId, newPlaceId) => {
-    const updated = await tripService.replaceItem(tripId, itemId, newPlaceId);
-    if (currentTrip?.id === tripId) setCurrentTrip(updated);
-    upsertSavedTrip(updated);
-    return updated;
+    const result = await tripService.replaceItem(tripId, itemId, newPlaceId);
+    await refreshTrip(tripId);
+    return result;
+  };
+
+  const deleteItem = async (tripId, itemId) => {
+    await tripService.deleteItem(tripId, itemId);
+    const updated = await refreshTrip(tripId);
+    return updated.items;
   };
 
   const markVisited = async (tripId, itemId) => {
-    const updated = await tripService.markVisited(tripId, itemId);
-    if (currentTrip?.id === tripId) setCurrentTripState(updated);
-    upsertSavedTrip(updated);
-    return updated;
+    await tripService.markVisited(itemId);
+    return refreshTrip(tripId);
   };
 
   return (
@@ -96,12 +145,18 @@ export function TripProvider({ children }) {
         currentTrip,
         setCurrentTrip,
         savedTrips,
+        tripsLoading,
+        tripsLoaded,
+        tripsError,
+        retryTrips: () => setTripsReloadKey((key) => key + 1),
         saveTrip,
         deleteTrip,
         generateTrip,
         finalizeTrip,
         replaceItem,
+        deleteItem,
         markVisited,
+        fetchTrip,
       }}
     >
       {children}

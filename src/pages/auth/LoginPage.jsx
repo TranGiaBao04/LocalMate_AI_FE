@@ -1,28 +1,110 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { canAccessAdmin } from "../../utils/adminAccess";
+import GoogleSignInButton from "../../components/auth/GoogleSignInButton";
 import logo from "../../assets/logo.jpg";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
-  const [email, setEmail] = useState("");
+  const location = useLocation();
+  const { login, loginWithGoogle, loginDemo, sessionNotice, clearSessionNotice } = useAuth();
+
+  const [email, setEmail] = useState(
+    () => location.state?.registeredEmail || "",
+  );
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [loadingDemo, setLoadingDemo] = useState(false);
+  const [loadingGoogle, setLoadingGoogle] = useState(false);
+  const googleLoginInFlight = useRef(false);
+  const [error, setError] = useState(() => sessionNotice);
+  const [success, setSuccess] = useState(
+    () => (sessionNotice ? "" : location.state?.message || ""),
+  );
+
+  useEffect(() => {
+    if (sessionNotice) clearSessionNotice();
+  }, [sessionNotice, clearSessionNotice]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError("Vui lòng nhập địa chỉ email.");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setError("Định dạng email không hợp lệ.");
+      return;
+    }
+    if (!password) {
+      setError("Vui lòng nhập mật khẩu.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await login(email, password);
-      navigate("/home");
+      const { user } = await login(trimmedEmail, password);
+      navigate(canAccessAdmin(user) ? "/admin" : "/home");
     } catch (err) {
-      setError(err.message || "Email hoặc mật khẩu không đúng.");
+      if (err.code === "invalid_credentials" || err.status === 401) {
+        setError("Email hoặc mật khẩu không chính xác.");
+      } else {
+        setError(err.message || "Đăng nhập không thành công. Vui lòng thử lại.");
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setError("");
+    setSuccess("");
+    setLoadingDemo(true);
+    try {
+      await loginDemo();
+      navigate("/home");
+    } catch (err) {
+      setError(
+        err.message || "Không thể khởi tạo phiên demo. Vui lòng thử lại.",
+      );
+    } finally {
+      setLoadingDemo(false);
+    }
+  };
+
+  const handleGoogleCredential = async (idToken) => {
+    if (googleLoginInFlight.current || loading || loadingDemo) return;
+    googleLoginInFlight.current = true;
+    setLoadingGoogle(true);
+    setError("");
+    setSuccess("");
+    try {
+      const { user } = await loginWithGoogle(idToken);
+      navigate(canAccessAdmin(user) ? "/admin" : "/home");
+    } catch (err) {
+      if (err.code === "account_link_required") {
+        setError("Email này đã có tài khoản LocalMate. Vui lòng đăng nhập bằng email và mật khẩu.");
+      } else if (err.code === "account_conflict") {
+        setError("Không thể liên kết tài khoản Google. Vui lòng thử lại sau.");
+      } else if (err.code === "account_locked") {
+        setError(err.message);
+      } else if (err.code === "invalid_google_token" || err.status === 400 || err.status === 401) {
+        setError("Xác thực Google không hợp lệ. Vui lòng thử lại.");
+      } else if (!err.status) {
+        setError("Không kết nối được máy chủ. Vui lòng thử lại.");
+      } else {
+        setError("Đăng nhập Google không thành công. Vui lòng thử lại.");
+      }
+    } finally {
+      googleLoginInFlight.current = false;
+      setLoadingGoogle(false);
     }
   };
 
@@ -47,6 +129,12 @@ export default function LoginPage() {
 
       {/* Form */}
       <div className="w-full rounded-lg border border-white/40 bg-surface-container-lowest/80 p-8 soft-shadow blur-bg">
+        {success && (
+          <div className="mb-6 rounded-lg bg-primary-container/20 border border-primary/30 p-3.5 text-center text-body-md text-primary font-medium">
+            {success}
+          </div>
+        )}
+
         <form onSubmit={handleLogin} className="space-y-stack-md">
           <div>
             <label className="block text-label-md text-on-surface-variant mb-2 ml-1">
@@ -73,6 +161,9 @@ export default function LoginPage() {
               </label>
               <button
                 type="button"
+                onClick={() =>
+                  navigate("/forgot-password", { state: { email: email.trim() } })
+                }
                 className="text-label-md text-primary hover:underline"
               >
                 Quên mật khẩu?
@@ -103,7 +194,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || loadingDemo || loadingGoogle}
             className="btn-primary mt-stack-lg"
           >
             {loading ? "Đang đăng nhập..." : "Đăng nhập"}
@@ -111,9 +202,35 @@ export default function LoginPage() {
               arrow_forward
             </span>
           </button>
+
           {error && (
             <p className="text-center text-body-md text-error">{error}</p>
           )}
+
+          <div className="relative my-4 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-outline-variant/30" />
+            </div>
+            <div className="relative bg-surface-container-lowest px-3 text-label-md text-on-surface-variant">
+              hoặc
+            </div>
+          </div>
+
+          <GoogleSignInButton
+            disabled={loading || loadingDemo || loadingGoogle}
+            onCredential={handleGoogleCredential}
+            onError={setError}
+          />
+
+          <button
+            type="button"
+            onClick={handleDemoLogin}
+            disabled={loading || loadingDemo || loadingGoogle}
+            className="btn-secondary flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-[20px]">explore</span>
+            {loadingDemo ? "Đang vào demo..." : "Trải nghiệm nhanh (Demo)"}
+          </button>
         </form>
       </div>
 

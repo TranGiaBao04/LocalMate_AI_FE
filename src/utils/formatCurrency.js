@@ -27,6 +27,13 @@ export const formatDuration = (minutes) => {
   return `${h}h${m}p`;
 };
 
+export const formatDistance = (meters) => {
+  if (meters == null) return "";
+  return meters < 1000
+    ? `${Math.round(meters)}m`
+    : `${(meters / 1000).toFixed(1)}km`;
+};
+
 export const buildGoogleMapsUrl = (lat, lng) => {
   return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 };

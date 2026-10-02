@@ -1,6 +1,9 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTrip } from "../../context/TripContext";
+import { useSubscription } from "../../context/SubscriptionContext";
+import { PLAN_CODES, PLAN_DISPLAY_NAMES } from "../../utils/subscriptionUtils";
+import { canAccessAdmin } from "../../utils/adminAccess";
 import logo from "../../assets/logo.jpg";
 
 const NAV_ITEMS = [
@@ -11,18 +14,30 @@ const NAV_ITEMS = [
 ];
 
 const SIDEBAR_NAV_ITEMS = [
-  { path: "/home", icon: "home", label: "Trang chủ" },
-  { path: "/trips", icon: "confirmation_number", label: "Lịch trình của tôi", badgeKey: "trips" },
-  { path: "/create", icon: "train", label: "Khám phá 14 ga Metro" },
-  { path: "/create", icon: "location_on", label: "Điểm check-in Hot" },
-  { path: "/profile", icon: "person", label: "Tài khoản cá nhân" },
+  { path: "/home", icon: "home", label: "Home" },
+  {
+    path: "/trips",
+    icon: "confirmation_number",
+    label: "My Trips",
+    badgeKey: "trips",
+    // Trang con của một chuyến đi: chi tiết, nháp, thay địa điểm, đã chốt
+    activePaths: ["/trips", "/draft", "/replace", "/finalized"],
+  },
+  { path: "/metro", icon: "train", label: "Metro Stations" },
+  { path: "/create", icon: "location_on", label: "Hot Check-in Spots" },
+  { path: "/profile", icon: "person", label: "My Account" },
 ];
 
-function NavigationItem({ item, isActive, onClick, variant = "bottom" }) {
+// "/trips" khớp "/trips" và "/trips/<id>", không khớp "/trips-abc"
+const matchesPath = (pathname, path) =>
+  pathname === path || pathname.startsWith(`${path}/`);
+
+const isItemActive = (pathname, item) =>
+  (item.activePaths ?? [item.path]).some((path) => matchesPath(pathname, path));
+
+export function NavigationItem({ item, isActive, onClick, variant = "bottom" }) {
   const activeClass =
-    variant === "side"
-      ? "bg-navy text-white"
-      : "text-navy bg-navy/10";
+    variant === "side" ? "bg-navy text-white" : "text-navy bg-navy/10";
   const idleClass =
     variant === "side"
       ? "text-[#3A4256] hover:bg-[#E8ECF7]"
@@ -67,16 +82,21 @@ function NavigationItem({ item, isActive, onClick, variant = "bottom" }) {
 export function SideNavigation() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   const { savedTrips } = useTrip();
+  const { subscription } = useSubscription();
 
   const navItems = SIDEBAR_NAV_ITEMS.map((item) => ({
     ...item,
-    badge: item.badgeKey === "trips" ? `${savedTrips.length} lưu` : null,
+    badge: item.badgeKey === "trips" ? `${savedTrips.length} saved` : null,
   }));
 
   const displayName = user?.fullName || "Khách";
   const initial = displayName.charAt(0).toUpperCase();
+
+  const currentPlan = subscription?.plan || PLAN_CODES.FREE;
+  const planDisplayName = PLAN_DISPLAY_NAMES[currentPlan] || currentPlan;
+  const isPaid = currentPlan === PLAN_CODES.TRIP_PASS || currentPlan === PLAN_CODES.MEMBERSHIP;
 
   return (
     <aside className="desktop-sidebar-bg fixed inset-y-0 left-0 z-50 hidden w-[220px] flex-col gap-[22px] border-r border-navy/10 px-3.5 py-6 lg:flex">
@@ -109,7 +129,7 @@ export function SideNavigation() {
             key={`${item.path}-${i}`}
             item={item}
             isActive={
-              pathname === item.path &&
+              isItemActive(pathname, item) &&
               navItems.findIndex((n) => n.path === item.path) === i
             }
             onClick={() => navigate(item.path)}
@@ -119,29 +139,54 @@ export function SideNavigation() {
       </nav>
 
       <div className="mt-auto flex flex-col gap-3">
-        <div className="rounded-[20px] bg-navy/[0.06] p-3.5">
-          <div className="flex items-baseline justify-between text-[11.5px] text-text-muted">
-            <span>Bản Free còn</span>
-            <span className="font-bold text-navy-dark">1/3 lượt tạo</span>
+        {canAccessAdmin(user) && (
+          <button
+            type="button"
+            onClick={() => navigate("/admin")}
+            className="flex w-full items-center gap-2.5 rounded-xl bg-navy px-3 py-2.5 text-left text-[13px] font-semibold text-white transition hover:bg-navy-dark"
+          >
+            <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+            Về giao diện quản trị
+          </button>
+        )}
+
+        {/* Hộp thông tin gói dịch vụ */}
+        {isDemo ? (
+          <div
+            className="rounded-[20px] bg-navy/[0.06] p-3.5 cursor-pointer hover:bg-navy/[0.09] transition-colors"
+            onClick={() => navigate("/subscription")}
+          >
+            <div className="flex items-center justify-between gap-2 text-[11.5px]">
+              <span className="font-bold text-navy-dark">Gói thành viên</span>
+              <span className="flex-none rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">
+                Demo
+              </span>
+            </div>
+            <div className="mt-1 text-[11px] text-text-muted">
+              Đăng ký để sử dụng đầy đủ
+            </div>
           </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border-soft">
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: "33%",
-                background: "linear-gradient(90deg,#E08E10,#1D3E82)",
-              }}
-            />
+        ) : (
+          <div
+            className="rounded-[20px] bg-navy/[0.06] p-3.5 cursor-pointer hover:bg-navy/[0.09] transition-colors"
+            onClick={() => navigate("/subscription")}
+          >
+            <div className="flex items-center justify-between gap-2 text-[11.5px]">
+              <span className="font-bold text-navy-dark">{planDisplayName}</span>
+              <span
+                className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  isPaid ? "bg-primary text-white" : "bg-border-soft text-text-muted"
+                }`}
+              >
+                {isPaid ? "Đang dùng" : "Mặc định"}
+              </span>
+            </div>
+            <div className="mt-1 text-[11px] text-text-muted">
+              {isPaid ? "Quản lý gói & gia hạn" : "Nâng cấp gói tạo không giới hạn"}
+            </div>
           </div>
-          <div className="mt-2 flex items-center gap-2 text-[11.5px]">
-            <span className="min-w-0 flex-1 truncate text-text-muted">
-              Mở khoá AI vô hạn
-            </span>
-            <a href="#" className="flex-none whitespace-nowrap font-bold">
-              Nâng Pro ›
-            </a>
-          </div>
-        </div>
+        )}
+
         <div
           className="flex cursor-pointer items-center gap-2.5 rounded-xl px-1.5 py-1 hover:bg-[#E8ECF7]"
           onClick={() => navigate("/profile")}
@@ -153,7 +198,9 @@ export function SideNavigation() {
             <div className="truncate text-[13px] font-bold text-navy-dark">
               {displayName}
             </div>
-            <div className="text-[11px] text-text-faint">Gói Tiêu chuẩn</div>
+            <div className="text-[11px] text-text-faint">
+              {isDemo ? "Phiên Demo" : planDisplayName}
+            </div>
           </div>
           <span className="material-symbols-outlined flex-none text-[16px] text-text-faint">
             settings

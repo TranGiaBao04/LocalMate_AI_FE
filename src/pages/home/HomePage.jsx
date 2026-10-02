@@ -1,8 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useTrip } from "../../context/TripContext";
 import MobileLayout from "../../components/layout/MobileLayout";
+import GuestTourCard from "../../components/home/GuestTourCard";
 import { placeService } from "../../services/placeService";
+import { itineraryService } from "../../services/itineraryService";
+import { STORAGE_KEYS } from "../../constants";
+import { formatCurrencyShort, formatDuration } from "../../utils/formatCurrency";
+import {
+  DAY_MINUTES,
+  minutesNowInVietnam,
+  minutesToTime,
+  roundUpMinutes,
+} from "../../utils/vnTime";
 
 const HERO_FIELDS = [
   {
@@ -22,62 +33,123 @@ const HERO_FIELDS = [
   },
 ];
 
-const EXPERIENCES = [
-  {
-    station: "Ga Bến Thành",
-    walkTag: "Đi bộ 3p",
-    rating: "4.8",
-    title: "4 tiếng quanh Ga Bến Thành & Phố Cổ",
-    desc: "Lộ trình đi bộ trọn vẹn khám phá nét văn hoá biểu tượng, thưởng thức cà phê vợt và đặc sản.",
-    duration: "Nửa ngày (4 tiếng)",
-    price: "~240k – 450k/người",
-    img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBRtnlYERsiPV2nVuiJ5E6qchPsnkR9-CzQSn1gqSPbZCrB1uPUmF4X2qtzE4YWyOxu2LZlzwBYzK6206YSS2Mgr6ZAn7cEqoIH7GuxUIjpToX_UpRce_3VPmNI7VU1zGz03c3Exk6ISc0jk3bDGSBZAOSDnR-HUDuwvD4arivYthybueGcU2hObmXpDpF8yycN8JBqutWBQ1KDJHKCGYzPt0J2s5zXmT3jRa4F84e8vKOvrcC_yApEUlPr8cNVMOCORBa4f-uO6qU",
-  },
-  {
-    station: "Ga Ba Son",
-    walkTag: "Đi bộ 2p (150m)",
-    rating: "4.9",
-    title: "Buổi chiều chill hoàng hôn ven sông",
-    desc: "Ngắm toàn cảnh sông Sài Gòn & cầu Ba Son dây văng lộng gió, thưởng thức cà phê view đẹp.",
-    duration: "3 tiếng (Chiều mát)",
-    price: "~150k – 300k/người",
-    img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDf8BnaVP76QrdhJLUGlVNke5-kl-JLRCIRy0-Bg1scdqQJ_2ySBqXQfV9F9eXmaEcWzV4f7zrDHO3HJuc7bn5TjWhwL4C5bl7srd6tAia3zgL4bpj3QLRkDEnijCibhsPFbMjpPGsfbjSSHKr_sV1-4sn93BnG34K_8WsqiMB1eU_IjOpnZb74TrkMNLw3Jj9iOO17Mrb9z7lCqHq0K3BYgk7MnchHGKslN2Cj3JH6dHcWmvcwzV-xWGf5uJX89-PXOmt1YWzx9-M",
-  },
-  {
-    station: "Ga Thảo Điền",
-    walkTag: "5p xe / Grab",
-    rating: "4.7",
-    title: "Cafe hopping & Art tour Thảo Điền",
-    desc: "Trải nghiệm góc phố phương Tây với các tiệm bánh pastry thủ công, studio và art gallery sân vườn.",
-    duration: "Cả ngày thảnh thơi",
-    price: "~250k – 550k/người",
-    img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDgrl-MvipTyXzb60TI0FBmC7xzLfTd76N8084KY7keCFzG65bUejESI19XphoDGljAorgItl36rFC9IYGPXU_ROpXvvHgPhQMPvjX3Zw-n0QOtmc9Q8UChAx8kR5lsfhK6JX8ZPWRF0zwtCk-iwSxPkfI1d_egl4AW0FsJG5zmzWmixocX6S8MZWgrfToWP0II1id1t6Z0621CJ_VNFl5KSwpJvdbqefk-msTJ1aXmisA2vYFDgcTScSeXB1jEnjKpicHhoAfPKF8",
-  },
-];
+const APPLY_ERROR_MESSAGES = {
+  apply_requires_persisted_user: "Đăng nhập bằng tài khoản đã đăng ký để dùng lịch trình mẫu.",
+  curated_itinerary_unavailable: "Các địa điểm của lịch trình này đã ngừng hoạt động.",
+  curated_itinerary_not_found: "Lịch trình mẫu này không còn nữa.",
+};
 
-const FILTERS = [
-  "Tất cả ga",
-  "Ga 01 Bến Thành",
-  "Ga 02 Nhà hát TP",
-  "Ga 03 Ba Son",
-  "Ga 04 Tân Cảng",
-];
+// Giờ rời điểm xuất phát: giờ Việt Nam hiện tại làm tròn 15 phút
+function currentStartTime() {
+  return minutesToTime(Math.min(roundUpMinutes(minutesNowInVietnam()), DAY_MINUTES - 15));
+}
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [activeFilter, setActiveFilter] = useState(0);
-  const [nearby, setNearby] = useState([]);
+  const { user, isDemo } = useAuth();
+  const { setCurrentTrip } = useTrip();
+  const [activeStationId, setActiveStationId] = useState(null);
+  const [clusters, setClusters] = useState([]);
+  const [clustersLoading, setClustersLoading] = useState(true);
+  const [clustersError, setClustersError] = useState(false);
+  const [clustersRetryKey, setClustersRetryKey] = useState(0);
+  const [curated, setCurated] = useState([]);
+  const [curatedLoading, setCuratedLoading] = useState(true);
+  const [curatedError, setCuratedError] = useState(false);
+  const [curatedRetryKey, setCuratedRetryKey] = useState(0);
+  const [applyingId, setApplyingId] = useState(null);
+  const [applyError, setApplyError] = useState(null); // { id, message }
+
+  const [showGuestTour, setShowGuestTour] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.GUEST_TOUR_DISMISSED) !== "true";
+    } catch {
+      return true;
+    }
+  });
 
   useEffect(() => {
+    let active = true;
     placeService
-      .getPlaces({ metroFriendly: true, limit: 4 })
-      .then((places) => setNearby(places ?? []))
-      .catch(() => setNearby([]));
-  }, []);
+      .getMetroClusters()
+      .then((data) => {
+        if (active) setClusters(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (active) setClustersError(true);
+      })
+      .finally(() => {
+        if (active) setClustersLoading(false);
+      });
+    return () => { active = false; };
+  }, [clustersRetryKey]);
+
+  useEffect(() => {
+    let active = true;
+    itineraryService
+      .getCuratedItineraries()
+      .then((data) => {
+        if (active) setCurated(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (active) setCuratedError(true);
+      })
+      .finally(() => {
+        if (active) setCuratedLoading(false);
+      });
+    return () => { active = false; };
+  }, [curatedRetryKey]);
+
+  const retryCurated = () => {
+    setCuratedLoading(true);
+    setCuratedError(false);
+    setCuratedRetryKey((key) => key + 1);
+  };
+
+  // Áp dụng lịch mẫu thành trip nháp (hôm nay, từ giờ hiện tại). Demo bị BE chặn nên báo trước.
+  const handleApplyCurated = async (itinerary) => {
+    if (applyingId) return;
+    if (isDemo) {
+      setApplyError({ id: itinerary.id, message: APPLY_ERROR_MESSAGES.apply_requires_persisted_user });
+      return;
+    }
+    setApplyError(null);
+    setApplyingId(itinerary.id);
+    try {
+      const trip = await itineraryService.applyCuratedItinerary(itinerary.id, {
+        startTime: currentStartTime(),
+      });
+      setCurrentTrip(trip);
+      navigate("/draft");
+    } catch (err) {
+      setApplyError({ id: itinerary.id, message: APPLY_ERROR_MESSAGES[err.code] ?? err.message });
+    } finally {
+      setApplyingId(null);
+    }
+  };
+
+  const handleDismissTour = () => {
+    setShowGuestTour(false);
+    try {
+      localStorage.setItem(STORAGE_KEYS.GUEST_TOUR_DISMISSED, "true");
+    } catch {
+      // ignore
+    }
+  };
 
   const firstName = user?.fullName?.split(" ").pop() || "bạn";
   const initial = (user?.fullName || "K").charAt(0).toUpperCase();
+  const stations = clusters.filter((cluster) => cluster.places.length > 0);
+  const activeCluster = stations.find((cluster) => cluster.stationId === activeStationId);
+  const nearby = activeCluster
+    ? activeCluster.places.slice(0, 4).map((place) => ({ ...place, stationName: activeCluster.stationName }))
+    : stations.slice(0, 4).map((cluster) => ({ ...cluster.places[0], stationName: cluster.stationName }));
+
+  const retryClusters = () => {
+    setClustersLoading(true);
+    setClustersError(false);
+    setClustersRetryKey((key) => key + 1);
+  };
 
   return (
     <MobileLayout>
@@ -89,16 +161,6 @@ export default function HomePage() {
               Trang chủ
             </div>
             <div className="text-xs text-text-faint">Tổng quan chuyến đi</div>
-          </div>
-
-          <div className="hidden min-w-0 max-w-[340px] flex-1 items-center gap-2 rounded-full bg-[#EAF7EE] px-3.5 py-2 md:flex">
-            <span className="h-[7px] w-[7px] flex-none rounded-full bg-[#16A34A]" />
-            <div className="min-w-0">
-              <div className="truncate text-[11.5px] font-bold text-[#166534]">
-                Metro Tuyến 1: Đang hoạt động bình thường
-              </div>
-              <div className="text-[10.5px] text-[#3F8A5C]">6-8p/chuyến</div>
-            </div>
           </div>
 
           <div className="soft-shadow hidden min-w-0 max-w-[320px] flex-1 items-center gap-2 rounded-full bg-white px-3.5 py-[9px] sm:flex">
@@ -129,73 +191,80 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* Guest Tour banner / quick guide */}
+        {showGuestTour && <GuestTourCard onDismiss={handleDismissTour} />}
+
         {/* Hero — AI trip planner */}
-        <section className="hero-gradient relative flex flex-col gap-4 overflow-hidden rounded-[20px] p-6 sm:p-8">
-          <div className="pointer-events-none absolute -right-[50px] -top-[70px] h-60 w-60 rounded-full bg-accent/10" />
-          <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/[0.12] px-3 py-[5px] text-xs font-bold text-[#FFD98A]">
-            ★ AI Metro Trip Planner v2.4
+        <section className="relative flex flex-col gap-4 overflow-hidden rounded-3xl border border-slate-700/50 bg-navy-darkest p-6 shadow-2xl sm:p-8">
+          <div className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
+
+          <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide text-amber-300 backdrop-blur-md">
+              ★ AI Metro Trip Planner
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-extrabold tracking-tight text-white">
-              Xin chào, {firstName} 👋
+
+          <div className="relative z-10">
+            <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+              Xin chào, {firstName} <span className="text-2xl">👋</span>
             </h2>
-            <p className="mt-1 max-w-[520px] text-sm leading-relaxed text-white/75">
+            <p className="mt-1 max-w-[520px] text-sm text-slate-300 sm:text-base">
               Hôm nay bạn muốn khám phá đâu quanh tuyến Metro Bến Thành – Suối
               Tiên?
             </p>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-[20px] border border-white/[0.12] bg-white/[0.08] p-4 backdrop-blur-[2px] sm:p-5">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {HERO_FIELDS.map((field) => (
-                <div key={field.label} className="min-w-0">
-                  <div className="mb-1.5 text-[10.5px] font-bold tracking-wide text-white/55">
-                    {field.label}
-                  </div>
-                  <div className="flex items-center gap-2 rounded-xl bg-white/[0.94] px-3 py-2.5">
-                    <span className="material-symbols-outlined flex-none text-sm text-navy">
-                      {field.icon}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-navy-dark">
-                      {field.value}
-                    </span>
-                    <span className="material-symbols-outlined flex-none text-xs text-text-faint">
-                      expand_more
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-3.5">
-              <div className="flex items-center gap-2 text-xs text-white/70">
-                <span className="h-[7px] w-[7px] flex-none rounded-full bg-[#4ADE80]" />
-                Tối ưu hoá khoảng cách đi bộ &lt;500m từ ga Metro
-              </div>
-              <div className="flex items-center gap-3.5">
-                <a
-                  href="#"
-                  onClick={(e) => e.preventDefault()}
-                  className="text-[13px] font-semibold text-white/85"
-                >
-                  Lịch trình mẫu
-                </a>
-                <button
-                  onClick={() => navigate("/create")}
-                  className="flex items-center gap-[7px] whitespace-nowrap rounded-xl bg-white px-5 py-[11px] text-[13.5px] font-bold text-navy-dark transition-colors hover:bg-[#EEF1FA] active:scale-95"
-                >
-                  Thiết kế lịch trình với AI
-                  <span className="material-symbols-outlined text-sm">
-                    arrow_forward
+          <div className="relative z-10 grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+            {HERO_FIELDS.map((field) => (
+              <div
+                key={field.label}
+                className="rounded-2xl border border-white/15 bg-white/10 p-3.5 transition-all hover:bg-white/15"
+              >
+                <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-blue-200">
+                  <span className="material-symbols-outlined text-[16px] text-blue-300">
+                    {field.icon}
                   </span>
-                </button>
+                  {field.label}
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-medium text-white">
+                    {field.value}
+                  </span>
+                  <span className="material-symbols-outlined flex-none text-[16px] text-slate-400">
+                    expand_more
+                  </span>
+                </div>
               </div>
+            ))}
+          </div>
+
+          <div className="relative z-10 flex flex-col gap-4 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 text-xs text-emerald-300">
+              <span className="h-2 w-2 flex-none rounded-full bg-emerald-400" />
+              Tối ưu hoá khoảng cách đi bộ &lt;500m từ ga Metro
+            </div>
+            <div className="flex items-center gap-3.5">
+              <a
+                href="#sample-itineraries"
+                className="text-[13px] font-semibold text-slate-300 underline-offset-4 hover:text-white hover:underline"
+              >
+                Lịch trình mẫu
+              </a>
+              <button
+                onClick={() => navigate("/create")}
+                className="group flex items-center gap-[7px] whitespace-nowrap rounded-xl bg-white px-5 py-3 text-[13.5px] font-bold text-navy-darkest shadow-lg transition-all hover:bg-slate-100 hover:shadow-xl active:scale-95"
+              >
+                Thiết kế lịch trình với AI
+                <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-1">
+                  arrow_forward
+                </span>
+              </button>
             </div>
           </div>
         </section>
 
         {/* Featured experiences */}
-        <section className="flex flex-col gap-4">
+        <section id="sample-itineraries" className="flex scroll-mt-6 flex-col gap-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
@@ -207,67 +276,92 @@ export default function HomePage() {
                 </span>
               </div>
               <p className="mt-1 text-[13px] text-text-muted">
-                Các lịch trình tối ưu dựa trên thời gian di chuyển thực tế từ
-                các ga
+                Chọn một lịch trình mẫu để tạo bản nháp bắt đầu từ bây giờ
               </p>
             </div>
             <button
               onClick={() => navigate("/create")}
               className="whitespace-nowrap text-[13px] font-bold"
             >
-              Xem tất cả 28 lịch trình ›
+              Tự thiết kế lịch trình ›
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {EXPERIENCES.map((exp) => (
-              <div
-                key={exp.title}
-                onClick={() => navigate("/create")}
-                className="soft-shadow soft-shadow-hover cursor-pointer overflow-hidden rounded-[20px] bg-white"
-              >
-                <div className="relative h-[170px] bg-surface-variant">
-                  <img
-                    src={exp.img}
-                    alt={exp.title}
-                    className="h-full w-full object-cover"
-                  />
-                  <div className="absolute inset-x-0 top-0 flex items-start justify-between p-2.5">
-                    <div className="flex gap-1.5">
-                      <span className="rounded-full bg-navy-dark px-2 py-[3px] text-[10.5px] font-bold text-white">
-                        {exp.station}
-                      </span>
-                      <span className="rounded-full bg-[#DCFCE7] px-2 py-[3px] text-[10.5px] font-bold text-[#166534]">
-                        {exp.walkTag}
-                      </span>
+          {curatedLoading ? (
+            <p role="status" className="py-6 text-[13px] text-text-muted">Đang tải lịch trình mẫu...</p>
+          ) : curatedError ? (
+            <div role="alert" className="flex items-center gap-3 py-6 text-[13px] text-text-muted">
+              <span>Không thể tải lịch trình mẫu.</span>
+              <button type="button" onClick={retryCurated} className="font-bold text-navy underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy">Thử lại</button>
+            </div>
+          ) : curated.length === 0 ? (
+            <p className="py-6 text-[13px] text-text-muted">Chưa có lịch trình mẫu.</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {curated.map((itinerary) => (
+                <div key={itinerary.id} className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCurated(itinerary)}
+                    disabled={applyingId !== null}
+                    aria-busy={applyingId === itinerary.id}
+                    className="soft-shadow soft-shadow-hover overflow-hidden rounded-[20px] bg-white text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-wait"
+                  >
+                    <div className="relative h-[170px] bg-surface-variant">
+                      {itinerary.coverImageUrl ? (
+                        <img
+                          src={itinerary.coverImageUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span aria-hidden="true" className="material-symbols-outlined flex h-full items-center justify-center text-4xl text-navy/30">route</span>
+                      )}
+                      {itinerary.stationName && (
+                        <span className="absolute left-2.5 top-2.5 rounded-full bg-navy-dark px-2 py-[3px] text-[10.5px] font-bold text-white">
+                          Ga {itinerary.stationName}
+                        </span>
+                      )}
                     </div>
-                    <span className="flex-none rounded-full bg-navy-dark px-2 py-[3px] text-[11px] font-extrabold text-accent">
-                      ★ {exp.rating}
-                    </span>
-                  </div>
+                    <div className="p-4">
+                      <h4 className="text-[15px] font-bold text-[#111726]">
+                        {itinerary.title}
+                      </h4>
+                      {itinerary.description && (
+                        <p className="mt-1.5 line-clamp-2 text-[12.5px] leading-relaxed text-text-muted">
+                          {itinerary.description}
+                        </p>
+                      )}
+                      <div className="mt-3 flex items-center justify-between gap-2 text-[12.5px]">
+                        <div className="flex items-center gap-1.5 text-text-muted">
+                          <span className="material-symbols-outlined text-[13px]">
+                            schedule
+                          </span>
+                          {formatDuration(itinerary.estimatedDurationMinutes)} · {itinerary.items.length} điểm
+                        </div>
+                        <div className="font-bold text-navy-dark">
+                          ~{formatCurrencyShort(itinerary.estimatedCostMin)} – {formatCurrencyShort(itinerary.estimatedCostMax)}/người
+                        </div>
+                      </div>
+                      <div className="mt-2 text-[12px] font-bold text-navy">
+                        {applyingId === itinerary.id ? "Đang tạo bản nháp..." : "Dùng lịch trình này ›"}
+                      </div>
+                    </div>
+                  </button>
+                  {applyError?.id === itinerary.id && (
+                    <p role="alert" className="px-1 text-[12.5px] text-error">
+                      {applyError.message}
+                      {isDemo && (
+                        <button type="button" onClick={() => navigate("/login")} className="ml-1 font-bold underline">
+                          Đăng nhập
+                        </button>
+                      )}
+                    </p>
+                  )}
                 </div>
-                <div className="p-4">
-                  <h4 className="text-[15px] font-bold text-[#111726]">
-                    {exp.title}
-                  </h4>
-                  <p className="mt-1.5 line-clamp-2 text-[12.5px] leading-relaxed text-text-muted">
-                    {exp.desc}
-                  </p>
-                  <div className="mt-3 flex items-center justify-between text-[12.5px]">
-                    <div className="flex items-center gap-1.5 text-text-muted">
-                      <span className="material-symbols-outlined text-[13px]">
-                        schedule
-                      </span>
-                      {exp.duration}
-                    </div>
-                    <div className="font-bold text-navy-dark">
-                      {exp.price}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Near Metro Line 1 */}
@@ -282,45 +376,57 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="hide-scrollbar flex gap-2 overflow-x-auto pb-0.5">
-            {FILTERS.map((label, i) => (
+          <div role="group" aria-label="Lọc theo ga Metro" className="hide-scrollbar flex gap-2 overflow-x-auto pb-0.5">
+            {[{ stationId: null, stationName: "Tất cả ga" }, ...stations].map((station) => (
               <button
-                key={label}
-                onClick={() => setActiveFilter(i)}
-                className={`flex-none whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
-                  i === activeFilter
+                key={station.stationId ?? "all"}
+                type="button"
+                aria-pressed={station.stationId === activeStationId}
+                onClick={() => setActiveStationId(station.stationId)}
+                className={`flex-none whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-bold transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy motion-reduce:transition-none ${
+                  station.stationId === activeStationId
                     ? "bg-navy-dark text-white"
                     : "bg-chip-bg text-[#3A4256]"
                 }`}
               >
-                {label}
+                {station.stationId === null ? station.stationName : `Ga ${String(station.stationOrder).padStart(2, "0")} ${station.stationName}`}
               </button>
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {nearby.map((place) => (
-              <div
-                key={place.id}
-                onClick={() => navigate(`/place/${place.id}`)}
-                className="flex cursor-pointer flex-col gap-2.5 transition-opacity hover:opacity-90"
-              >
-                <div className="relative h-[150px] overflow-hidden rounded-xl bg-surface-variant">
-                  <img
-                    src={place.imageUrl}
-                    alt={place.name}
-                    className="h-full w-full object-cover"
-                  />
-                  <span className="absolute left-2 top-2 rounded-full bg-navy-dark px-2 py-[3px] text-[10.5px] font-bold text-white">
-                    {place.nearestMetroStation ?? "Gần ga"}
-                  </span>
-                </div>
-                <div className="truncate text-[13.5px] font-bold text-[#111726]">
-                  {place.name}
-                </div>
-              </div>
-            ))}
-          </div>
+          {clustersLoading ? (
+            <p role="status" className="py-6 text-[13px] text-text-muted">Đang tải địa điểm gần ga...</p>
+          ) : clustersError ? (
+            <div role="alert" className="flex items-center gap-3 py-6 text-[13px] text-text-muted">
+              <span>Không thể tải địa điểm gần ga.</span>
+              <button type="button" onClick={retryClusters} className="font-bold text-navy underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy">Thử lại</button>
+            </div>
+          ) : nearby.length === 0 ? (
+            <p className="py-6 text-[13px] text-text-muted">Chưa có địa điểm ở cụm ga này.</p>
+          ) : (
+            <div key={activeStationId ?? "all"} className="home-station-panel grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {nearby.map((place) => (
+                <button
+                  key={place.id}
+                  type="button"
+                  onClick={() => navigate(`/place/${place.id}`)}
+                  className="flex min-w-0 flex-col gap-2.5 text-left transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                >
+                  <div className="relative h-[150px] w-full overflow-hidden rounded-xl bg-surface-variant">
+                    {place.imageUrl ? (
+                      <img src={place.imageUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span aria-hidden="true" className="material-symbols-outlined flex h-full items-center justify-center text-4xl text-navy/30">location_on</span>
+                    )}
+                    <span className="absolute left-2 top-2 rounded-full bg-navy-dark px-2 py-[3px] text-[10.5px] font-bold text-white">
+                      Ga {place.stationName}
+                    </span>
+                  </div>
+                  <span className="w-full truncate text-[13.5px] font-bold text-[#111726]">{place.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </section>
       </main>
 

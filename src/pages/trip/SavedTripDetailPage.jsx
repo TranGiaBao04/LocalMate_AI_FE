@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { REVIEW_TAGS } from "../../constants";
+import ExportTripModal from "../../components/trip/export/ExportTripModal";
+import { REVIEW_MAX_TAGS } from "../../constants";
 import { useTrip } from "../../context/TripContext";
+import { masterDataService } from "../../services/masterDataService";
 import { reviewService } from "../../services/reviewService";
 import {
   buildGoogleMapsDirectionUrl,
@@ -19,15 +21,40 @@ const MAP_IMAGE =
 const STATUS_LABEL = {
   draft: "Nháp",
   finalized: "Đã chốt",
-  upcoming: "Sắp đi",
-  completed: "Completed",
+};
+
+const REVIEW_ERROR_MESSAGES = {
+  item_not_visited: "Bạn cần đánh dấu đã ghé địa điểm này trước khi đánh giá.",
+  review_already_exists: "Bạn đã đánh giá địa điểm này rồi.",
+  review_requires_persisted_user: "Vui lòng đăng ký tài khoản để đánh giá.",
 };
 
 export default function SavedTripDetailPage() {
   const { tripId } = useParams();
   const navigate = useNavigate();
-  const { savedTrips, markVisited } = useTrip();
+  const { savedTrips, markVisited, fetchTrip } = useTrip();
   const trip = savedTrips.find((t) => t.id === tripId);
+  const [loadedTripId, setLoadedTripId] = useState(null);
+  const [tripLoadError, setTripLoadError] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const loadingTrip = loadedTripId !== tripId;
+
+  // savedTrips chỉ chứa bản tóm tắt (không có items), nên tải chi tiết khi mở trang
+  useEffect(() => {
+    let active = true;
+    fetchTrip(tripId)
+      .then(() => { if (active) setTripLoadError(""); })
+      .catch((err) => {
+        if (active) setTripLoadError(err.status === 404
+          ? "Không tìm thấy lịch trình này."
+          : err.status === 401 || err.status === 403
+            ? "Bạn không có quyền xem lịch trình này. Vui lòng đăng nhập lại."
+            : "Không thể tải lịch trình. Vui lòng thử lại.");
+      })
+      .finally(() => { if (active) setLoadedTripId(tripId); });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripId, loadAttempt]);
 
   const [reviewModal, setReviewModal] = useState(null);
   const [rating, setRating] = useState(0);
@@ -35,7 +62,46 @@ export default function SavedTripDetailPage() {
   const [comment, setComment] = useState("");
   const [reviewDone, setReviewDone] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  // [{ code, label }] từ master-data; lỗi thì form vẫn gửi được sao + nhận xét
+  const [reviewQuickTags, setReviewQuickTags] = useState([]);
+  const [visitError, setVisitError] = useState("");
+  const [visitingItemId, setVisitingItemId] = useState(null);
+  const [reviewsByItem, setReviewsByItem] = useState({});
+  const [reviewReloadKey, setReviewReloadKey] = useState(0);
   const [showToast, setShowToast] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const visitPending = useRef(false);
+  const reviewPending = useRef(false);
+  const visitedItemIds = trip?.items.filter((item) => item.isVisited).map((item) => item.id).join(",") ?? "";
+
+  useEffect(() => {
+    if (!visitedItemIds) return undefined;
+    let active = true;
+    const ids = visitedItemIds.split(",");
+    Promise.all(ids.map(async (id) => {
+      try {
+        return [id, { status: "reviewed", review: await reviewService.getReview(id) }];
+      } catch (err) {
+        return [id, { status: err.status === 404 && err.code === "review_not_found" ? "available" : "error" }];
+      }
+    })).then((entries) => {
+      if (active) setReviewsByItem((previous) => ({
+        ...previous,
+        ...Object.fromEntries(entries.map(([id, result]) => [
+          id, previous[id]?.status === "reviewed" ? previous[id] : result,
+        ])),
+      }));
+    });
+    return () => { active = false; };
+  }, [tripId, visitedItemIds, reviewReloadKey]);
+
+  useEffect(() => {
+    masterDataService
+      .getMasterData()
+      .then((data) => setReviewQuickTags(data.reviewQuickTags ?? []))
+      .catch(() => setReviewQuickTags([]));
+  }, []);
 
   useEffect(() => {
     if (!showToast) return undefined;
@@ -43,6 +109,23 @@ export default function SavedTripDetailPage() {
     const timer = setTimeout(() => setShowToast(false), 2600);
     return () => clearTimeout(timer);
   }, [showToast]);
+
+  if (loadingTrip) {
+    return (
+      <div className="app-shell flex items-center justify-center px-container-margin">
+        <p className="text-body-lg text-on-surface-variant">Đang tải...</p>
+      </div>
+    );
+  }
+
+  if (tripLoadError) {
+    return (
+      <div role="alert" className="app-shell flex flex-col items-center justify-center gap-4 px-container-margin text-center">
+        <p className="text-body-lg text-on-surface-variant">{tripLoadError}</p>
+        <button type="button" onClick={() => { setLoadedTripId(null); setLoadAttempt((attempt) => attempt + 1); }} className="btn-primary w-auto px-8">Thử lại</button>
+      </div>
+    );
+  }
 
   if (!trip) {
     return (
@@ -65,37 +148,75 @@ export default function SavedTripDetailPage() {
       ? buildGoogleMapsDirectionUrl(firstItem.latitude, firstItem.longitude)
       : "https://www.google.com/maps/search/?api=1&query=Ho%20Chi%20Minh%20City";
 
-  const handleMarkVisited = async (itemId, placeId) => {
-    await markVisited(trip.id, itemId);
+  const openReview = (itemId) => {
     setRating(0);
     setSelectedTags([]);
     setComment("");
     setReviewDone(false);
-    setReviewModal({ itemId, placeId });
-    setShowToast(true);
+    setReviewError("");
+    setReviewModal({ itemId });
+  };
+
+  const handleMarkVisited = async (itemId) => {
+    if (visitPending.current || trip.status !== "finalized") return;
+    visitPending.current = true;
+    setVisitingItemId(itemId);
+    setVisitError("");
+    try {
+      await markVisited(trip.id, itemId);
+      openReview(itemId);
+      setShowToast(true);
+    } catch (err) {
+      setVisitError(err.code === "trip_not_finalized"
+        ? "Hãy chốt lịch trình trước khi đánh dấu đã ghé."
+        : err.status === 404
+          ? "Không tìm thấy địa điểm này trong lịch trình."
+          : err.status === 401 || err.status === 403
+            ? "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại."
+            : "Không thể đánh dấu đã ghé lúc này. Vui lòng thử lại.");
+    } finally {
+      visitPending.current = false;
+      setVisitingItemId(null);
+    }
   };
 
   const handleSubmitReview = async () => {
+    if (!reviewModal || !rating || reviewPending.current) return;
+    if (comment.trim().length > 1000) {
+      setReviewError("Nhận xét không được vượt quá 1000 ký tự.");
+      return;
+    }
+    reviewPending.current = true;
     setSubmittingReview(true);
+    setReviewError("");
     try {
-      await reviewService.submitReview({
-        placeId: reviewModal.placeId,
-        tripId: trip.id,
+      const review = await reviewService.submitReview(reviewModal.itemId, {
         rating,
-        tags: selectedTags,
+        quickTags: selectedTags,
         comment,
-        visitedAt: new Date().toISOString(),
       });
+      setReviewsByItem((previous) => ({
+        ...previous,
+        [reviewModal.itemId]: { status: "reviewed", review },
+      }));
       setReviewDone(true);
+    } catch (err) {
+      setReviewError(REVIEW_ERROR_MESSAGES[err.code] ?? (
+        err.status === 400 ? "Đánh giá không hợp lệ. Vui lòng kiểm tra lại."
+          : err.status === 401 || err.status === 403 ? "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại."
+            : "Không thể gửi đánh giá lúc này. Vui lòng thử lại."
+      ));
     } finally {
+      reviewPending.current = false;
       setSubmittingReview(false);
     }
   };
 
-  const toggleTag = (tag) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
+  const toggleTag = (value) => {
+    setSelectedTags((prev) => {
+      if (prev.includes(value)) return prev.filter((t) => t !== value);
+      return prev.length >= REVIEW_MAX_TAGS ? prev : [...prev, value];
+    });
   };
 
   return (
@@ -116,8 +237,13 @@ export default function SavedTripDetailPage() {
           </h1>
         </div>
 
-        <button className="flex h-9 w-9 items-center justify-center rounded-full text-primary transition-colors hover:bg-surface-container-high">
-          <span className="material-symbols-outlined">more_vert</span>
+        <button
+          className="flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-3 text-label-md font-bold text-on-primary transition-transform active:scale-95"
+          onClick={() => setExportModalOpen(true)}
+          type="button"
+        >
+          <span className="material-symbols-outlined text-[19px]">download</span>
+          <span>Xuất lịch trình</span>
         </button>
       </header>
 
@@ -158,6 +284,7 @@ export default function SavedTripDetailPage() {
             <h3 className="mb-stack-md text-headline-md font-bold text-on-background">
               Lịch trình chi tiết
             </h3>
+            {visitError && <p role="alert" className="mb-stack-md text-label-md text-error">{visitError}</p>}
 
             <div className="space-y-gutter">
               {trip.items.map((item, idx) => {
@@ -274,14 +401,23 @@ export default function SavedTripDetailPage() {
                             </a>
                           )}
 
-                          {item.isVisited ? (
+                          {item.isVisited && reviewsByItem[item.id]?.status === "reviewed" ? (
+                            <button type="button" disabled className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-tertiary/15 px-4 py-2 text-label-md font-bold text-tertiary">
+                              <span className="material-symbols-outlined text-[18px]">star</span>
+                              Đã đánh giá {reviewsByItem[item.id].review.rating}/5
+                            </button>
+                          ) : item.isVisited && reviewsByItem[item.id]?.status === "error" ? (
+                            <button type="button" onClick={() => { setReviewsByItem((previous) => ({ ...previous, [item.id]: { status: "loading" } })); setReviewReloadKey((key) => key + 1); }} className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-tertiary px-4 py-2 text-label-md font-bold text-tertiary">
+                              Thử tải đánh giá
+                            </button>
+                          ) : item.isVisited && (!reviewsByItem[item.id] || reviewsByItem[item.id]?.status === "loading") ? (
+                            <button type="button" disabled className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-outline-variant px-4 py-2 text-label-md text-on-surface-variant">
+                              Đang kiểm tra đánh giá...
+                            </button>
+                          ) : item.isVisited ? (
                             <button
-                              onClick={() =>
-                                setReviewModal({
-                                  itemId: item.id,
-                                  placeId: item.placeId,
-                                })
-                              }
+                              type="button"
+                              onClick={() => openReview(item.id)}
                               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-tertiary px-4 py-2 text-label-md font-bold text-on-tertiary transition-transform active:scale-95"
                             >
                               <span className="material-symbols-outlined text-[18px]">
@@ -289,18 +425,22 @@ export default function SavedTripDetailPage() {
                               </span>
                               Đánh giá nhanh
                             </button>
-                          ) : (
+                          ) : trip.status === "finalized" ? (
                             <button
-                              onClick={() =>
-                                handleMarkVisited(item.id, item.placeId)
-                              }
+                              type="button"
+                              disabled={visitingItemId !== null}
+                              onClick={() => handleMarkVisited(item.id)}
                               className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-primary px-4 py-2 text-label-md font-bold text-primary transition-all active:scale-95 hover:bg-primary hover:text-on-primary"
                             >
                               <span className="material-symbols-outlined text-[18px]">
                                 location_on
                               </span>
-                              Đã ghé
+                              {visitingItemId === item.id ? "Đang cập nhật..." : "Đã ghé"}
                             </button>
+                          ) : (
+                            <span className="flex flex-1 items-center justify-center rounded-lg border border-outline-variant px-4 py-2 text-label-md text-on-surface-variant">
+                              Chốt lịch trình để đánh dấu
+                            </span>
                           )}
                         </div>
                       </article>
@@ -396,14 +536,22 @@ export default function SavedTripDetailPage() {
         </div>
       )}
 
+      {exportModalOpen && (
+        <ExportTripModal
+          onClose={() => setExportModalOpen(false)}
+          open
+          trip={trip}
+        />
+      )}
+
       {reviewModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 lg:items-center">
+        <div role="dialog" aria-modal="true" aria-labelledby="quick-review-title" className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 lg:items-center">
           <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-lg bg-surface p-stack-lg space-y-stack-md animate-fade-in-up lg:rounded-lg">
             <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-outline-variant" />
 
             {!reviewDone ? (
               <>
-                <h3 className="text-center text-title-md font-bold text-on-surface">
+                <h3 id="quick-review-title" className="text-center text-title-md font-bold text-on-surface">
                   Bạn thấy địa điểm này thế nào?
                 </h3>
 
@@ -411,6 +559,10 @@ export default function SavedTripDetailPage() {
                   {[1, 2, 3, 4, 5].map((s) => (
                     <button
                       key={s}
+                      type="button"
+                      aria-label={`${s} sao`}
+                      aria-pressed={rating === s}
+                      disabled={submittingReview}
                       onClick={() => setRating(s)}
                       className="transition-transform active:scale-90"
                     >
@@ -430,29 +582,44 @@ export default function SavedTripDetailPage() {
 
                 <div>
                   <p className="mb-2 text-label-md text-on-surface-variant">
-                    Chọn nhận xét nhanh:
+                    Chọn nhận xét nhanh (tối đa {REVIEW_MAX_TAGS}):
                   </p>
 
                   <div className="flex flex-wrap gap-2">
-                    {REVIEW_TAGS.map((tag) => (
+                    {reviewQuickTags.map((tag) => (
                       <button
-                        key={tag}
-                        onClick={() => toggleTag(tag)}
+                        key={tag.code}
+                        type="button"
+                        aria-pressed={selectedTags.includes(tag.code)}
+                        disabled={submittingReview}
+                        onClick={() => toggleTag(tag.code)}
                         className={`rounded-full px-3 py-1.5 text-label-md transition-all active:scale-95 ${
-                          selectedTags.includes(tag)
+                          selectedTags.includes(tag.code)
                             ? "bg-primary text-on-primary"
                             : "border border-outline-variant text-on-surface-variant hover:border-primary"
                         }`}
                       >
-                        {tag}
+                        {tag.label}
                       </button>
                     ))}
                   </div>
                 </div>
 
+                {reviewError && (
+                  <p
+                    role="alert"
+                    className="rounded-lg bg-error-container/10 px-3 py-2 text-label-md text-error"
+                  >
+                    {reviewError}
+                  </p>
+                )}
+
                 <textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
+                  aria-label="Nhận xét thêm"
+                  maxLength={1000}
+                  disabled={submittingReview}
                   placeholder="Bạn muốn chia sẻ thêm gì không? (tuỳ chọn)"
                   rows={3}
                   className="w-full resize-none rounded-DEFAULT bg-surface-container-low p-3 text-body-md placeholder:text-outline-variant focus:outline-none focus:ring-2 focus:ring-primary-container"
@@ -460,6 +627,8 @@ export default function SavedTripDetailPage() {
 
                 <div className="flex gap-3">
                   <button
+                    type="button"
+                    disabled={submittingReview}
                     onClick={() => setReviewModal(null)}
                     className="flex-1 rounded-full border border-outline-variant py-3 font-semibold text-on-surface-variant transition-transform active:scale-95"
                   >
@@ -467,6 +636,7 @@ export default function SavedTripDetailPage() {
                   </button>
 
                   <button
+                    type="button"
                     onClick={handleSubmitReview}
                     disabled={rating === 0 || submittingReview}
                     className="flex-1 rounded-full bg-primary py-3 font-semibold text-on-primary transition-transform active:scale-95 disabled:opacity-50"
@@ -486,7 +656,7 @@ export default function SavedTripDetailPage() {
                   </span>
                 </div>
 
-                <h3 className="text-title-md font-bold text-on-surface">
+                <h3 id="quick-review-title" className="text-title-md font-bold text-on-surface">
                   Cảm ơn bạn!
                 </h3>
                 <p className="text-body-md text-on-surface-variant">
@@ -494,6 +664,7 @@ export default function SavedTripDetailPage() {
                 </p>
 
                 <button
+                  type="button"
                   onClick={() => setReviewModal(null)}
                   className="btn-primary"
                 >
