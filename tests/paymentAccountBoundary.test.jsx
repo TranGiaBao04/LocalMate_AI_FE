@@ -168,6 +168,78 @@ describe("FE-UP1: Payment & Account Transport Boundary", () => {
     }
   });
 
+  it.each([
+    ["customer JSON", () => apiClient.get("/subscription/me"), false],
+    ["customer Blob", () => apiClient.getBlob("/admin/transactions/export.csv"), false],
+    ["admin JSON", () => adminApiClient.post("/admin/transactions/order/repair-entitlement", { reason: "Valid reason" }), true],
+    ["admin Blob", () => adminApiClient.getBlob("/admin/transactions/export.csv"), true],
+  ])("FE-UP6 ordinary %s 403 retains token and never ends session", async (_label, request, isAdmin) => {
+    localStorage.setItem(STORAGE_KEYS.TOKEN, "valid-session");
+    const sessionEnded = vi.fn();
+    const unauthorized = vi.fn();
+    const forbidden = vi.fn();
+    window.addEventListener(AUTH_EVENTS.SESSION_ENDED, sessionEnded);
+    window.addEventListener(ADMIN_API_EVENTS.UNAUTHORIZED, unauthorized);
+    window.addEventListener(ADMIN_API_EVENTS.FORBIDDEN, forbidden);
+    try {
+      globalThis.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ code: "forbidden", status: 403 }), {
+        status: 403, headers: { "Content-Type": "application/problem+json" },
+      }));
+      await expect(request()).rejects.toMatchObject({ status: 403 });
+      expect(sessionEnded).not.toHaveBeenCalled();
+      expect(unauthorized).not.toHaveBeenCalled();
+      expect(forbidden).toHaveBeenCalledTimes(isAdmin ? 1 : 0);
+      expect(localStorage.getItem(STORAGE_KEYS.TOKEN)).toBe("valid-session");
+    } finally {
+      window.removeEventListener(AUTH_EVENTS.SESSION_ENDED, sessionEnded);
+      window.removeEventListener(ADMIN_API_EVENTS.UNAUTHORIZED, unauthorized);
+      window.removeEventListener(ADMIN_API_EVENTS.FORBIDDEN, forbidden);
+    }
+  });
+
+  it.each([
+    ["JSON", () => adminApiClient.get("/admin/transactions")],
+    ["Blob", () => adminApiClient.getBlob("/admin/transactions/export.csv")],
+  ])("FE-UP6 admin %s 401 still clears session and emits login flow once", async (_label, request) => {
+    localStorage.setItem(STORAGE_KEYS.TOKEN, "expired-session");
+    const unauthorized = vi.fn();
+    const forbidden = vi.fn();
+    window.addEventListener(ADMIN_API_EVENTS.UNAUTHORIZED, unauthorized);
+    window.addEventListener(ADMIN_API_EVENTS.FORBIDDEN, forbidden);
+    try {
+      globalThis.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ status: 401 }), {
+        status: 401, headers: { "Content-Type": "application/problem+json" },
+      }));
+      await expect(request()).rejects.toMatchObject({ status: 401 });
+      expect(localStorage.getItem(STORAGE_KEYS.TOKEN)).toBeNull();
+      expect(unauthorized).toHaveBeenCalledTimes(1);
+      expect(forbidden).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(ADMIN_API_EVENTS.UNAUTHORIZED, unauthorized);
+      window.removeEventListener(ADMIN_API_EVENTS.FORBIDDEN, forbidden);
+    }
+  });
+
+  it("FE-UP6 Blob account_not_found emits shared session ending, not generic admin 401", async () => {
+    localStorage.setItem(STORAGE_KEYS.TOKEN, "removed-account");
+    const ended = vi.fn();
+    const unauthorized = vi.fn();
+    window.addEventListener(AUTH_EVENTS.SESSION_ENDED, ended);
+    window.addEventListener(ADMIN_API_EVENTS.UNAUTHORIZED, unauthorized);
+    try {
+      globalThis.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ code: "account_not_found" }), {
+        status: 401, headers: { "Content-Type": "application/problem+json" },
+      }));
+      await expect(adminApiClient.getBlob("/admin/transactions/export.csv"))
+        .rejects.toMatchObject({ status: 401, code: "account_not_found" });
+      expect(ended).toHaveBeenCalledTimes(1);
+      expect(unauthorized).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(AUTH_EVENTS.SESSION_ENDED, ended);
+      window.removeEventListener(ADMIN_API_EVENTS.UNAUTHORIZED, unauthorized);
+    }
+  });
+
   describe("Owner-scoped subscription payment session boundary", () => {
     it("account A session is unavailable to account B", () => {
       sessionStorage.clear();

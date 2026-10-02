@@ -13,6 +13,9 @@ vi.mock("../src/api/adminApiClient", () => ({
   adminApiClient: { get: vi.fn(), getBlob: vi.fn(), post: vi.fn() },
 }));
 vi.mock("../src/utils/exportFiles", () => ({ downloadBlob: vi.fn() }));
+vi.mock("../src/context/AuthContext", () => ({
+  useAuth: () => ({ user: { permissions: ["ViewRevenue"] } }),
+}));
 
 const ORDER_ID = "order-upgrade";
 const CHECKED_AT = "2026-10-02T03:04:00Z";

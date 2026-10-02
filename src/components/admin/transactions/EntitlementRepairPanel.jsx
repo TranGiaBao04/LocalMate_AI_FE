@@ -75,6 +75,7 @@ function renderRepairOutcomePill(outcome) {
 
 export default function EntitlementRepairPanel({
   detail,
+  canManagePlans = false,
   onOpenRepair,
   repairing = false,
 }) {
@@ -180,9 +181,9 @@ export default function EntitlementRepairPanel({
               </p>
             )}
 
-            {/* When Eligible: Display proposed details + warning + action button */}
-            {isEligible ? (
-              <div className="mt-3 space-y-3 rounded-xl border border-blue-100 bg-blue-50/50 p-3.5 text-xs">
+            {(repairEligibility?.proposedStartsAt || repairEligibility?.proposedEndsAt ||
+              repairEligibility?.reconstructionMode || repairEligibility?.assessedAt) && (
+              <div className="mt-3 text-xs">
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div>
                     <span className="text-slate-500">Kỳ quyền dự kiến:</span>
@@ -195,7 +196,7 @@ export default function EntitlementRepairPanel({
                   {repairEligibility.reconstructionMode && (
                     <div>
                       <span className="text-slate-500">Chế độ tái thiết:</span>
-                      <p className="font-semibold text-slate-800">
+                      <p className="break-words font-semibold text-slate-800 [overflow-wrap:anywhere]">
                         {repairEligibility.reconstructionMode}
                       </p>
                     </div>
@@ -209,7 +210,11 @@ export default function EntitlementRepairPanel({
                     </div>
                   )}
                 </div>
+              </div>
+            )}
 
+            {isEligible ? (
+              <div className="mt-3 space-y-3 rounded-xl border border-blue-100 bg-blue-50/50 p-3.5 text-xs">
                 <p className="text-[11px] leading-relaxed text-blue-900">
                   Thao tác này khôi phục đúng kỳ quyền đã mua trong lịch sử. Không gia hạn gói và không thay đổi trạng thái thanh toán.
                 </p>
@@ -225,19 +230,21 @@ export default function EntitlementRepairPanel({
                   </div>
                 )}
 
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    disabled={repairing}
-                    onClick={onOpenRepair}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#1d3e82] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#17366f] focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-wait disabled:opacity-60"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">
-                      build_circle
-                    </span>
-                    <span>Khôi phục entitlement</span>
-                  </button>
-                </div>
+                {canManagePlans && (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      disabled={repairing}
+                      onClick={onOpenRepair}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#1d3e82] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#17366f] focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">
+                        build_circle
+                      </span>
+                      <span>Khôi phục entitlement</span>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               /* When Not Eligible: display explanatory text, do not show active repair button */
@@ -247,7 +254,9 @@ export default function EntitlementRepairPanel({
                 </span>
                 <span>
                   {repairEligibility?.message ||
-                    "Giao dịch hiện không đủ điều kiện khôi phục entitlement."}
+                    (entitlement?.grantStatus === "NotApplicable"
+                      ? "Khôi phục quyền gói đăng ký không áp dụng cho sản phẩm này."
+                      : "Giao dịch hiện không đủ điều kiện khôi phục entitlement.")}
                 </span>
               </div>
             )}

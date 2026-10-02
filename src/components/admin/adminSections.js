@@ -44,7 +44,7 @@ export const ADMIN_SECTIONS = [
     label: "Giao dịch PayOS",
     group: "Gói cước & Doanh thu",
     icon: "payments",
-    permissions: [P.VIEW_REVENUE, P.MANAGE_PLANS],
+    permissions: [P.VIEW_REVENUE],
     description: "Tra cứu và đối soát giao dịch thanh toán.",
     tone: "bg-orange-50 text-orange-700",
   },
