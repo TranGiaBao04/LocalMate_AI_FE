@@ -37,4 +37,13 @@ export const ADMIN_PERMISSIONS = {
   VIEW_REVENUE: "ViewRevenue",
   MANAGE_USERS: "ManageUsers",
   MANAGE_ROLES: "ManageRoles",
+  MANAGE_SETTINGS: "ManageSettings",
+};
+
+// PlaceCategory của BE, cùng thứ tự với GET /admin/stations. Loại lạ hiện nguyên mã.
+export const PLACE_CATEGORY_LABELS = {
+  Cafe: "Cà phê",
+  Food: "Ăn uống",
+  Culture: "Văn hoá",
+  CheckIn: "Check-in",
 };
