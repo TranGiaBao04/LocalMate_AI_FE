@@ -1,46 +1,40 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { subscriptionService } from "../../services/subscriptionService";
 import { itineraryPurchaseService } from "../../services/itineraryPurchaseService";
+import { useAuth } from "../../context/AuthContext";
 import { useSubscription } from "../../context/SubscriptionContext";
 import { PLAN_DISPLAY_NAMES } from "../../utils/subscriptionUtils";
 import {
   getSinglePaymentIntent,
   clearSinglePaymentIntent,
 } from "../../utils/itineraryPurchaseSession";
-
-const ACTIVE_PAYMENT_SESSION_KEY = "localmate_active_payment_intent";
-
-function getStoredSubscriptionOrderId() {
-  try {
-    const stored = sessionStorage.getItem(ACTIVE_PAYMENT_SESSION_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed?.orderId || null;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
+import {
+  getSubscriptionPaymentSession,
+  clearSubscriptionPaymentSession,
+} from "../../utils/subscriptionPaymentSession";
+import { PAYMENT_ORDER_STATUS } from "../../utils/subscriptionUpgradeContract";
 
 export default function PaymentReturnPage({ mode = "success" }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const { refreshSubscription } = useSubscription();
 
   const searchOrderId = searchParams.get("orderId");
   const singleIntent = getSinglePaymentIntent();
-  const subscriptionOrderId = getStoredSubscriptionOrderId();
+  const subscriptionSession = getSubscriptionPaymentSession(user?.id);
+  const subscriptionOrderId = subscriptionSession?.orderId;
 
-  // Initial detection of flow
-  const [flow, setFlow] = useState(() => {
+  // Xác định luồng sản phẩm tách biệt rõ ràng
+  // TUYỆT ĐỐI KHÔNG fallback sang Single khi gặp lỗi Subscription
+  const flow = useMemo(() => {
     if (singleIntent?.orderId && searchOrderId === singleIntent.orderId) return "single";
     if (subscriptionOrderId && searchOrderId === subscriptionOrderId) return "subscription";
     if (singleIntent?.orderId && !subscriptionOrderId) return "single";
     if (subscriptionOrderId) return "subscription";
-    return null; // fallback: will try subscription first then single
-  });
+    return "subscription"; // Mặc định là subscription nếu không có explicit Single evidence
+  }, [singleIntent?.orderId, subscriptionOrderId, searchOrderId]);
 
   const targetOrderId =
     searchOrderId ||
@@ -51,6 +45,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
   const [loading, setLoading] = useState(() => Boolean(targetOrderId));
   const [order, setOrder] = useState(null);
   const [error, setError] = useState("");
+  const [retryTrigger, setRetryTrigger] = useState(0);
   const pollTimerRef = useRef(null);
 
   const stopPolling = useCallback(() => {
@@ -66,14 +61,10 @@ export default function PaymentReturnPage({ mode = "success" }) {
     };
   }, [stopPolling]);
 
+  // Luôn tra cứu đơn hàng từ server cho cả luồng return và cancel
+  // Redirect query hoặc cancel param KHÔNG được tự ý gán Paid/Failed/Expired
   useEffect(() => {
-    if (!targetOrderId) return;
-    if (mode === "cancel") {
-      if (flow === "subscription" || (!flow && subscriptionOrderId === targetOrderId)) {
-        sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
-      }
-      return;
-    }
+    if (!targetOrderId) return undefined;
 
     let active = true;
 
@@ -81,22 +72,23 @@ export default function PaymentReturnPage({ mode = "success" }) {
       try {
         const data = await subscriptionService.getOrder(orderId);
         if (!active) return;
-        setFlow("subscription");
         setOrder(data);
-        if (data?.status === "Paid") {
+
+        if (data?.status === PAYMENT_ORDER_STATUS.PAID) {
           refreshSubscription();
-          sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
+          clearSubscriptionPaymentSession(user?.id);
+        } else if (
+          data?.status === PAYMENT_ORDER_STATUS.FAILED ||
+          data?.status === PAYMENT_ORDER_STATUS.EXPIRED
+        ) {
+          clearSubscriptionPaymentSession(user?.id);
         }
       } catch (err) {
         if (!active) return;
-        // If flow was unknown, fallback to checking single itinerary order
-        if (!flow) {
-          checkSingleOrder(orderId);
-          return;
-        }
+        // KHÔNG BAO GIỜ fallback sang Single khi gặp lỗi tra cứu subscription
         setError(err.message || "Không thể kiểm tra trạng thái đơn hàng.");
       } finally {
-        if (active && flow) setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
@@ -104,22 +96,21 @@ export default function PaymentReturnPage({ mode = "success" }) {
       try {
         const data = await itineraryPurchaseService.getOrder(orderId);
         if (!active) return;
-        setFlow("single");
         setOrder(data);
 
-        if (data?.status === "Paid") {
+        if (data?.status === PAYMENT_ORDER_STATUS.PAID) {
           if (data.entitlement != null) {
             clearSinglePaymentIntent();
             stopPolling();
           } else {
-            // Paid but entitlement pending: start polling
+            // Paid but entitlement pending: polling
             stopPolling();
             pollTimerRef.current = setInterval(async () => {
               try {
                 const refreshed = await itineraryPurchaseService.getOrder(orderId);
                 if (!active) return;
                 setOrder(refreshed);
-                if (refreshed?.entitlement != null || refreshed?.status !== "Paid") {
+                if (refreshed?.entitlement != null || refreshed?.status !== PAYMENT_ORDER_STATUS.PAID) {
                   stopPolling();
                   if (refreshed?.entitlement != null) {
                     clearSinglePaymentIntent();
@@ -130,7 +121,10 @@ export default function PaymentReturnPage({ mode = "success" }) {
               }
             }, 2500);
           }
-        } else if (data?.status === "Failed" || data?.status === "Expired") {
+        } else if (
+          data?.status === PAYMENT_ORDER_STATUS.FAILED ||
+          data?.status === PAYMENT_ORDER_STATUS.EXPIRED
+        ) {
           stopPolling();
         }
       } catch (err) {
@@ -143,10 +137,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
 
     if (flow === "single") {
       checkSingleOrder(targetOrderId);
-    } else if (flow === "subscription") {
-      checkSubscriptionOrder(targetOrderId);
     } else {
-      // Unknown flow: try subscription first, fallback to single
       checkSubscriptionOrder(targetOrderId);
     }
 
@@ -154,7 +145,11 @@ export default function PaymentReturnPage({ mode = "success" }) {
       active = false;
       stopPolling();
     };
-  }, [targetOrderId, flow, mode, refreshSubscription, singleIntent?.orderId, subscriptionOrderId, stopPolling]);
+  }, [targetOrderId, flow, user?.id, refreshSubscription, stopPolling, retryTrigger]);
+
+  const handleRetryLookup = () => {
+    setRetryTrigger((prev) => prev + 1);
+  };
 
   const planDisplayName =
     PLAN_DISPLAY_NAMES[order?.planCode] || order?.planCode || "Gói dịch vụ";
@@ -174,7 +169,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
           </div>
         ) : isSingleFlow ? (
           /* ================= SINGLE ITINERARY FLOW ================= */
-          order?.status === "Paid" ? (
+          order?.status === PAYMENT_ORDER_STATUS.PAID ? (
             order.entitlement != null ? (
               <>
                 <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
@@ -237,7 +232,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
                 </div>
               </div>
             )
-          ) : mode === "cancel" || order?.status === "Failed" || order?.status === "Expired" ? (
+          ) : mode === "cancel" || order?.status === PAYMENT_ORDER_STATUS.FAILED || order?.status === PAYMENT_ORDER_STATUS.EXPIRED ? (
             <>
               <div className="w-20 h-20 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center mx-auto shadow-sm">
                 <span className="material-symbols-outlined text-[48px]">
@@ -249,7 +244,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
                   Bạn đã quay lại từ cổng thanh toán
                 </h2>
                 <p className="text-body-md text-on-surface-variant">
-                  {order?.status === "Expired"
+                  {order?.status === PAYMENT_ORDER_STATUS.EXPIRED
                     ? "Giao dịch đã hết hạn thanh toán."
                     : "Giao dịch mua thêm lịch trình chưa được hoàn tất hoặc đã bị huỷ. Bạn có thể tiếp tục xem và tạo lịch trình bất cứ khi nào."}
                 </p>
@@ -293,11 +288,20 @@ export default function PaymentReturnPage({ mode = "success" }) {
                 </p>
               </div>
               <div className="space-y-3 pt-2">
+                {error && (
+                  <button
+                    type="button"
+                    onClick={handleRetryLookup}
+                    className="w-full py-3.5 px-4 rounded-xl bg-primary text-on-primary font-bold text-label-md hover:bg-primary/90 transition-all shadow-sm"
+                  >
+                    Thử kiểm tra lại
+                  </button>
+                )}
                 {draftTripId ? (
                   <button
                     type="button"
                     onClick={() => navigate("/draft")}
-                    className="w-full py-3.5 px-4 rounded-xl bg-primary text-on-primary font-bold text-label-md hover:bg-primary/90 transition-all shadow-md shadow-primary/25"
+                    className="w-full py-3.5 px-4 rounded-xl bg-surface-container-high text-on-surface font-bold text-label-md hover:bg-surface-container-highest transition-all"
                   >
                     Quay lại lịch trình nháp
                   </button>
@@ -313,8 +317,8 @@ export default function PaymentReturnPage({ mode = "success" }) {
             </>
           )
         ) : (
-          /* ================= SUBSCRIPTION FLOW (EXISTING) ================= */
-          order?.status === "Paid" ? (
+          /* ================= SUBSCRIPTION FLOW (SERVER AUTHORITATIVE) ================= */
+          order?.status === PAYMENT_ORDER_STATUS.PAID ? (
             <>
               <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
                 <span
@@ -329,7 +333,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
                   Thanh toán thành công!
                 </h2>
                 <p className="text-body-md text-on-surface-variant">
-                  Gói <strong className="text-primary font-bold">{planDisplayName}</strong> của bạn đã được kích hoạt.
+                  Gói <strong className="text-primary font-bold">{planDisplayName}</strong> của bạn đã được kích hoạt thành công.
                 </p>
               </div>
               <button
@@ -340,16 +344,62 @@ export default function PaymentReturnPage({ mode = "success" }) {
                 Về trang gói dịch vụ
               </button>
             </>
-          ) : mode === "cancel" || order?.status === "Failed" ? (
+          ) : order?.status === PAYMENT_ORDER_STATUS.REVIEW_REQUIRED ? (
             <>
-              <div className="w-20 h-20 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center mx-auto shadow-sm">
+              <div className="w-20 h-20 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto shadow-sm">
                 <span className="material-symbols-outlined text-[48px]">
-                  arrow_back
+                  rate_review
                 </span>
               </div>
               <div className="space-y-2">
                 <h2 className="text-title-lg font-bold text-on-surface">
-                  Bạn đã quay lại từ cổng thanh toán
+                  Thanh toán đang cần được kiểm tra
+                </h2>
+                <p className="text-body-md text-on-surface-variant">
+                  Giao dịch đang cần kiểm tra đối soát, vui lòng liên hệ bộ phận hỗ trợ hoặc đợi hệ thống xử lý. Vui lòng không thực hiện thanh toán lại.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/subscription")}
+                className="w-full py-3.5 px-4 rounded-xl bg-navy-dark hover:bg-navy-darkest text-white font-bold text-label-md transition-all shadow-sm"
+              >
+                Về trang gói dịch vụ
+              </button>
+            </>
+          ) : order?.status === PAYMENT_ORDER_STATUS.EXPIRED ? (
+            <>
+              <div className="w-20 h-20 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto shadow-sm">
+                <span className="material-symbols-outlined text-[48px]">
+                  timer_off
+                </span>
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-title-lg font-bold text-on-surface">
+                  Mã thanh toán đã hết hạn
+                </h2>
+                <p className="text-body-md text-on-surface-variant">
+                  Giao dịch đã quá thời gian chờ thanh toán từ cổng thanh toán.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/subscription")}
+                className="w-full py-3.5 px-4 rounded-xl bg-primary text-on-primary font-bold text-label-md hover:bg-primary/90 transition-all shadow-sm"
+              >
+                Quay lại trang Gói dịch vụ
+              </button>
+            </>
+          ) : order?.status === PAYMENT_ORDER_STATUS.FAILED ? (
+            <>
+              <div className="w-20 h-20 rounded-full bg-error/10 text-error flex items-center justify-center mx-auto shadow-sm">
+                <span className="material-symbols-outlined text-[48px]">
+                  error
+                </span>
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-title-lg font-bold text-on-surface">
+                  Thanh toán chưa hoàn tất
                 </h2>
                 <p className="text-body-md text-on-surface-variant">
                   Giao dịch chưa được hoàn tất hoặc đã bị huỷ. Bạn có thể tiếp tục xem và chọn gói bất cứ khi nào.
@@ -358,14 +408,51 @@ export default function PaymentReturnPage({ mode = "success" }) {
               <button
                 type="button"
                 onClick={() => navigate("/subscription")}
-                className="w-full py-3.5 px-4 rounded-xl bg-navy-dark hover:bg-navy-darkest text-white font-bold text-label-md transition-all shadow-sm"
+                className="w-full py-3.5 px-4 rounded-xl bg-primary text-on-primary font-bold text-label-md hover:bg-primary/90 transition-all shadow-sm"
               >
                 Quay lại trang Gói dịch vụ
               </button>
             </>
-          ) : (
+          ) : order?.status === PAYMENT_ORDER_STATUS.PENDING ? (
             <>
               <div className="w-20 h-20 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto shadow-sm">
+                <span className="material-symbols-outlined text-[48px]">
+                  schedule
+                </span>
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-title-lg font-bold text-on-surface">
+                  {mode === "cancel"
+                    ? "Bạn đã quay lại từ cổng thanh toán"
+                    : "Giao dịch đang chờ thanh toán"}
+                </h2>
+                <p className="text-body-md text-on-surface-variant">
+                  {mode === "cancel"
+                    ? "Giao dịch vẫn đang ở trạng thái chờ thanh toán trên hệ thống. Bạn có thể tiếp tục thanh toán hoặc kiểm tra lại."
+                    : "Hệ thống đang chờ xác nhận thanh toán từ ngân hàng hoặc cổng thanh toán."}
+                </p>
+              </div>
+              <div className="space-y-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleRetryLookup}
+                  className="w-full py-3.5 px-4 rounded-xl bg-primary text-on-primary font-bold text-label-md hover:bg-primary/90 transition-all shadow-sm"
+                >
+                  Kiểm tra lại trạng thái
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/subscription")}
+                  className="w-full py-3.5 px-4 rounded-xl bg-surface-container-high text-on-surface font-bold text-label-md hover:bg-surface-container-highest transition-all"
+                >
+                  Về trang gói dịch vụ
+                </button>
+              </div>
+            </>
+          ) : (
+            /* Error or unresolved state */
+            <>
+              <div className="w-20 h-20 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center mx-auto shadow-sm">
                 <span className="material-symbols-outlined text-[48px]">
                   info
                 </span>
@@ -375,16 +462,27 @@ export default function PaymentReturnPage({ mode = "success" }) {
                   Thông tin thanh toán
                 </h2>
                 <p className="text-body-md text-on-surface-variant">
-                  {error || "Đơn hàng đang chờ xử lý hoặc đã kết thúc phiên làm việc."}
+                  {error || (order ? `Trạng thái: ${order.status}` : "Đơn hàng đang chờ xử lý hoặc đã kết thúc phiên làm việc.")}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => navigate("/subscription")}
-                className="w-full py-3.5 px-4 rounded-xl bg-primary text-on-primary font-bold text-label-md hover:bg-primary/90 transition-all"
-              >
-                Về trang gói dịch vụ
-              </button>
+              <div className="space-y-3 pt-2">
+                {targetOrderId && (
+                  <button
+                    type="button"
+                    onClick={handleRetryLookup}
+                    className="w-full py-3.5 px-4 rounded-xl bg-primary text-on-primary font-bold text-label-md hover:bg-primary/90 transition-all shadow-sm"
+                  >
+                    Thử kiểm tra lại
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => navigate("/subscription")}
+                  className="w-full py-3.5 px-4 rounded-xl bg-surface-container-high text-on-surface font-bold text-label-md hover:bg-surface-container-highest transition-all"
+                >
+                  Về trang gói dịch vụ
+                </button>
+              </div>
             </>
           )
         )}

@@ -2,6 +2,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { apiClient, AUTH_EVENTS, ApiError } from "../src/api/apiClient";
 import { adminApiClient, ADMIN_API_EVENTS } from "../src/api/adminApiClient";
 import { STORAGE_KEYS } from "../src/constants";
+import {
+  saveSubscriptionPaymentSession,
+  getSubscriptionPaymentSession,
+  clearSubscriptionPaymentSession,
+} from "../src/utils/subscriptionPaymentSession";
 
 describe("FE-UP1: Payment & Account Transport Boundary", () => {
   const originalFetch = globalThis.fetch;
@@ -161,5 +166,62 @@ describe("FE-UP1: Payment & Account Transport Boundary", () => {
     } finally {
       window.removeEventListener(AUTH_EVENTS.SESSION_ENDED, onSessionEnded);
     }
+  });
+
+  describe("Owner-scoped subscription payment session boundary", () => {
+    it("account A session is unavailable to account B", () => {
+      sessionStorage.clear();
+      saveSubscriptionPaymentSession("user-a", {
+        orderId: "order-a-123",
+        qrCode: "qr-a",
+        amount: 50000,
+        planCode: "TripPass",
+      });
+
+      // User A can access its own session
+      const sessionA = getSubscriptionPaymentSession("user-a");
+      expect(sessionA).not.toBeNull();
+      expect(sessionA.orderId).toBe("order-a-123");
+
+      // User B cannot access User A's session
+      const sessionB = getSubscriptionPaymentSession("user-b");
+      expect(sessionB).toBeNull();
+    });
+
+    it("saving session for account B does not overwrite account A session", () => {
+      sessionStorage.clear();
+      saveSubscriptionPaymentSession("user-a", {
+        orderId: "order-a-123",
+        amount: 50000,
+      });
+      saveSubscriptionPaymentSession("user-b", {
+        orderId: "order-b-456",
+        amount: 99000,
+      });
+
+      const sessionA = getSubscriptionPaymentSession("user-a");
+      const sessionB = getSubscriptionPaymentSession("user-b");
+
+      expect(sessionA.orderId).toBe("order-a-123");
+      expect(sessionB.orderId).toBe("order-b-456");
+    });
+
+    it("clearing session for account A does not affect account B", () => {
+      sessionStorage.clear();
+      saveSubscriptionPaymentSession("user-a", { orderId: "order-a-123" });
+      saveSubscriptionPaymentSession("user-b", { orderId: "order-b-456" });
+
+      clearSubscriptionPaymentSession("user-a");
+
+      expect(getSubscriptionPaymentSession("user-a")).toBeNull();
+      expect(getSubscriptionPaymentSession("user-b")).not.toBeNull();
+      expect(getSubscriptionPaymentSession("user-b").orderId).toBe("order-b-456");
+    });
+
+    it("session cannot be retrieved with missing or invalid ownerId", () => {
+      expect(getSubscriptionPaymentSession(null)).toBeNull();
+      expect(getSubscriptionPaymentSession(undefined)).toBeNull();
+      expect(getSubscriptionPaymentSession("")).toBeNull();
+    });
   });
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useSubscription } from "../../context/SubscriptionContext";
@@ -11,11 +11,16 @@ import { subscriptionService } from "../../services/subscriptionService";
 import { PLAN_CODES } from "../../utils/subscriptionUtils";
 import {
   extractErrorCode,
+  extractPendingPaymentMetadata,
   CUSTOMER_SUBSCRIPTION_ERROR_CODES,
   getCustomerErrorMessage,
+  PAYMENT_ORDER_STATUS,
 } from "../../utils/subscriptionUpgradeContract";
-
-const ACTIVE_PAYMENT_SESSION_KEY = "localmate_active_payment_intent";
+import {
+  saveSubscriptionPaymentSession,
+  getSubscriptionPaymentSession,
+  clearSubscriptionPaymentSession,
+} from "../../utils/subscriptionPaymentSession";
 
 export default function SubscriptionPage() {
   const navigate = useNavigate();
@@ -67,73 +72,81 @@ export default function SubscriptionPage() {
     }
   }, [quoteError, refreshSubscription, refreshPlans]);
 
-  // Khôi phục phiên thanh toán đang chờ từ sessionStorage (Session Resume)
+  // Khôi phục phiên thanh toán đang chờ từ owner-scoped session (Session Resume)
+  // Backend GET /orders/{orderId} là cơ quan thẩm quyền duy nhất xác nhận trạng thái
   useEffect(() => {
-    if (isDemo || !isLoggedIn) return;
+    if (isDemo || !isLoggedIn || !user?.id) return undefined;
 
-    try {
-      const stored = sessionStorage.getItem(ACTIVE_PAYMENT_SESSION_KEY);
-      if (!stored) return;
+    let active = true;
 
-      const parsed = JSON.parse(stored);
-      if (!parsed?.orderId) return;
+    const resumeSession = async () => {
+      const session = getSubscriptionPaymentSession(user.id);
+      if (!session?.orderId) return;
 
-      // Fallback an toàn cho intent cũ chưa có trường flow
-      parsed.flow = parsed.flow || "purchase";
+      try {
+        const order = await subscriptionService.getOrder(session.orderId);
+        if (!active) return;
 
-      subscriptionService
-        .getOrder(parsed.orderId)
-        .then((order) => {
-          if (order?.status === "Pending") {
-            setPaymentIntent(parsed);
-            setIsPaymentModalOpen(true);
-          } else if (order?.status === "Paid") {
-            sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
-            refreshSubscription();
-          } else {
-            // Failed, Expired, hoặc trạng thái khác
-            sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
-          }
-        })
-        .catch(() => {
-          sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
-        });
-    } catch {
-      sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
-    }
-  }, [isDemo, isLoggedIn, refreshSubscription]);
-
-  // Trích xuất intent khi có lỗi 409 pending_order_exists (FE flow marker)
-  const extractReusableIntent = useCallback(
-    (err, defaultPlanCode, flow = "purchase") => {
-      const raw = err?.data?.extensions || err?.data || {};
-      const orderId = raw.orderId || raw.OrderId;
-      const qrCode = raw.qrCode || raw.QrCode;
-      const checkoutUrl = raw.checkoutUrl || raw.CheckoutUrl;
-      const amount = raw.amount || raw.Amount;
-      const expiresAt = raw.expiresAt || raw.ExpiresAt;
-      const type = raw.type || raw.Type;
-      const listPrice = raw.listPrice || raw.ListPrice;
-      const creditAmount = raw.creditAmount || raw.CreditAmount;
-
-      if (orderId && (qrCode || checkoutUrl)) {
-        return {
-          orderId,
-          planCode: defaultPlanCode,
-          flow,
-          qrCode,
-          checkoutUrl,
-          amount,
-          expiresAt,
-          type,
-          listPrice,
-          creditAmount,
-        };
+        if (order?.status === PAYMENT_ORDER_STATUS.PENDING) {
+          const resumedIntent = {
+            orderId: order.orderId,
+            status: order.status,
+            planCode: order.planCode,
+            flow: session.flow || "purchase",
+            qrCode: session.qrCode || null,
+            checkoutUrl: session.checkoutUrl || null,
+            amount: order.amount,
+            expiresAt: order.expiresAt || null,
+            type: order.type,
+            listPrice: order.listPrice,
+            creditAmount: order.creditAmount,
+            ownerId: user.id,
+          };
+          saveSubscriptionPaymentSession(user.id, resumedIntent);
+          setPaymentIntent(resumedIntent);
+          setIsPaymentModalOpen(true);
+        } else if (order?.status === PAYMENT_ORDER_STATUS.PAID) {
+          clearSubscriptionPaymentSession(user.id);
+          refreshSubscription();
+          setPageSuccess("Thanh toán thành công! Gói cước của bạn đã được cập nhật.");
+        } else if (order?.status === PAYMENT_ORDER_STATUS.REVIEW_REQUIRED) {
+          const reviewIntent = {
+            orderId: order.orderId,
+            status: order.status,
+            planCode: order.planCode,
+            flow: session.flow || "purchase",
+            qrCode: null,
+            checkoutUrl: null,
+            amount: order.amount,
+            expiresAt: order.expiresAt || null,
+            type: order.type,
+            listPrice: order.listPrice,
+            creditAmount: order.creditAmount,
+            ownerId: user.id,
+          };
+          setPaymentIntent(reviewIntent);
+          setIsPaymentModalOpen(true);
+        } else if (
+          order?.status === PAYMENT_ORDER_STATUS.FAILED ||
+          order?.status === PAYMENT_ORDER_STATUS.EXPIRED
+        ) {
+          clearSubscriptionPaymentSession(user.id);
+        }
+      } catch (err) {
+        if (!active) return;
+        // 404: đơn hàng không tồn tại hoặc khác chủ sở hữu -> xoá session an toàn
+        if (err?.status === 404 || err?.code === "payment_order_not_found") {
+          clearSubscriptionPaymentSession(user.id);
+        }
       }
-      return null;
-    },
-    [],
-  );
+    };
+
+    resumeSession();
+
+    return () => {
+      active = false;
+    };
+  }, [isDemo, isLoggedIn, user?.id, refreshSubscription]);
 
   // Xử lý chọn gói: Mở dialog báo giá và gửi yêu cầu GET quote trước (KHÔNG checkout ngay)
   const handleSelectPlan = (planCode) => {
@@ -160,59 +173,103 @@ export default function SubscriptionPage() {
     setActionLoading(true);
 
     try {
-      // Backend POST /subscription/checkout: chỉ gửi { planCode }, không gửi bất kỳ trường tài chính nào
+      // Backend POST /subscription/checkout: chỉ gửi { planCode }
       const response = await subscriptionService.checkout(planCode);
-
-      // Đóng dialog báo giá và dọn dẹp state quote
       clearQuote();
 
-      // Dữ liệu từ phản hồi checkout là authoritative (Order Ledger)
+      // Dữ liệu từ phản hồi checkout là authoritative - bảo lưu toàn bộ các trường server trả về
       const intent = {
         orderId: response.orderId,
         planCode,
         flow: response.type === "Upgrade" ? "upgrade" : "purchase",
-        qrCode: response.qrCode,
-        checkoutUrl: response.checkoutUrl,
+        qrCode: response.qrCode || null,
+        checkoutUrl: response.checkoutUrl || null,
         amount: response.amount,
-        expiresAt: response.expiresAt,
+        expiresAt: response.expiresAt || null,
         status: response.status,
         type: response.type,
         listPrice: response.listPrice,
         creditAmount: response.creditAmount,
+        ownerId: user?.id,
       };
 
-      sessionStorage.setItem(ACTIVE_PAYMENT_SESSION_KEY, JSON.stringify(intent));
-      setPaymentIntent(intent);
-      setIsPaymentModalOpen(true);
+      if (response.status === PAYMENT_ORDER_STATUS.PAID) {
+        clearSubscriptionPaymentSession(user?.id);
+        refreshSubscription();
+        setPageSuccess("Thanh toán thành công! Gói cước của bạn đã được kích hoạt.");
+      } else {
+        saveSubscriptionPaymentSession(user?.id, intent);
+        setPaymentIntent(intent);
+        setIsPaymentModalOpen(true);
+      }
     } catch (err) {
       const code = extractErrorCode(err);
-      if (code === "pending_order_exists") {
-        const reusable = extractReusableIntent(err, planCode, "purchase");
-        if (reusable) {
+
+      // Xử lý 409 Conflict: pending_order_exists, another_pending_order, payment_review_required
+      if (
+        code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PENDING_ORDER_EXISTS ||
+        code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.ANOTHER_PENDING_ORDER ||
+        code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PAYMENT_REVIEW_REQUIRED
+      ) {
+        const metadata = extractPendingPaymentMetadata(err);
+        if (metadata?.orderId) {
           clearQuote();
-          sessionStorage.setItem(ACTIVE_PAYMENT_SESSION_KEY, JSON.stringify(reusable));
-          setPaymentIntent(reusable);
+          let order = null;
+          try {
+            // Tra cứu đơn hàng sở hữu để lấy status và planCode thật sự từ Backend
+            order = await subscriptionService.getOrder(metadata.orderId);
+          } catch {
+            // Bỏ qua lỗi mạng tức thời để hiển thị modal tra cứu an toàn
+          }
+
+          if (order?.status === PAYMENT_ORDER_STATUS.PAID) {
+            clearSubscriptionPaymentSession(user?.id);
+            refreshSubscription();
+            setPageSuccess("Thanh toán thành công! Gói cước của bạn đã được kích hoạt.");
+            return;
+          }
+
+          const intent = {
+            orderId: metadata.orderId,
+            status: order?.status,
+            planCode: order?.planCode || planCode,
+            flow: order?.type === "Upgrade" ? "upgrade" : "purchase",
+            amount: order?.amount ?? metadata.amount,
+            expiresAt: order?.expiresAt || metadata.expiresAt || null,
+            type: order?.type || metadata.type,
+            listPrice: order?.listPrice ?? metadata.listPrice,
+            creditAmount: order?.creditAmount ?? metadata.creditAmount,
+            qrCode: metadata.qrCode || null,
+            checkoutUrl: metadata.checkoutUrl || null,
+            ownerId: user?.id,
+          };
+
+          saveSubscriptionPaymentSession(user?.id, intent);
+          setPaymentIntent(intent);
           setIsPaymentModalOpen(true);
           return;
         }
       }
 
-      if (code === "plan_already_active") {
+      if (code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PAYMENT_REVIEW_REQUIRED) {
+        clearQuote();
+        setPageError(getCustomerErrorMessage(code));
+      } else if (code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PLAN_ALREADY_ACTIVE) {
         refreshSubscription();
         setPageError(getCustomerErrorMessage(code));
         clearQuote();
-      } else if (code === "already_covered_by_higher_plan") {
+      } else if (code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.ALREADY_COVERED_BY_HIGHER_PLAN) {
         refreshSubscription();
         setPageError(getCustomerErrorMessage(code));
         clearQuote();
-      } else if (code === "target_plan_already_scheduled") {
+      } else if (code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.TARGET_PLAN_ALREADY_SCHEDULED) {
         setPageError(getCustomerErrorMessage(code));
         clearQuote();
-      } else if (err.status === 502 || code === "payment_gateway_unavailable") {
+      } else if (err.status === 502 || code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PAYMENT_GATEWAY_UNAVAILABLE) {
         setPageError(
           "Cổng thanh toán PayOS tạm thời chưa thể kết nối. Vui lòng thử lại sau ít phút.",
         );
-      } else if (code === "persisted_account_required" || err.status === 403) {
+      } else if (code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PERSISTED_ACCOUNT_REQUIRED || err.status === 403) {
         setPageError(
           "Chức năng thanh toán yêu cầu tài khoản đã được đăng ký và lưu trên hệ thống.",
         );
@@ -238,31 +295,79 @@ export default function SubscriptionPage() {
         orderId: response.orderId,
         planCode: subscription?.plan,
         flow: "renew",
-        qrCode: response.qrCode,
-        checkoutUrl: response.checkoutUrl,
+        qrCode: response.qrCode || null,
+        checkoutUrl: response.checkoutUrl || null,
         amount: response.amount,
-        expiresAt: response.expiresAt,
+        expiresAt: response.expiresAt || null,
+        status: response.status,
+        type: response.type,
+        listPrice: response.listPrice,
+        creditAmount: response.creditAmount,
+        ownerId: user?.id,
       };
 
-      sessionStorage.setItem(ACTIVE_PAYMENT_SESSION_KEY, JSON.stringify(intent));
-      setPaymentIntent(intent);
-      setIsPaymentModalOpen(true);
+      if (response.status === PAYMENT_ORDER_STATUS.PAID) {
+        clearSubscriptionPaymentSession(user?.id);
+        refreshSubscription();
+        setPageSuccess("Gia hạn thành công! Gói cước của bạn đã được cập nhật.");
+      } else {
+        saveSubscriptionPaymentSession(user?.id, intent);
+        setPaymentIntent(intent);
+        setIsPaymentModalOpen(true);
+      }
     } catch (err) {
-      if (err.code === "pending_order_exists") {
-        const reusable = extractReusableIntent(err, subscription?.plan, "renew");
-        if (reusable) {
-          sessionStorage.setItem(ACTIVE_PAYMENT_SESSION_KEY, JSON.stringify(reusable));
-          setPaymentIntent(reusable);
+      const code = extractErrorCode(err);
+
+      if (
+        code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PENDING_ORDER_EXISTS ||
+        code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.ANOTHER_PENDING_ORDER ||
+        code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PAYMENT_REVIEW_REQUIRED
+      ) {
+        const metadata = extractPendingPaymentMetadata(err);
+        if (metadata?.orderId) {
+          let order = null;
+          try {
+            order = await subscriptionService.getOrder(metadata.orderId);
+          } catch {
+            // Bỏ qua lỗi mạng tức thời để hiển thị modal tra cứu an toàn
+          }
+
+          if (order?.status === PAYMENT_ORDER_STATUS.PAID) {
+            clearSubscriptionPaymentSession(user?.id);
+            refreshSubscription();
+            setPageSuccess("Gia hạn thành công! Gói cước của bạn đã được cập nhật.");
+            return;
+          }
+
+          const intent = {
+            orderId: metadata.orderId,
+            status: order?.status,
+            planCode: order?.planCode || subscription?.plan,
+            flow: "renew",
+            amount: order?.amount ?? metadata.amount,
+            expiresAt: order?.expiresAt || metadata.expiresAt || null,
+            type: order?.type || metadata.type,
+            listPrice: order?.listPrice ?? metadata.listPrice,
+            creditAmount: order?.creditAmount ?? metadata.creditAmount,
+            qrCode: metadata.qrCode || null,
+            checkoutUrl: metadata.checkoutUrl || null,
+            ownerId: user?.id,
+          };
+
+          saveSubscriptionPaymentSession(user?.id, intent);
+          setPaymentIntent(intent);
           setIsPaymentModalOpen(true);
           return;
         }
       }
 
-      if (err.code === "no_active_subscription") {
+      if (code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PAYMENT_REVIEW_REQUIRED) {
+        setPageError(getCustomerErrorMessage(code));
+      } else if (code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.NO_ACTIVE_SUBSCRIPTION) {
         setPageError(
           "Bạn chưa có gói trả phí nào đang hoạt động để gia hạn. Vui lòng chọn gói mới.",
         );
-      } else if (err.status === 502 || err.code === "payment_gateway_unavailable") {
+      } else if (err.status === 502 || code === CUSTOMER_SUBSCRIPTION_ERROR_CODES.PAYMENT_GATEWAY_UNAVAILABLE) {
         setPageError(
           "Cổng thanh toán PayOS tạm thời chưa thể kết nối. Vui lòng thử lại sau ít phút.",
         );
@@ -275,7 +380,7 @@ export default function SubscriptionPage() {
   };
 
   const handlePaymentSuccess = () => {
-    sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
+    clearSubscriptionPaymentSession(user?.id);
     refreshSubscription();
     setPageSuccess("Thanh toán thành công! Gói cước của bạn đã được cập nhật.");
   };
@@ -286,7 +391,7 @@ export default function SubscriptionPage() {
 
   const handleRetryPayment = (intent) => {
     setIsPaymentModalOpen(false);
-    sessionStorage.removeItem(ACTIVE_PAYMENT_SESSION_KEY);
+    clearSubscriptionPaymentSession(user?.id);
     if (!intent) return;
     if (intent.flow === "renew") {
       handleRenew();
