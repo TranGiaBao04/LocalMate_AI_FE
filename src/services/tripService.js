@@ -50,8 +50,23 @@ export const tripService = {
     await apiClient.post("/trips/save", { tripId });
     return getTripById(tripId);
   },
-  finalizeTrip: async (tripId) => {
-    await apiClient.post(`/trips/${tripId}/finalize`);
+  finalizeTrip: async (tripId, funding = null) => {
+    let body;
+    if (funding != null) {
+      if (typeof funding === "string") {
+        body = { fundingSource: funding };
+      } else if (typeof funding === "object") {
+        if (funding.fundingSource === "SingleEntitlement" || funding.entitlementId) {
+          body = {
+            fundingSource: "SingleEntitlement",
+            entitlementId: funding.entitlementId,
+          };
+        } else if (funding.fundingSource === "Normal") {
+          body = { fundingSource: "Normal" };
+        }
+      }
+    }
+    await apiClient.post(`/trips/${tripId}/finalize`, body);
     return getTripById(tripId);
   },
   deleteTrip: (tripId) => apiClient.delete(`/trips/${tripId}`),

@@ -113,8 +113,8 @@ export function TripProvider({ children }) {
     setSavedTrips((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const finalizeTrip = async (tripId) => {
-    const updated = await tripService.finalizeTrip(tripId);
+  const finalizeTrip = async (tripId, funding = null) => {
+    const updated = await tripService.finalizeTrip(tripId, funding);
     syncTrip(updated);
     upsertSavedTrip(updated);
     return updated;
