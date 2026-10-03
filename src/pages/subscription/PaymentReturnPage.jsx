@@ -6,7 +6,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useSubscription } from "../../context/SubscriptionContext";
 import { PLAN_DISPLAY_NAMES } from "../../utils/subscriptionUtils";
 import {
-  getSinglePaymentIntent,
+  getSinglePaymentReturnIntent,
+  openSinglePaymentCheckout,
   saveSinglePaymentIntent,
 } from "../../utils/itineraryPurchaseSession";
 import {
@@ -15,7 +16,7 @@ import {
 } from "../../utils/subscriptionPaymentSession";
 import { PAYMENT_ORDER_STATUS } from "../../utils/subscriptionUpgradeContract";
 
-function SinglePaymentReturn({ ownerId, orderId, attemptId, draftTripId }) {
+function SinglePaymentReturn({ ownerId, orderId, attemptId, draftTripId, openCheckout }) {
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
   const [error, setError] = useState("");
@@ -27,7 +28,7 @@ function SinglePaymentReturn({ ownerId, orderId, attemptId, draftTripId }) {
     let active = true;
     let timer;
     const current = () => {
-      const session = getSinglePaymentIntent(ownerId);
+      const session = getSinglePaymentReturnIntent(ownerId, orderId);
       return active && session?.orderId === orderId &&
         (session?.clientAttemptId ?? null) === attemptId;
     };
@@ -43,7 +44,13 @@ function SinglePaymentReturn({ ownerId, orderId, attemptId, draftTripId }) {
         }
         setOrder(data);
         setError("");
-        saveSinglePaymentIntent(ownerId, { ...data, clientAttemptId: attemptId, draftTripId });
+        if (!saveSinglePaymentIntent(ownerId, { ...data, clientAttemptId: attemptId, draftTripId })) {
+          throw new Error("Cannot persist owned order context");
+        }
+        if (openCheckout && data.status === "Pending" && data.checkoutUrl) {
+          openSinglePaymentCheckout(data.checkoutUrl);
+          return;
+        }
         if (data.status === "Pending" || (data.status === "Paid" && data.entitlement == null)) {
           timer = setTimeout(read, 2500);
         }
@@ -56,7 +63,7 @@ function SinglePaymentReturn({ ownerId, orderId, attemptId, draftTripId }) {
     };
     timer = setTimeout(read, 0);
     return () => { active = false; clearTimeout(timer); };
-  }, [ownerId, orderId, attemptId, draftTripId, retry]);
+  }, [ownerId, orderId, attemptId, draftTripId, openCheckout, retry]);
 
   const state = singleOrderState(order);
   const title = state === "ENTITLEMENT_GRANTED" ? "Thanh toán lịch trình thành công!" :
@@ -93,13 +100,15 @@ export default function PaymentReturnPage({ mode = "success" }) {
   const { refreshSubscription } = useSubscription();
 
   const searchOrderId = searchParams.get("orderId");
-  const singleIntent = getSinglePaymentIntent(user?.id);
+  const checkoutOrderId = searchParams.get("singleCheckout");
+  const singleIntent = getSinglePaymentReturnIntent(user?.id, searchOrderId || checkoutOrderId);
   const subscriptionSession = getSubscriptionPaymentSession(user?.id);
   const subscriptionOrderId = subscriptionSession?.orderId;
 
   // Xác định luồng sản phẩm tách biệt rõ ràng
   // TUYỆT ĐỐI KHÔNG fallback sang Single khi gặp lỗi Subscription
   const flow = useMemo(() => {
+    if (checkoutOrderId) return singleIntent?.orderId === checkoutOrderId ? "single" : "unresolved";
     // 1. Khớp chính xác orderId với Single intent
     if (singleIntent?.orderId && searchOrderId === singleIntent.orderId) return "single";
     // 2. Khớp chính xác orderId với Subscription session
@@ -111,11 +120,11 @@ export default function PaymentReturnPage({ mode = "success" }) {
     }
     // 4. Khi có orderId lạ không khớp, mặc định là subscription (sản phẩm chính) - KHÔNG suy diễn Single
     return "subscription";
-  }, [singleIntent?.orderId, subscriptionOrderId, searchOrderId]);
+  }, [singleIntent?.orderId, subscriptionOrderId, searchOrderId, checkoutOrderId]);
 
   const targetOrderId =
-    searchOrderId ||
-    (flow === "single" ? singleIntent?.orderId : subscriptionOrderId);
+    (flow === "unresolved" ? null : searchOrderId || checkoutOrderId ||
+    (flow === "single" ? singleIntent?.orderId : subscriptionOrderId));
 
   const draftTripId = singleIntent?.draftTripId || null;
 
@@ -197,6 +206,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
     key={`${targetScope}:${singleIntent?.clientAttemptId ?? ""}`}
     ownerId={user?.id} orderId={targetOrderId}
     attemptId={singleIntent?.clientAttemptId ?? null} draftTripId={draftTripId}
+    openCheckout={checkoutOrderId === targetOrderId}
   />;
 
   return (
