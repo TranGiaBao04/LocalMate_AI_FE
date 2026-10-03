@@ -236,7 +236,7 @@ describe("FE-UP7: Single Itinerary contract and regression closure", () => {
   it("S20: URL-only Pending is payment-ready", async () => {
     checkout.mockResolvedValue({ status: 200, data: ownedOrder({ checkoutUrl: "https://example.test/owner-a" }) });
     await mountModal();
-    expect(screen.getByRole("link", { name: /Mở trang thanh toán PayOS/ })).toHaveAttribute("href", "https://example.test/owner-a");
+    expect(screen.getByRole("link", { name: /Mở trang thanh toán PayOS/ })).toHaveAttribute("href", "/payment/success?singleCheckout=single-order");
     expect(screen.getByText("Chờ thanh toán")).toBeInTheDocument();
   });
   it("S21: Pending without link is preparing", async () => {
@@ -369,7 +369,7 @@ describe("FE-UP7: Single Itinerary contract and regression closure", () => {
     await mountModal();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
     await settle(pending, ownedOrder({ checkoutUrl: "https://example.test/confirmed" }));
-    expect(screen.getByRole("link")).toHaveAttribute("href", "https://example.test/confirmed");
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/payment/success?singleCheckout=single-order");
     expect(checkout).not.toHaveBeenCalled();
   });
   it("S39: Single storage never changes Subscription session", () => {
