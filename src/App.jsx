@@ -35,6 +35,7 @@ const AdminTransactionsPage = lazy(() => import("./pages/admin/AdminTransactions
 const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
 const AdminUserDetailPage = lazy(() => import("./pages/admin/AdminUserDetailPage"));
+const AdminRolesPage = lazy(() => import("./pages/admin/AdminRolesPage"));
 const AdminSectionPlaceholder = lazy(() => import("./pages/admin/AdminSectionPlaceholder"));
 
 // Mục đã có trang thật; mục còn lại hiện placeholder
@@ -44,6 +45,7 @@ const ADMIN_PAGES = {
   transactions: AdminTransactionsPage,
   settings: AdminSettingsPage,
   users: AdminUsersPage,
+  roles: AdminRolesPage,
 };
 
 export default function App() {

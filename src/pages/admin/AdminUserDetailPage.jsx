@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { DataTable, EmptyState, NoticeBanner, StatusBadge } from "../../components/admin/ui";
 import { TransactionDetailDrawer } from "../../components/admin/transactions";
 import { buildTransactionColumns } from "../../components/admin/transactions/transactionColumns";
+import AssignRoleDialog from "../../components/admin/roles/AssignRoleDialog";
 import LockUserDialog from "../../components/admin/users/LockUserDialog";
 import { USER_STATUS_BADGE, describeLockResult } from "../../components/admin/users/userLabels";
 import { ADMIN_PERMISSIONS } from "../../constants";
@@ -281,6 +282,8 @@ function UserTripsTab({ userId }) {
 function UserDetail({ userId }) {
   const { user: currentUser } = useAuth();
   const canViewPayments = hasAnyPermission(currentUser, [ADMIN_PERMISSIONS.VIEW_REVENUE]);
+  const canManageRoles = hasAnyPermission(currentUser, [ADMIN_PERMISSIONS.MANAGE_ROLES]);
+  const [assignRoleOpen, setAssignRoleOpen] = useState(false);
   const [reloadCount, setReloadCount] = useState(0);
   const [response, setResponse] = useState({ key: null, data: null, error: null });
   const [tab, setTab] = useState("payments");
@@ -316,6 +319,13 @@ function UserDetail({ userId }) {
   const reload = useCallback(() => setReloadCount((count) => count + 1), []);
   const showNotice = useCallback((type, message) => setNotice({ type, message }), []);
   const closeLockDialog = useCallback(() => setLockMode(null), []);
+  const closeAssignRole = useCallback(() => setAssignRoleOpen(false), []);
+
+  const handleRoleAssigned = (result) => {
+    setNotice({ type: "success", message: `Đã chuyển sang role "${result.roleName}".` });
+    setAssignRoleOpen(false);
+    reload(); // managesRoles, canLock/canUnlock đổi theo role mới
+  };
 
   const handleLockDone = (result) => {
     setNotice(describeLockResult(result, lockMode, currentUser?.id));
@@ -367,6 +377,12 @@ function UserDetail({ userId }) {
           <p className="mt-2 text-sm text-slate-600">
             Role: <strong className="text-slate-900">{detail.role?.name}</strong>
             {detail.managesRoles && <span className="ml-2 text-xs font-semibold text-violet-700">Quản lý phân quyền</span>}
+            {/* BE chặn tự đổi role của chính mình (409 cannot_change_own_role) */}
+            {canManageRoles && detail.id !== currentUser?.id && (
+              <button type="button" onClick={() => setAssignRoleOpen(true)} className="ml-3 text-xs font-semibold text-[#1d3e82] underline-offset-2 hover:underline">
+                Đổi role
+              </button>
+            )}
           </p>
         </div>
         {(detail.canLock || detail.canUnlock) && (
@@ -479,6 +495,10 @@ function UserDetail({ userId }) {
           <UserTripsTab userId={userId} />
         )}
       </section>
+
+      {assignRoleOpen && (
+        <AssignRoleDialog user={detail} onClose={closeAssignRole} onAssigned={handleRoleAssigned} />
+      )}
 
       {lockMode && (
         <LockUserDialog user={detail} mode={lockMode} onClose={closeLockDialog} onDone={handleLockDone} />
