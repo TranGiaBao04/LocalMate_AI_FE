@@ -6,6 +6,7 @@ import BottomNavigation, {
 import { useAuth } from "./context/AuthContext";
 import AdminRoute from "./components/admin/AdminRoute";
 import { ADMIN_SECTIONS } from "./components/admin/adminSections";
+import { ADMIN_PERMISSIONS } from "./constants";
 
 import WelcomePage from "./pages/auth/WelcomePage";
 import LoginPage from "./pages/auth/LoginPage";
@@ -32,6 +33,8 @@ const AdminStationsPage = lazy(() => import("./pages/admin/AdminStationsPage"));
 const AdminPlansPage = lazy(() => import("./pages/admin/AdminPlansPage"));
 const AdminTransactionsPage = lazy(() => import("./pages/admin/AdminTransactionsPage"));
 const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
+const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
+const AdminUserDetailPage = lazy(() => import("./pages/admin/AdminUserDetailPage"));
 const AdminSectionPlaceholder = lazy(() => import("./pages/admin/AdminSectionPlaceholder"));
 
 // Mục đã có trang thật; mục còn lại hiện placeholder
@@ -40,6 +43,7 @@ const ADMIN_PAGES = {
   plans: AdminPlansPage,
   transactions: AdminTransactionsPage,
   settings: AdminSettingsPage,
+  users: AdminUsersPage,
 };
 
 export default function App() {
@@ -107,6 +111,14 @@ export default function App() {
               />
             );
           })}
+          <Route
+            path="users/:userId"
+            element={
+              <AdminRoute permissions={[ADMIN_PERMISSIONS.MANAGE_USERS]}>
+                <AdminUserDetailPage />
+              </AdminRoute>
+            }
+          />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
 
