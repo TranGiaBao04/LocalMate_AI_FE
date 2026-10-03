@@ -8,7 +8,6 @@ import { adminTransactionService } from "../../services/adminTransactionService"
 import {
   formatVnDateTime,
   formatPlanPrice,
-  PLAN_DISPLAY_NAMES,
 } from "../../utils/subscriptionUtils";
 import { downloadBlob } from "../../utils/exportFiles";
 import { TransactionDetailDrawer } from "../../components/admin/transactions";
@@ -19,19 +18,28 @@ const STATUS_OPTIONS = [
   { value: "Paid", label: "Đã thanh toán" },
   { value: "Failed", label: "Thất bại" },
   { value: "Expired", label: "Hết hạn" },
+  { value: "ReviewRequired", label: "Cần kiểm tra" },
 ];
 
 const OPERATION_OPTIONS = [
   { value: "", label: "Tất cả loại giao dịch" },
-  { value: "Purchase", label: "Mua gói" },
+  { value: "Purchase", label: "Mua" },
   { value: "Renewal", label: "Gia hạn" },
+  { value: "Upgrade", label: "Nâng cấp" },
 ];
+
+const OPERATION_CONFIG = {
+  Purchase: { label: "Mua", icon: "shopping_cart", color: "text-blue-700" },
+  Renewal: { label: "Gia hạn", icon: "autorenew", color: "text-purple-700" },
+  Upgrade: { label: "Nâng cấp", icon: "upgrade", color: "text-teal-700" },
+};
 
 const STATUS_BADGE_CONFIG = {
   Paid: { status: "success", label: "Đã thanh toán" },
   Pending: { status: "pending", label: "Đang chờ" },
   Failed: { status: "failed", label: "Thất bại" },
   Expired: { status: "inactive", label: "Hết hạn" },
+  ReviewRequired: { status: "info", label: "Cần kiểm tra" },
 };
 
 export default function AdminTransactionsPage() {
@@ -69,7 +77,7 @@ export default function AdminTransactionsPage() {
   const [detailOpen, setDetailOpen] = useState(false);
 
   // Notification state
-  const [notice, setNotice] = useState(null); // { type: "success" | "info" | "error", message: string }
+  const [notice, setNotice] = useState(null); // { type: "success" | "info" | "warning" | "error", message: string }
 
   const showNotice = useCallback((type, message) => {
     setNotice({ type, message });
@@ -314,11 +322,13 @@ export default function AdminTransactionsPage() {
       },
       {
         key: "planCode",
-        header: "Gói cước",
+        header: "Sản phẩm",
         sortable: true,
         render: (row) => {
           const displayName =
-            PLAN_DISPLAY_NAMES[row.planCode] || row.planName || row.planCode || "—";
+            row.productKind === "SingleItinerary"
+              ? "Lịch trình đơn lẻ"
+              : row.planName || row.planCode || "Gói đăng ký";
           return (
             <span className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
               {displayName}
@@ -331,29 +341,39 @@ export default function AdminTransactionsPage() {
         header: "Loại thao tác",
         sortable: true,
         render: (row) => {
-          const isRenewal = row.operationType === "Renewal";
+          const config = OPERATION_CONFIG[row.operationType] || {
+            label: row.operationType || "—",
+            icon: "help_outline",
+            color: "text-slate-600",
+          };
           return (
             <span
-              className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
-                isRenewal ? "text-purple-700" : "text-blue-700"
-              }`}
+              className={`inline-flex items-center gap-1.5 text-xs font-semibold ${config.color}`}
             >
               <span className="material-symbols-outlined text-[16px]">
-                {isRenewal ? "autorenew" : "shopping_cart"}
+                {config.icon}
               </span>
-              {isRenewal ? "Gia hạn" : "Mua gói"}
+              {config.label}
             </span>
           );
         },
       },
       {
         key: "amount",
-        header: "Số tiền",
+        header: "Thực trả",
         sortable: true,
         render: (row) => (
-          <span className="font-semibold text-slate-900">
-            {row.amount != null ? formatPlanPrice(row.amount) : "—"}
-          </span>
+          <div className="min-w-[120px]">
+            <p className="font-semibold text-slate-900">
+              {row.amount != null ? formatPlanPrice(row.amount) : "—"}
+            </p>
+            {row.operationType === "Upgrade" && (
+              <div className="mt-1 space-y-0.5 text-xs text-slate-500">
+                <p>Credit: {row.creditAmount != null ? formatPlanPrice(row.creditAmount) : "—"}</p>
+                <p>Giá gốc: {row.listPrice != null ? formatPlanPrice(row.listPrice) : "—"}</p>
+              </div>
+            )}
+          </div>
         ),
       },
       {
@@ -396,12 +416,14 @@ export default function AdminTransactionsPage() {
       {notice && (
         <div
           role="alert"
-          className={`fixed right-5 top-5 z-[80] flex max-w-md items-start gap-3 rounded-2xl border p-4 shadow-xl backdrop-blur-md transition ${
+          className={`fixed right-5 top-5 z-[110] flex max-w-md items-start gap-3 rounded-2xl border p-4 shadow-xl backdrop-blur-md transition ${
             notice.type === "success"
               ? "border-emerald-200 bg-white text-emerald-900"
               : notice.type === "info"
                 ? "border-blue-200 bg-white text-blue-900"
-                : "border-rose-200 bg-white text-rose-900"
+                : notice.type === "warning"
+                  ? "border-amber-200 bg-white text-amber-900"
+                  : "border-rose-200 bg-white text-rose-900"
           }`}
         >
           <span
@@ -410,14 +432,18 @@ export default function AdminTransactionsPage() {
                 ? "text-emerald-600"
                 : notice.type === "info"
                   ? "text-blue-600"
-                  : "text-rose-600"
+                  : notice.type === "warning"
+                    ? "text-amber-600"
+                    : "text-rose-600"
             }`}
           >
             {notice.type === "success"
               ? "check_circle"
               : notice.type === "info"
                 ? "info"
-                : "error"}
+                : notice.type === "warning"
+                  ? "warning"
+                  : "error"}
           </span>
           <div className="flex-1 text-sm font-medium leading-relaxed">
             {notice.message}
@@ -459,7 +485,7 @@ export default function AdminTransactionsPage() {
       </div>
 
       {/* Summary Cards (FE-132) */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {/* Card 1: Gross Revenue */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,.03)]">
           {summaryLoading ? (
@@ -475,7 +501,7 @@ export default function AdminTransactionsPage() {
                   Doanh thu gộp
                 </p>
                 <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
-                  {summary ? formatPlanPrice(summary.grossRevenue) : "0đ"}
+                  {summary?.grossRevenue != null ? formatPlanPrice(summary.grossRevenue) : "—"}
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
                   Tổng tiền từ giao dịch thành công
@@ -574,6 +600,26 @@ export default function AdminTransactionsPage() {
               <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700">
                 <span className="material-symbols-outlined text-[24px]">pending_actions</span>
               </div>
+            </div>
+          )}
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          {summaryLoading ? (
+            <div className="animate-pulse space-y-3">
+              <div className="h-4 w-28 rounded bg-slate-100" />
+              <div className="h-7 w-24 rounded bg-slate-200" />
+            </div>
+          ) : (
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-slate-500">Cần kiểm tra</p>
+                <p className="mt-2 break-words text-2xl font-bold text-blue-700">
+                  {summary?.reviewRequiredCount?.toLocaleString("vi-VN") ?? "—"}
+                </p>
+              </div>
+              <span className="material-symbols-outlined shrink-0 text-[24px] text-blue-700" aria-hidden="true">
+                fact_check
+              </span>
             </div>
           )}
         </div>

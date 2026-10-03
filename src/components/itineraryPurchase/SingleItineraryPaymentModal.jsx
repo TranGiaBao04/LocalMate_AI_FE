@@ -1,561 +1,265 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import QRCode from "react-qr-code";
-import { itineraryPurchaseService } from "../../services/itineraryPurchaseService";
+import { useAuth } from "../../context/AuthContext";
 import {
-  getSinglePaymentIntent,
-  saveSinglePaymentIntent,
-  clearSinglePaymentIntent,
+  itineraryPurchaseService, canPurchaseSingle,
+  isAvailableSingleEntitlement, singleOrderState,
+} from "../../services/itineraryPurchaseService";
+import {
+  getSinglePaymentIntent, saveSinglePaymentIntent,
 } from "../../utils/itineraryPurchaseSession";
 import { formatPlanPrice } from "../../utils/subscriptionUtils";
 
 const POLLING_INTERVAL_MS = 3000;
 
-function getInitialModalState() {
-  const existing = getSinglePaymentIntent();
-  if (existing?.orderId) {
-    const isPaymentReady = Boolean(existing.qrCode || existing.checkoutUrl);
-    return {
-      uiState: isPaymentReady ? "PAYMENT_READY" : "PREPARING",
-      order: {
-        orderId: existing.orderId,
-        amount: existing.amount,
-        qrCode: existing.qrCode,
-        checkoutUrl: existing.checkoutUrl,
-        expiresAt: existing.expiresAt,
-        status: existing.status || "Pending",
-      },
-      attemptId: existing.clientAttemptId || null,
-      shouldPoll: true,
-      shouldCheckout: false,
-    };
-  }
-  if (existing?.clientAttemptId) {
-    return {
-      uiState: "CREATING",
-      order: null,
-      attemptId: existing.clientAttemptId,
-      shouldPoll: false,
-      shouldCheckout: true,
-    };
-  }
-  return {
-    uiState: "CREATING",
-    order: null,
-    attemptId: crypto.randomUUID(),
-    shouldPoll: false,
-    shouldCheckout: true,
-  };
-}
-
 function SingleItineraryPaymentModalInner({
-  onClose,
-  draftTripId,
-  availability,
-  onUseEntitlement,
+  ownerId, onClose, draftTripId, availability, onUseEntitlement,
 }) {
-  const [initialData] = useState(getInitialModalState);
-  const [uiState, setUiState] = useState(initialData.uiState);
-  const [order, setOrder] = useState(initialData.order);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [initialIntent] = useState(() => getSinglePaymentIntent(ownerId));
+  const [uiState, setUiState] = useState(
+    initialIntent?.orderId ? "READING" : initialIntent?.clientAttemptId ? "UNCERTAIN" : "IDLE",
+  );
+  const [order, setOrder] = useState(null);
+  const [readError, setReadError] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const activeRef = useRef(false);
+  const generationRef = useRef(0);
+  const attemptRef = useRef(initialIntent?.clientAttemptId ?? null);
+  const orderIdRef = useRef(initialIntent?.orderId ?? null);
+  const checkoutRef = useRef(false);
+  const lookupRef = useRef(false);
+  const timerRef = useRef(null);
+  const purchaseAllowed = canPurchaseSingle(availability);
 
-  const pollTimerRef = useRef(null);
-  const countdownTimerRef = useRef(null);
-  const activeAttemptRef = useRef(initialData.attemptId);
-
-  // Stop polling and countdown
-  const stopTimers = useCallback(() => {
-    if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-    if (countdownTimerRef.current) {
-      clearInterval(countdownTimerRef.current);
-      countdownTimerRef.current = null;
-    }
+  const stopPolling = useCallback(() => {
+    clearTimeout(timerRef.current);
+    timerRef.current = null;
   }, []);
 
-  // Poll order status
-  const pollOrder = useCallback(
-    async (orderId) => {
-      if (!orderId) return;
+  const isCurrent = useCallback((generation, attemptId, orderId) => {
+    const stored = getSinglePaymentIntent(ownerId);
+    return activeRef.current && generationRef.current === generation &&
+      attemptRef.current === attemptId && orderIdRef.current === orderId &&
+      (stored?.clientAttemptId ?? null) === attemptId && (stored?.orderId ?? null) === orderId;
+  }, [ownerId]);
 
-      try {
-        const orderData = await itineraryPurchaseService.getOrder(orderId);
-        setOrder(orderData);
+  const acceptOrder = useCallback((data, attemptId) => {
+    setOrder(data);
+    setUiState(singleOrderState(data));
+    setReadError("");
+    saveSinglePaymentIntent(ownerId, {
+      ...data, clientAttemptId: attemptId, draftTripId,
+    });
+  }, [ownerId, draftTripId]);
 
-        if (orderData?.status === "Paid") {
-          // Success rule: order.status === "Paid" ALONE IS NOT ENOUGH.
-          // Must have order.entitlement != null.
-          if (orderData.entitlement != null) {
-            setUiState("ENTITLEMENT_GRANTED");
-            stopTimers();
-            saveSinglePaymentIntent({
-              ...getSinglePaymentIntent(),
-              orderId,
-              status: "Paid",
-              entitlement: orderData.entitlement,
-            });
-          } else {
-            // Paid but entitlement evidence not yet verified
-            setUiState("VERIFYING");
-          }
-        } else if (orderData?.status === "Failed") {
-          setUiState("FAILED");
-          setErrorMessage("Giao dịch không thành công hoặc đã bị từ chối.");
-          stopTimers();
-        } else if (orderData?.status === "Expired") {
-          setUiState("EXPIRED");
-          stopTimers();
-        } else if (orderData?.status === "Pending") {
-          if (orderData.qrCode || orderData.checkoutUrl) {
-            setUiState("PAYMENT_READY");
-          } else {
-            setUiState("PREPARING");
-          }
-        }
-      } catch {
-        // Network hiccups during polling should not terminate the session
+  const readOrder = useCallback(async (generation, attemptId, orderId) => {
+    if (!isCurrent(generation, attemptId, orderId)) return false;
+    if (lookupRef.current) return true;
+    lookupRef.current = true;
+    try {
+      const data = await itineraryPurchaseService.getOrder(orderId);
+      if (!isCurrent(generation, attemptId, orderId)) return false;
+      if (data?.orderId !== orderId || data.productKind !== "SingleItinerary" ||
+        !Number.isSafeInteger(data.amount) || data.amount <= 0) {
+        throw new Error("Invalid owned order");
       }
-    },
-    [stopTimers],
-  );
-
-  // Start polling loop
-  const startPolling = useCallback(
-    (orderId) => {
-      stopTimers();
-      pollTimerRef.current = setInterval(() => {
-        pollOrder(orderId);
-      }, POLLING_INTERVAL_MS);
-    },
-    [pollOrder, stopTimers],
-  );
-
-  // Setup countdown
-  const startCountdown = useCallback(
-    (expiresAt, orderId) => {
-      if (countdownTimerRef.current) {
-        clearInterval(countdownTimerRef.current);
-      }
-      if (!expiresAt) return;
-
-      const targetMs = new Date(expiresAt).getTime();
-      const updateTimer = () => {
-        const nowMs = Date.now();
-        const diffSec = Math.max(0, Math.floor((targetMs - nowMs) / 1000));
-        setSecondsLeft(diffSec);
-
-        if (diffSec <= 0) {
-          clearInterval(countdownTimerRef.current);
-          countdownTimerRef.current = null;
-          // Final check before marking Expired
-          if (orderId) {
-            pollOrder(orderId);
-          }
-        }
-      };
-
-      updateTimer();
-      countdownTimerRef.current = setInterval(updateTimer, 1000);
-    },
-    [pollOrder],
-  );
-
-  // Execute checkout with a specific attempt ID
-  const performCheckout = useCallback(
-    async (attemptId) => {
-      setUiState("CREATING");
-      setErrorMessage("");
-      activeAttemptRef.current = attemptId;
-
-      try {
-        const { status, data } =
-          await itineraryPurchaseService.checkout(attemptId);
-
-        // Check if component unmounted or attempt changed
-        if (activeAttemptRef.current !== attemptId) return;
-
-        setOrder(data);
-
-        // Save session intent to survive refresh/reopen
-        saveSinglePaymentIntent({
-          clientAttemptId: attemptId,
-          orderId: data.orderId,
-          productKind: data.productKind,
-          amount: data.amount,
-          expiresAt: data.expiresAt,
-          draftTripId,
-          qrCode: data.qrCode,
-          checkoutUrl: data.checkoutUrl,
-        });
-
-        if (status === 202) {
-          // HTTP 202: durable attempt exists, but link not yet available
-          setUiState("PREPARING");
-          startPolling(data.orderId);
-        } else {
-          // HTTP 200: usable order representation
-          if (data.status === "Paid" && data.entitlement != null) {
-            setUiState("ENTITLEMENT_GRANTED");
-          } else if (data.status === "Paid") {
-            setUiState("VERIFYING");
-            startPolling(data.orderId);
-          } else if (data.status === "Expired") {
-            setUiState("EXPIRED");
-          } else if (data.status === "Failed") {
-            setUiState("FAILED");
-            setErrorMessage("Giao dịch không thành công.");
-          } else if (data.qrCode || data.checkoutUrl) {
-            setUiState("PAYMENT_READY");
-            startCountdown(data.expiresAt, data.orderId);
-            startPolling(data.orderId);
-          } else {
-            setUiState("PREPARING");
-            startPolling(data.orderId);
-          }
-        }
-      } catch (err) {
-        if (activeAttemptRef.current !== attemptId) return;
-        setUiState("FAILED");
-        setErrorMessage(
-          err.message || "Không thể khởi tạo giao dịch thanh toán. Vui lòng thử lại.",
-        );
-      }
-    },
-    [draftTripId, startCountdown, startPolling],
-  );
-
-  // Initialize on mount
-  useEffect(() => {
-    let timer;
-    if (initialData.shouldCheckout) {
-      timer = setTimeout(() => {
-        performCheckout(initialData.attemptId);
-      }, 0);
-    } else if (initialData.shouldPoll && initialData.order?.orderId) {
-      if (initialData.order.expiresAt) {
-        startCountdown(initialData.order.expiresAt, initialData.order.orderId);
-      }
-      startPolling(initialData.order.orderId);
-      timer = setTimeout(() => {
-        pollOrder(initialData.order.orderId);
-      }, 0);
+      acceptOrder(data, attemptId);
+      return data.status === "Pending" || (data.status === "Paid" && data.entitlement == null);
+    } catch {
+      if (!isCurrent(generation, attemptId, orderId)) return false;
+      setReadError("Chưa thể xác nhận trạng thái. Vui lòng kiểm tra lại.");
+      return true;
+    } finally {
+      lookupRef.current = false;
     }
+  }, [isCurrent, acceptOrder]);
 
+  const startPolling = useCallback((generation, attemptId, orderId, delay = POLLING_INTERVAL_MS) => {
+    stopPolling();
+    const tick = async () => {
+      const keepReading = await readOrder(generation, attemptId, orderId);
+      if (keepReading && isCurrent(generation, attemptId, orderId)) {
+        timerRef.current = setTimeout(tick, POLLING_INTERVAL_MS);
+      }
+    };
+    timerRef.current = setTimeout(tick, delay);
+  }, [stopPolling, readOrder, isCurrent]);
+
+  const performCheckout = useCallback(async (newPurchase = false) => {
+    if (!activeRef.current || checkoutRef.current || !purchaseAllowed) return;
+    const attemptId = newPurchase || !attemptRef.current
+      ? crypto.randomUUID() : attemptRef.current;
+    stopPolling();
+    const generation = ++generationRef.current;
+    attemptRef.current = attemptId;
+    orderIdRef.current = null;
+    setOrder(null);
+    setReadError("");
+    // Persistence is a prerequisite, not a best-effort step after the charge.
+    if (!saveSinglePaymentIntent(ownerId, { clientAttemptId: attemptId, draftTripId })) {
+      setUiState("STORAGE_UNAVAILABLE");
+      return;
+    }
+    checkoutRef.current = true;
+    setUiState("CREATING");
+    try {
+      const { status, data } = await itineraryPurchaseService.checkout(attemptId);
+      if (!isCurrent(generation, attemptId, null)) return;
+      if (!data?.orderId || data.productKind !== "SingleItinerary" ||
+        !Number.isSafeInteger(data.amount) || data.amount <= 0) {
+        throw new Error("Invalid checkout response");
+      }
+      orderIdRef.current = data.orderId;
+      acceptOrder(data, attemptId);
+      if (status === 202 && data.status == null) setUiState("PREPARING");
+      if ((status === 202 && data.status == null) || data.status === "Pending" ||
+        (data.status === "Paid" && data.entitlement == null)) {
+        startPolling(generation, attemptId, data.orderId);
+      }
+    } catch {
+      if (activeRef.current && generationRef.current === generation &&
+        getSinglePaymentIntent(ownerId)?.clientAttemptId === attemptId) {
+        setUiState("UNCERTAIN");
+      }
+    } finally {
+      checkoutRef.current = false;
+    }
+  }, [purchaseAllowed, stopPolling, ownerId, draftTripId, isCurrent, acceptOrder, startPolling]);
+
+  useEffect(() => {
+    ++generationRef.current;
+    activeRef.current = true;
+    let initialTimer;
+    if (initialIntent?.orderId) {
+      startPolling(generationRef.current, attemptRef.current, initialIntent.orderId, 0);
+    } else if (!initialIntent) {
+      initialTimer = setTimeout(() => performCheckout(), 0);
+    }
     return () => {
-      clearTimeout(timer);
-      stopTimers();
+      activeRef.current = false;
+      clearTimeout(initialTimer);
+      stopPolling();
     };
-  }, [initialData, performCheckout, startCountdown, startPolling, pollOrder, stopTimers]);
+  }, [initialIntent, performCheckout, startPolling, stopPolling]);
 
-  // Handle ESC key
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape" && uiState !== "CREATING") {
-        onClose();
-      }
+    if (!order?.expiresAt || order.status !== "Pending") return undefined;
+    const update = () => {
+      const remaining = Math.max(0, Math.floor((Date.parse(order.expiresAt) - Date.now()) / 1000));
+      setSecondsLeft(Number.isFinite(remaining) ? remaining : 0);
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [uiState, onClose]);
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [order?.expiresAt, order?.status]);
 
-  // Start a new deliberate purchase (generates a new UUID only on deliberate action)
-  const handleStartNewAttempt = () => {
-    clearSinglePaymentIntent();
-    stopTimers();
-    const newAttemptId = crypto.randomUUID();
-    performCheckout(newAttemptId);
-  };
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
 
-  // User chooses to use the granted entitlement
-  const handleUseEntitlement = () => {
-    if (order?.entitlement && onUseEntitlement) {
-      onUseEntitlement(order.entitlement);
-      clearSinglePaymentIntent();
-      onClose();
+  const retryRead = () => {
+    if (orderIdRef.current && !lookupRef.current) {
+      startPolling(generationRef.current, attemptRef.current, orderIdRef.current, 0);
     }
   };
-
-  const displayPrice = order?.amount ?? availability?.price ?? 29000;
-  const minutes = Math.floor(secondsLeft / 60);
-  const seconds = secondsLeft % 60;
-  const formattedCountdown = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  const handleUseEntitlement = () => {
+    if (activeRef.current && isAvailableSingleEntitlement(order?.entitlement)) {
+      onUseEntitlement?.(order.entitlement);
+    }
+  };
+  const amount = order ? order.amount : availability?.price;
+  const validAmount = Number.isSafeInteger(amount) && amount > 0;
+  const countdown = `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`;
+  const granted = uiState === "ENTITLEMENT_GRANTED";
+  const terminal = uiState === "FAILED" || uiState === "EXPIRED";
+  const canStartAnother = purchaseAllowed && (granted || terminal);
+  const unavailable = !purchaseAllowed && !initialIntent && !order;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="single-purchase-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in"
-    >
-      <div className="w-full max-w-md rounded-3xl bg-surface border border-outline-variant/30 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-outline-variant/20 px-6 py-4 bg-surface-container-lowest">
-          <div>
-            <h3
-              id="single-purchase-title"
-              className="text-title-md font-bold text-on-surface"
-            >
-              Mua thêm 1 lịch trình
-            </h3>
-            <p className="text-label-sm text-on-surface-variant font-medium">
-              Giá thanh toán:{" "}
-              <strong className="text-primary font-extrabold">
-                {formatPlanPrice(displayPrice)}
-              </strong>
+    <div role="dialog" aria-modal="true" aria-labelledby="single-purchase-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-lg bg-surface border border-outline-variant/30 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="flex items-center justify-between gap-3 border-b border-outline-variant/20 px-6 py-4">
+          <div className="min-w-0">
+            <h3 id="single-purchase-title" className="text-title-md font-bold text-on-surface">Mua thêm 1 lịch trình</h3>
+            <p className="text-label-sm text-on-surface-variant">
+              Giá thanh toán: <strong className="text-primary">{validAmount ? formatPlanPrice(amount) : "Chưa xác định"}</strong>
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={uiState === "CREATING"}
-            className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors disabled:opacity-40"
-            aria-label="Đóng cửa sổ"
-          >
+          <button type="button" onClick={onClose} aria-label="Đóng cửa sổ" title="Đóng cửa sổ"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-surface-container-high">
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
-
-        {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-5 text-center">
-          {/* Explanation */}
-          <div className="rounded-xl bg-primary/5 border border-primary/15 p-3 text-left">
-            <div className="flex items-start gap-2">
-              <span className="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">
-                verified
-              </span>
-              <div className="text-body-sm text-on-surface space-y-0.5">
-                <p className="font-semibold text-primary">
-                  Quyền chốt lịch trình vĩnh viễn
-                </p>
-                <p className="text-on-surface-variant text-[11px] leading-relaxed">
-                  Chốt thêm một lịch trình ngoài giới hạn gói hiện tại. Quyền này không hết hạn và chỉ dùng cho một lịch trình.
-                </p>
-              </div>
+          <p className="text-body-sm text-on-surface-variant">
+            Một lượt chốt vĩnh viễn, ngoài hạn mức gói. Lượt mua chưa gắn với lịch trình và chỉ dùng khi bạn chọn chốt; có thể để dành cho sau.
+          </p>
+          {unavailable ? (
+            <p role="alert" className="text-body-md text-on-surface-variant">Hiện chưa thể mua thêm lịch trình. Vui lòng tải lại thông tin khả dụng.</p>
+          ) : uiState === "CREATING" || uiState === "READING" || uiState === "PREPARING" || uiState === "VERIFYING" ? (
+            <div className="py-8 space-y-3" role="status">
+              <span className="material-symbols-outlined text-primary text-[40px] animate-spin">progress_activity</span>
+              <h4 className="text-title-md font-bold">
+                {uiState === "VERIFYING" ? "Đang xác nhận quyền chốt lịch trình..." :
+                  uiState === "PREPARING" ? "Đang chuẩn bị giao dịch thanh toán..." :
+                  uiState === "READING" ? "Đang kiểm tra đơn hàng đã sở hữu..." :
+                  "Đang khởi tạo giao dịch thanh toán..."}
+              </h4>
             </div>
-          </div>
-
-          {/* STATE: CREATING */}
-          {uiState === "CREATING" && (
-            <div className="py-12 space-y-4">
-              <span className="material-symbols-outlined text-primary text-[48px] animate-spin">
-                progress_activity
-              </span>
-              <p className="text-body-md text-on-surface font-semibold">
-                Đang khởi tạo giao dịch thanh toán...
-              </p>
-              <p className="text-label-xs text-on-surface-variant">
-                Vui lòng đợi trong giây lát.
-              </p>
-            </div>
-          )}
-
-          {/* STATE: PREPARING (HTTP 202 / Pending without link) */}
-          {uiState === "PREPARING" && (
-            <div className="py-10 space-y-4">
-              <span className="material-symbols-outlined text-primary text-[44px] animate-spin">
-                sync
-              </span>
-              <div className="space-y-1">
-                <h4 className="text-title-md font-bold text-on-surface">
-                  Đang chuẩn bị giao dịch thanh toán...
-                </h4>
-                <p className="text-body-sm text-on-surface-variant max-w-xs mx-auto">
-                  Hệ thống đang kết nối tới cổng thanh toán. Mã QR sẽ hiển thị ngay khi sẵn sàng.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* STATE: PAYMENT_READY (Pending + QR / CheckoutUrl) */}
-          {uiState === "PAYMENT_READY" && (
+          ) : uiState === "PAYMENT_READY" ? (
             <>
-              {/* Status & Countdown banner */}
-              <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-primary/10 border border-primary/20 text-label-md">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-2.5 w-2.5 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
-                  </span>
-                  <span className="font-bold text-primary">Chờ thanh toán</span>
-                </div>
-                <div className="flex items-center gap-1.5 font-bold text-on-surface">
-                  <span className="material-symbols-outlined text-[18px] text-text-muted">
-                    schedule
-                  </span>
-                  <span>{formattedCountdown}</span>
-                </div>
+              <div className="flex justify-between gap-3 rounded-lg bg-primary/10 p-3 text-primary font-semibold">
+                <span>Chờ thanh toán</span><span>{countdown}</span>
               </div>
-
-              {/* VietQR Code */}
-              <div className="flex flex-col items-center justify-center">
-                <div className="p-4 bg-white rounded-2xl border-2 border-outline-variant/40 shadow-inner flex items-center justify-center max-w-[240px] w-full aspect-square">
-                  {order?.qrCode ? (
-                    <QRCode
-                      value={order.qrCode}
-                      size={200}
-                      style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                      viewBox="0 0 256 256"
-                    />
-                  ) : (
-                    <div className="text-label-md text-text-muted">
-                      Đang tải mã QR...
-                    </div>
-                  )}
-                </div>
-                <p className="text-label-sm text-text-muted mt-3 max-w-xs">
-                  Mở ứng dụng Ngân hàng hoặc Ví điện tử để quét mã VietQR
-                </p>
-              </div>
-
-              {/* Checkout URL Link */}
-              {order?.checkoutUrl && (
-                <div className="pt-1 space-y-2">
-                  <a
-                    href={order.checkoutUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-navy-dark hover:bg-navy-darkest text-white font-bold text-label-md transition-all active:scale-98 shadow-sm"
-                  >
-                    <span>Mở trang thanh toán PayOS</span>
-                    <span className="material-symbols-outlined text-[18px]">
-                      open_in_new
-                    </span>
-                  </a>
-                  <p className="text-label-xs text-text-faint">
-                    Nếu không quét được mã, bấm để mở cổng thanh toán PayOS
-                  </p>
-                </div>
-              )}
+              {order.qrCode && <div className="mx-auto p-4 bg-white rounded-lg border max-w-[240px] aspect-square">
+                <QRCode value={order.qrCode} size={200} style={{ height: "auto", maxWidth: "100%", width: "100%" }} />
+              </div>}
+              {order.checkoutUrl && <a href={order.checkoutUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex w-full justify-center gap-2 rounded-lg bg-navy-dark py-3 px-4 text-white font-semibold">
+                Mở trang thanh toán PayOS<span className="material-symbols-outlined text-[20px]">open_in_new</span>
+              </a>}
             </>
-          )}
-
-          {/* STATE: VERIFYING (Paid but entitlement not yet present) */}
-          {uiState === "VERIFYING" && (
-            <div className="py-10 space-y-4">
-              <span className="material-symbols-outlined text-primary text-[44px] animate-spin">
-                hourglass_top
-              </span>
-              <div className="space-y-1">
-                <h4 className="text-title-md font-bold text-on-surface">
-                  Đang xác nhận quyền chốt lịch trình...
-                </h4>
-                <p className="text-body-sm text-on-surface-variant max-w-xs mx-auto">
-                  Khoản thanh toán đã được nhận. Hệ thống đang cấp phát quyền lưu cho tài khoản.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* STATE: ENTITLEMENT_GRANTED (Authoritative success) */}
-          {uiState === "ENTITLEMENT_GRANTED" && (
-            <div className="py-6 space-y-5 animate-fade-in-up">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
-                <span
-                  className="material-symbols-outlined text-[40px]"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  check_circle
-                </span>
-              </div>
-              <div className="space-y-1">
-                <h4 className="text-title-lg font-bold text-on-surface">
-                  Thanh toán thành công!
-                </h4>
-                <p className="text-body-md text-on-surface-variant font-medium">
-                  Bạn đã có thêm 1 lượt chốt lịch trình.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleUseEntitlement}
-                  className="w-full py-3 px-4 rounded-xl bg-primary text-on-primary font-bold text-label-md hover:bg-primary/90 transition-all shadow-md shadow-primary/25"
-                >
+          ) : granted ? (
+            <div className="space-y-4">
+              <span className="material-symbols-outlined text-emerald-600 text-[40px]">check_circle</span>
+              <h4 className="text-title-md font-bold">Thanh toán thành công!</h4>
+              <p>Bạn đã có thêm 1 lượt chốt lịch trình.</p>
+              {draftTripId && onUseEntitlement && isAvailableSingleEntitlement(order?.entitlement) && (
+                <button type="button" onClick={handleUseEntitlement}
+                  className="w-full rounded-lg bg-primary py-3 px-4 text-on-primary font-semibold">
                   Dùng lượt này để chốt lịch trình
                 </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="w-full py-2.5 rounded-xl border border-outline-variant text-on-surface-variant font-semibold text-label-md hover:bg-surface-container-high transition-colors"
-                >
-                  Để sau
-                </button>
-              </div>
+              )}
+              <button type="button" onClick={onClose} className="w-full rounded-lg border py-3">Để sau</button>
             </div>
-          )}
-
-          {/* STATE: EXPIRED */}
-          {uiState === "EXPIRED" && (
-            <div className="py-6 space-y-4 animate-fade-in-up">
-              <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto shadow-sm">
-                <span className="material-symbols-outlined text-[36px]">
-                  timer_off
-                </span>
-              </div>
-              <div>
-                <h4 className="text-title-lg font-bold text-on-surface">
-                  Mã thanh toán đã hết hạn
-                </h4>
-                <p className="text-body-md text-on-surface-variant mt-1.5">
-                  Mã QR hiện tại đã quá thời gian chờ xử lý. Bạn có thể tạo mã mới để tiếp tục.
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleStartNewAttempt}
-                  className="w-full py-3 px-4 rounded-xl bg-primary text-on-primary font-bold text-label-md hover:bg-primary/90 transition-all shadow-sm"
-                >
-                  Tạo mã thanh toán mới
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="w-full py-2.5 rounded-xl border border-outline-variant text-on-surface-variant font-semibold text-label-md hover:bg-surface-container-high transition-colors"
-                >
-                  Đóng
-                </button>
-              </div>
+          ) : terminal ? (
+            <div className="space-y-3" role="status">
+              <span className="material-symbols-outlined text-[36px]">{uiState === "EXPIRED" ? "timer_off" : "error"}</span>
+              <h4 className="text-title-md font-bold">{uiState === "EXPIRED" ? "Mã thanh toán đã hết hạn" : "Thanh toán chưa hoàn tất"}</h4>
+              <p className="text-body-sm text-on-surface-variant">Trạng thái hiện tại được xác nhận từ máy chủ. Bạn có thể kiểm tra lại đơn hàng.</p>
             </div>
-          )}
-
-          {/* STATE: FAILED */}
-          {uiState === "FAILED" && (
-            <div className="py-6 space-y-4 animate-fade-in-up">
-              <div className="w-16 h-16 rounded-full bg-error/10 text-error flex items-center justify-center mx-auto shadow-sm">
-                <span className="material-symbols-outlined text-[36px]">
-                  error
-                </span>
-              </div>
-              <div>
-                <h4 className="text-title-lg font-bold text-on-surface">
-                  Thanh toán chưa hoàn tất
-                </h4>
-                <p className="text-body-md text-on-surface-variant mt-1.5">
-                  {errorMessage || "Giao dịch chưa được hoàn tất hoặc đã bị hủy từ cổng thanh toán."}
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleStartNewAttempt}
-                  className="w-full py-3 px-4 rounded-xl bg-primary text-on-primary font-bold text-label-md hover:bg-primary/90 transition-all shadow-sm"
-                >
-                  Thử thanh toán lại
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="w-full py-2.5 rounded-xl border border-outline-variant text-on-surface-variant font-semibold text-label-md hover:bg-surface-container-high transition-colors"
-                >
-                  Đóng
-                </button>
-              </div>
+          ) : uiState === "UNCERTAIN" ? (
+            <div className="space-y-3" role="alert">
+              <h4 className="text-title-md font-bold">Chưa xác nhận được giao dịch</h4>
+              <p className="text-body-sm text-on-surface-variant">Kết nối bị gián đoạn. Thử lại cùng lượt mua để tránh tạo thêm giao dịch.</p>
+              <button type="button" disabled={!purchaseAllowed} onClick={() => performCheckout()}
+                className="w-full rounded-lg bg-primary py-3 px-4 text-on-primary font-semibold disabled:opacity-50">Thử lại cùng lượt mua</button>
             </div>
-          )}
+          ) : uiState === "STORAGE_UNAVAILABLE" ? (
+            <p role="alert">Chưa thể lưu lượt mua an toàn trên trình duyệt. Vui lòng kiểm tra bộ nhớ phiên rồi thử lại.</p>
+          ) : uiState === "UNRESOLVED" ? (
+            <p role="status">Chưa xác nhận được trạng thái đơn hàng.</p>
+          ) : null}
+          {readError && <p role="alert" className="text-body-sm text-error">{readError}</p>}
+          {(order?.orderId || (uiState === "READING" && initialIntent?.orderId)) && <button type="button" onClick={retryRead}
+            className="w-full rounded-lg border py-2.5">Kiểm tra lại trạng thái</button>}
+          {canStartAnother && <button type="button" onClick={() => performCheckout(true)}
+            className="w-full rounded-lg border py-2.5">Mua thêm một lượt mới</button>}
         </div>
       </div>
     </div>
@@ -563,6 +267,8 @@ function SingleItineraryPaymentModalInner({
 }
 
 export default function SingleItineraryPaymentModal({ isOpen, ...props }) {
-  if (!isOpen) return null;
-  return <SingleItineraryPaymentModalInner {...props} />;
+  const { user, isDemo } = useAuth();
+  const [openedOwner] = useState(user?.id);
+  if (!isOpen || !user?.id || isDemo || user.id !== openedOwner) return null;
+  return <SingleItineraryPaymentModalInner key={user.id} ownerId={user.id} {...props} />;
 }

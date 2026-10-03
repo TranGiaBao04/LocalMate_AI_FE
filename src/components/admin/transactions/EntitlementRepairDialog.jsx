@@ -95,7 +95,7 @@ function EntitlementRepairDialogInner({
             {reconstructionMode && (
               <div>
                 <span className="text-slate-400">Chế độ tái thiết:</span>
-                <p className="font-semibold text-slate-900">{reconstructionMode}</p>
+                <p className="break-words font-semibold text-slate-900 [overflow-wrap:anywhere]">{reconstructionMode}</p>
               </div>
             )}
             <div className="sm:col-span-2">

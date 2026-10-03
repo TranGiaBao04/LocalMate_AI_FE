@@ -3,11 +3,14 @@ import StatusBadge from "../ui/StatusBadge";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import EntitlementRepairPanel from "./EntitlementRepairPanel";
 import EntitlementRepairDialog from "./EntitlementRepairDialog";
+import CreditSourcesPanel from "./CreditSourcesPanel";
 import { adminTransactionService } from "../../../services/adminTransactionService";
+import { useAuth } from "../../../context/AuthContext";
+import { ADMIN_PERMISSIONS } from "../../../constants";
+import { hasAnyPermission } from "../../../utils/adminAccess";
 import {
   formatVnDateTime,
   formatPlanPrice,
-  PLAN_DISPLAY_NAMES,
 } from "../../../utils/subscriptionUtils";
 
 const STATUS_SOURCE_LABELS = {
@@ -24,6 +27,13 @@ const STATUS_BADGE_CONFIG = {
   Pending: { status: "pending", label: "Đang chờ" },
   Failed: { status: "failed", label: "Thất bại" },
   Expired: { status: "inactive", label: "Hết hạn" },
+  ReviewRequired: { status: "info", label: "Cần kiểm tra" },
+};
+
+const OPERATION_LABELS = {
+  Purchase: "Mua",
+  Renewal: "Gia hạn",
+  Upgrade: "Nâng cấp",
 };
 
 function renderStatusPill(status) {
@@ -38,6 +48,8 @@ function TransactionDetailContent({
   onReconciled,
   showNotice,
 }) {
+  const { user } = useAuth();
+  const canManagePlans = hasAnyPermission(user, [ADMIN_PERMISSIONS.MANAGE_PLANS]);
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -102,24 +114,32 @@ function TransactionDetailContent({
 
   // Handle Reconcile PayOS Action
   const handleConfirmReconcile = async () => {
-    if (!transactionId || reconciling) return;
+    if (!transactionId || reconciling || !canManagePlans) return;
 
     try {
       setReconciling(true);
       const result = await adminTransactionService.reconcileTransaction(transactionId);
 
       // Handle HTTP 200 operational statuses
-      if (result?.status === "Reconciled") {
+      if (
+        result?.localStatusAfter === "ReviewRequired" ||
+        result?.settlementStatus === "CreditConflict"
+      ) {
+        showNotice?.(
+          "warning",
+          "Giao dịch cần kiểm tra tài chính. Chưa xác nhận thanh toán thành công; không tự động khôi phục hoặc xử lý credit."
+        );
+      } else if (result?.status === "Reconciled") {
         const msg = result.statusChanged
-          ? `Đối soát thành công: Trạng thái đổi từ "${result.localStatusBefore || "—"}" sang "${result.localStatusAfter || "—"}".`
-          : "Đối soát hoàn tất thành công (trạng thái đồng bộ).";
-        showNotice?.("success", msg);
+          ? `Đối soát hoàn tất: Trạng thái đổi từ "${result.localStatusBefore || "—"}" sang "${result.localStatusAfter || "—"}".`
+          : "Đối soát hoàn tất, trạng thái giao dịch đã được kiểm tra.";
+        showNotice?.("info", msg);
       } else if (result?.status === "NoChange") {
         showNotice?.("info", "PayOS đã được kiểm tra, trạng thái giao dịch không thay đổi.");
       } else if (result?.status === "AlreadyPaid") {
         showNotice?.("info", "Giao dịch đã ở trạng thái đã thanh toán.");
       } else {
-        showNotice?.("success", "Đối soát giao dịch hoàn tất.");
+        showNotice?.("info", "Đã nhận kết quả đối soát. Dữ liệu giao dịch sẽ được làm mới.");
       }
 
       setConfirmOpen(false);
@@ -134,12 +154,13 @@ function TransactionDetailContent({
       // 403 Forbidden is already handled by adminApiClient dispatching ADMIN_API_EVENTS.FORBIDDEN
       // and displayed globally by AdminLayout. Do not emit duplicate local toast.
       if (err?.status === 403) {
+        setConfirmOpen(false);
         return;
       }
 
       let errorMsg = err?.message || "Không thể thực hiện đối soát giao dịch.";
       if (err?.status === 503 || err?.code === "payment_provider_unavailable") {
-        errorMsg = "PayOS hiện không khả dụng. Không có trạng thái giao dịch nào bị thay đổi.";
+        errorMsg = "PayOS hiện không khả dụng. Chưa thể xác nhận trạng thái giao dịch; vui lòng kiểm tra lại sau.";
       } else if (err?.status === 502 || err?.code === "payment_provider_mismatch") {
         errorMsg = "Dữ liệu trả về từ nhà cung cấp không khớp giao dịch.";
       } else if (err?.status === 404 || err?.code === "transaction_not_found") {
@@ -154,7 +175,10 @@ function TransactionDetailContent({
   // Handle Entitlement Repair Action
   const handleConfirmRepair = async (reason) => {
     const trimmedReason = reason?.trim();
-    if (!transactionId || !trimmedReason || repairing) return;
+    if (
+      !transactionId || !trimmedReason || repairing || !canManagePlans ||
+      detail?.repairEligibility?.eligible !== true
+    ) return;
 
     try {
       setRepairing(true);
@@ -175,7 +199,7 @@ function TransactionDetailContent({
           "Giao dịch đã có entitlement được ghi nhận. Không có quyền nào được cấp thêm."
         );
       } else {
-        showNotice?.("success", "Thao tác khôi phục entitlement đã hoàn tất.");
+        showNotice?.("info", "Đã nhận kết quả khôi phục. Dữ liệu giao dịch sẽ được làm mới.");
       }
 
       setRepairDialogOpen(false);
@@ -198,8 +222,10 @@ function TransactionDetailContent({
           noticeMsg = "Giao dịch hiện không còn đủ điều kiện khôi phục. Dữ liệu đã được làm mới.";
         } else if (err?.code === "entitlement_repair_conflict") {
           noticeMsg = "Bằng chứng entitlement hiện có xung đột với yêu cầu khôi phục. Dữ liệu đã được làm mới.";
-        } else if (err?.message) {
-          noticeMsg = err.message;
+        }
+        const decisionCode = err?.data?.decisionCode;
+        if (typeof decisionCode === "string" && /^[a-z][a-z0-9_]{0,63}$/.test(decisionCode)) {
+          noticeMsg += ` (${decisionCode})`;
         }
         showNotice?.("error", noticeMsg);
 
@@ -308,7 +334,7 @@ function TransactionDetailContent({
         </div>
 
         {/* Action Bar (Đối soát PayOS) */}
-        {transaction && !loading && !error && (
+        {transaction && !loading && !error && canManagePlans && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-6 py-3">
             <div>
               <p className="text-xs font-semibold text-slate-700">Thao tác quản trị</p>
@@ -390,21 +416,35 @@ function TransactionDetailContent({
                     <p className="font-mono text-xs font-medium text-slate-800">{transaction.userEmail || "—"}</p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Gói cước:</span>
+                    <span className="text-xs text-slate-400">Sản phẩm:</span>
                     <p className="font-semibold text-slate-900">
-                      {PLAN_DISPLAY_NAMES[transaction.planCode] || transaction.planName || transaction.planCode || "—"}
+                      {transaction.productKind === "SingleItinerary"
+                        ? "Lịch trình đơn lẻ"
+                        : transaction.planName || transaction.planCode || "Gói đăng ký"}
                     </p>
                   </div>
                   <div>
                     <span className="text-xs text-slate-400">Loại thao tác:</span>
                     <p className="font-semibold text-slate-900">
-                      {transaction.operationType === "Renewal" ? "Gia hạn gói" : "Mua mới gói"}
+                      {OPERATION_LABELS[transaction.operationType] || transaction.operationType || "—"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Số tiền:</span>
+                    <span className="text-xs text-slate-400">Thực trả:</span>
                     <p className="text-base font-bold text-slate-950">
                       {transaction.amount != null ? formatPlanPrice(transaction.amount) : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-400">Credit đã áp dụng:</span>
+                    <p className="text-base font-semibold text-slate-900">
+                      {transaction.creditAmount != null ? formatPlanPrice(transaction.creditAmount) : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-400">Giá gốc:</span>
+                    <p className="text-base font-semibold text-slate-900">
+                      {transaction.listPrice != null ? formatPlanPrice(transaction.listPrice) : "—"}
                     </p>
                   </div>
                   <div>
@@ -454,9 +494,12 @@ function TransactionDetailContent({
                 </div>
               </section>
 
+              <CreditSourcesPanel sources={detail.creditSources} />
+
               {/* Section 2: Quyền hội viên & Section 3: Lịch sử khôi phục entitlement */}
               <EntitlementRepairPanel
                 detail={detail}
+                canManagePlans={canManagePlans}
                 onOpenRepair={() => setRepairDialogOpen(true)}
                 repairing={repairing}
               />
@@ -621,7 +664,7 @@ function TransactionDetailContent({
 
       {/* Confirmation Dialog for Reconciliation */}
       <ConfirmDialog
-        open={confirmOpen}
+        open={confirmOpen && canManagePlans}
         tone="info"
         title="Đối soát giao dịch với PayOS?"
         message="Hệ thống sẽ kiểm tra trạng thái hiện tại từ PayOS và áp dụng quy tắc thanh toán hiện có nếu có thay đổi."
@@ -634,12 +677,11 @@ function TransactionDetailContent({
 
       {/* Entitlement Repair Dialog */}
       <EntitlementRepairDialog
-        open={repairDialogOpen}
+        open={repairDialogOpen && canManagePlans && detail?.repairEligibility?.eligible === true}
         onClose={() => !repairing && setRepairDialogOpen(false)}
         onConfirm={handleConfirmRepair}
         submitting={repairing}
         planName={
-          PLAN_DISPLAY_NAMES[transaction?.planCode] ||
           transaction?.planName ||
           transaction?.planCode ||
           "—"

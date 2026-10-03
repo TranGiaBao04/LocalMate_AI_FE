@@ -29,8 +29,8 @@ export function formatVnNextDayStartIso(dateStr) {
  * Serialize canonical filters dùng chung cho list, summary và export.csv
  * @param {Object} filters
  * @param {string} [filters.search]
- * @param {string} [filters.status] "Pending" | "Paid" | "Failed" | "Expired"
- * @param {string} [filters.operationType] "Purchase" | "Renewal"
+ * @param {string} [filters.status] "Pending" | "Paid" | "Failed" | "Expired" | "ReviewRequired"
+ * @param {string} [filters.operationType] "Purchase" | "Renewal" | "Upgrade"
  * @param {string} [filters.fromDate] YYYY-MM-DD
  * @param {string} [filters.toDate] YYYY-MM-DD
  * @param {string} [filters.createdFrom] explicit ISO timestamp

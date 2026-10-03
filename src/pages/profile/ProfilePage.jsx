@@ -3,7 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTrip } from "../../context/TripContext";
 import { useSubscription } from "../../context/SubscriptionContext";
-import { PLAN_DISPLAY_NAMES, formatVnDateTime } from "../../utils/subscriptionUtils";
+import {
+  formatVnDateTime,
+  isPaidSubscription,
+  isFreeSubscription,
+  getPlanDisplayName,
+} from "../../utils/subscriptionUtils";
 import MobileLayout from "../../components/layout/MobileLayout";
 import { tagService } from "../../services/tagService";
 import { userService } from "../../services/userService";
@@ -21,7 +26,7 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, isDemo, logout, applyUserProfile } = useAuth();
   const { savedTrips } = useTrip();
-  const { subscription } = useSubscription();
+  const { subscription, subscriptionLoading, subscriptionError, plans } = useSubscription();
   const [tags, setTags] = useState([]);
   const [tagsLoading, setTagsLoading] = useState(true);
   const [tagsError, setTagsError] = useState(false);
@@ -277,6 +282,26 @@ export default function ProfilePage() {
                 Đăng ký ngay
               </button>
             </div>
+          ) : subscriptionLoading ? (
+            <div className="space-y-3 animate-pulse" data-testid="profile-subscription-loading">
+              <div className="h-6 w-40 bg-surface-container-high rounded" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="h-16 bg-surface-container-high rounded-xl" />
+                <div className="h-16 bg-surface-container-high rounded-xl" />
+              </div>
+            </div>
+          ) : !(subscription && (isFreeSubscription(subscription) || isPaidSubscription(subscription))) ? (
+            <div
+              className="rounded-xl bg-surface-container-low p-4 text-center space-y-1"
+              data-testid="profile-subscription-unavailable"
+            >
+              <p className="text-body-md text-on-surface-variant font-semibold">
+                Không thể tải thông tin gói
+              </p>
+              <p className="text-label-sm text-text-muted">
+                {subscriptionError || "Chưa có thông tin gói dịch vụ từ máy chủ."}
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -285,31 +310,47 @@ export default function ProfilePage() {
                     Gói hiện tại:
                   </span>
                   <span className="rounded-full bg-primary/10 px-3 py-0.5 text-label-md font-bold text-primary">
-                    {PLAN_DISPLAY_NAMES[subscription?.plan] || subscription?.plan || "Free"}
+                    {getPlanDisplayName(subscription.plan, plans)}
                   </span>
                 </div>
-                {subscription?.endsAt && (
+                {(subscription.effectiveUntil || subscription.endsAt) && (
                   <span className="text-label-sm text-text-muted">
-                    Hết hạn: {formatVnDateTime(subscription.endsAt)}
+                    {subscription.effectiveUntil && subscription.endsAt && subscription.effectiveUntil !== subscription.endsAt
+                      ? `Kỳ hiện tại: ${formatVnDateTime(subscription.effectiveUntil)} · Thanh toán đến: ${formatVnDateTime(subscription.endsAt)}`
+                      : subscription.effectiveUntil
+                        ? `Kỳ hiện tại: ${formatVnDateTime(subscription.effectiveUntil)}`
+                        : `Hết hạn: ${formatVnDateTime(subscription.endsAt)}`}
                   </span>
                 )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div className="rounded-xl bg-surface-container-low p-3">
-                  <div className="text-label-sm text-on-surface-variant">Lượt tạo AI tháng này</div>
+                  <div className="text-label-sm text-on-surface-variant">
+                    {isFreeSubscription(subscription)
+                      ? "Lượt tạo AI tháng này"
+                      : "Lượt tạo AI"}
+                  </div>
                   <div className="text-body-lg font-bold text-on-surface mt-0.5">
-                    {subscription?.usage?.generateLimit == null
-                      ? "Không giới hạn"
-                      : `${subscription?.usage?.generateUsed ?? 0} / ${subscription?.usage?.generateLimit}`}
+                    {subscription.usage?.generateLimit === null ? (
+                      "Không giới hạn"
+                    ) : typeof subscription.usage?.generateLimit === "number" ? (
+                      `${typeof subscription.usage?.generateUsed === "number" ? subscription.usage.generateUsed : "—"} / ${subscription.usage.generateLimit}`
+                    ) : (
+                      <span className="text-on-surface-variant font-normal">Chưa có thông tin</span>
+                    )}
                   </div>
                 </div>
                 <div className="rounded-xl bg-surface-container-low p-3">
                   <div className="text-label-sm text-on-surface-variant">Lịch trình đã chốt</div>
                   <div className="text-body-lg font-bold text-on-surface mt-0.5">
-                    {subscription?.savedTrips?.limit == null
-                      ? "Không giới hạn"
-                      : `${subscription?.savedTrips?.used ?? 0} / ${subscription?.savedTrips?.limit}`}
+                    {subscription.savedTrips?.limit === null ? (
+                      "Không giới hạn"
+                    ) : typeof subscription.savedTrips?.limit === "number" ? (
+                      `${typeof subscription.savedTrips?.used === "number" ? subscription.savedTrips.used : "—"} / ${subscription.savedTrips.limit}`
+                    ) : (
+                      <span className="text-on-surface-variant font-normal">Chưa có thông tin</span>
+                    )}
                   </div>
                 </div>
               </div>
