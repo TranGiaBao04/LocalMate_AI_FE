@@ -17,6 +17,9 @@ function clearSession() {
   localStorage.removeItem(STORAGE_KEYS.IS_DEMO);
 }
 
+// 403 nghiệp vụ: trang tự hiện lỗi theo code, không phải bị thu hồi quyền
+const BUSINESS_FORBIDDEN_CODES = new Set(["cannot_manage_role_manager"]);
+
 async function handleAdminRequest(request) {
   try {
     return await request();
@@ -28,7 +31,7 @@ async function handleAdminRequest(request) {
       emitAdminApiEvent(ADMIN_API_EVENTS.UNAUTHORIZED, {
         message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
       });
-    } else if (error?.status === 403) {
+    } else if (error?.status === 403 && !BUSINESS_FORBIDDEN_CODES.has(error.code)) {
       emitAdminApiEvent(ADMIN_API_EVENTS.FORBIDDEN, {
         message: "Bạn không có quyền thực hiện thao tác quản trị này.",
       });
