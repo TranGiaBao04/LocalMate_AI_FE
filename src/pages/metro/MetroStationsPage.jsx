@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import MobileLayout from "../../components/layout/MobileLayout";
 import { masterDataService } from "../../services/masterDataService";
 import { metroService } from "../../services/metroService";
@@ -234,8 +235,8 @@ function JourneyPanel({ stations, today, tomorrowDate, nowMinutes }) {
   );
 }
 
-function StationPanel({ stations, today, tomorrowDate, nowMinutes }) {
-  const [stationOrder, setStationOrder] = useState(1);
+function StationPanel({ stations, today, tomorrowDate, nowMinutes, initialOrder }) {
+  const [stationOrder, setStationOrder] = useState(initialOrder ?? 1);
   const schedule = useRequest(metroService.getDepartures, [stationOrder, today]);
   const data = schedule.data;
 
@@ -345,7 +346,9 @@ export default function MetroStationsPage() {
     nowMinutes: minutesNowInVietnam(now),
   };
 
-  const [mode, setMode] = useState("journey");
+  // Mở từ ô tìm kiếm: vào thẳng tab "Theo ga" với ga đã chọn
+  const initialStationOrder = useLocation().state?.stationOrder;
+  const [mode, setMode] = useState(initialStationOrder ? "station" : "journey");
   const [stations, setStations] = useState([]);
   const [stationsError, setStationsError] = useState(false);
 
@@ -394,7 +397,7 @@ export default function MetroStationsPage() {
         ) : mode === "journey" ? (
           <JourneyPanel stations={stations} {...panelProps} />
         ) : (
-          <StationPanel stations={stations} {...panelProps} />
+          <StationPanel stations={stations} initialOrder={initialStationOrder} {...panelProps} />
         )}
       </main>
     </MobileLayout>
