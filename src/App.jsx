@@ -42,12 +42,18 @@ const AdminSectionPlaceholder = lazy(() => import("./pages/admin/AdminSectionPla
 // Mục đã có trang thật; mục còn lại hiện placeholder
 const ADMIN_PAGES = {
   stations: AdminStationsPage,
+  places: AdminPlaceListPage,
+  import: ImportStepperPage,
   plans: AdminPlansPage,
   transactions: AdminTransactionsPage,
   settings: AdminSettingsPage,
   users: AdminUsersPage,
   roles: AdminRolesPage,
 };
+
+import AdminPlaceListPage from "./pages/admin/AdminPlaceListPage";
+import AdminPlaceFormPage from "./pages/admin/AdminPlaceFormPage";
+import ImportStepperPage from "./pages/admin/ImportStepperPage";
 
 export default function App() {
   const { pathname } = useLocation();
@@ -115,6 +121,30 @@ export default function App() {
               />
             );
           })}
+          <Route
+            path="places/create"
+            element={
+              <AdminRoute permissions={[ADMIN_PERMISSIONS.MANAGE_PLACES]}>
+                <AdminPlaceFormPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="places/edit/:id"
+            element={
+              <AdminRoute permissions={[ADMIN_PERMISSIONS.MANAGE_PLACES]}>
+                <AdminPlaceFormPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="places/import"
+            element={
+              <AdminRoute permissions={[ADMIN_PERMISSIONS.MANAGE_PLACES]}>
+                <ImportStepperPage />
+              </AdminRoute>
+            }
+          />
           <Route
             path="users/:userId"
             element={

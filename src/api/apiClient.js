@@ -138,6 +138,30 @@ async function requestBlob(path, { method = "GET", auth = true } = {}) {
   return blob;
 }
 
+async function upload(path, formData, { auth = true } = {}) {
+  const headers = {};
+  const token = auth ? getToken() : null;
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  const isJson = res.headers.get("content-type")?.includes("json");
+  const data = isJson ? await res.json().catch(() => null) : null;
+
+  if (!res.ok) {
+    const code = data?.code || data?.extensions?.code || null;
+    const errors = data?.errors || null;
+    dispatchSessionEndedIfApplicable(token, code);
+    throw new ApiError(buildErrorMessage(res.status, data, code), res.status, code, errors, data);
+  }
+
+  return data;
+}
+
 export const apiClient = {
   get: (path, options) => request(path, { ...options, method: "GET" }),
   post: (path, body, options) =>
@@ -150,4 +174,5 @@ export const apiClient = {
     request(path, { ...options, method: "PATCH", body }),
   delete: (path, options) => request(path, { ...options, method: "DELETE" }),
   getBlob: (path, options) => requestBlob(path, { ...options, method: "GET" }),
+  upload: (path, formData, options) => upload(path, formData, options),
 };
