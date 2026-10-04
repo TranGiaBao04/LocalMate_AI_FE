@@ -2,11 +2,13 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { STORAGE_KEYS } from "../constants";
 import { tripService } from "../services/tripService";
 import { useAuth } from "./AuthContext";
+import { useNotifications } from "./NotificationContext";
 
 const TripContext = createContext(null);
 
 export function TripProvider({ children }) {
   const { isLoggedIn, isDemo } = useAuth();
+  const { refreshUnreadCount } = useNotifications();
   const [request, setRequestState] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.TRIP_REQUEST);
@@ -117,6 +119,8 @@ export function TripProvider({ children }) {
     const updated = await tripService.finalizeTrip(tripId, funding);
     syncTrip(updated);
     upsertSavedTrip(updated);
+    // BE tạo thông báo "đã chốt lịch trình"
+    refreshUnreadCount();
     return updated;
   };
 

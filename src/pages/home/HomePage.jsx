@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import MobileLayout from "../../components/layout/MobileLayout";
 import GuestTourCard from "../../components/home/GuestTourCard";
 import HomeSearch from "../../components/home/HomeSearch";
+import NotificationBell from "../../components/notifications/NotificationBell";
 import CuratedItineraryCard from "../../components/trip/CuratedItineraryCard";
 import { useCuratedItineraries } from "../../hooks/useCuratedItineraries";
 import { placeService } from "../../services/placeService";
@@ -107,12 +108,7 @@ export default function HomePage() {
           <HomeSearch />
 
           <div className="flex flex-none items-center gap-2.5">
-            <button className="soft-shadow relative flex h-[38px] w-[38px] items-center justify-center rounded-full bg-white active:scale-95">
-              <span className="material-symbols-outlined text-[17px] text-[#3A4256]">
-                notifications
-              </span>
-              <span className="absolute right-[9px] top-2 h-[7px] w-[7px] rounded-full border-[1.5px] border-white bg-[#E5484D]" />
-            </button>
+            <NotificationBell />
             <button
               onClick={() => navigate("/profile")}
               className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-full bg-navy text-sm font-bold text-white active:scale-95"
