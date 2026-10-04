@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import MobileLayout from "../../components/layout/MobileLayout";
 import GuestTourCard from "../../components/home/GuestTourCard";
+import HomeSearch from "../../components/home/HomeSearch";
 import CuratedItineraryCard from "../../components/trip/CuratedItineraryCard";
 import { useCuratedItineraries } from "../../hooks/useCuratedItineraries";
 import { placeService } from "../../services/placeService";
@@ -103,17 +104,7 @@ export default function HomePage() {
             <div className="text-xs text-text-faint">Tổng quan chuyến đi</div>
           </div>
 
-          <div className="soft-shadow hidden min-w-0 max-w-[320px] flex-1 items-center gap-2 rounded-full bg-white px-3.5 py-[9px] sm:flex">
-            <span className="material-symbols-outlined flex-none text-[15px] text-text-faint">
-              search
-            </span>
-            <span className="flex-1 truncate text-[12.5px] text-text-faint">
-              Tìm theo ga Bến Thành, Ba Son...
-            </span>
-            <span className="flex-none rounded border border-[#E4E8F2] px-[5px] py-0.5 text-[10.5px] text-[#B4BCD1]">
-              ⌘K
-            </span>
-          </div>
+          <HomeSearch />
 
           <div className="flex flex-none items-center gap-2.5">
             <button className="soft-shadow relative flex h-[38px] w-[38px] items-center justify-center rounded-full bg-white active:scale-95">
