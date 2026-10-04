@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { notificationService } from "../services/notificationService";
 import { useAuth } from "./AuthContext";
@@ -14,12 +14,19 @@ export function NotificationProvider({ children }) {
   // Phiên demo không có hộp thư nên không gọi
   const enabled = !initializing && isLoggedIn && !isDemo && Boolean(userId);
   const [unread, setUnread] = useState(null); // { userId, count }
+  const requestId = useRef(0);
+
+  useEffect(() => {
+    const requests = requestId;
+    return () => { requests.current++; };
+  }, [enabled, userId]);
 
   const refreshUnreadCount = useCallback(async () => {
     if (!enabled) return;
+    const request = ++requestId.current;
     try {
       const { count } = await notificationService.getUnreadCount();
-      setUnread({ userId, count });
+      if (request === requestId.current) setUnread({ userId, count });
     } catch {
       // Giữ số cũ, lần gọi sau thử lại
     }
@@ -46,7 +53,7 @@ export function NotificationProvider({ children }) {
   const unreadCount = enabled && unread?.userId === userId ? unread.count : 0;
 
   return (
-    <NotificationContext.Provider value={{ enabled, unreadCount, refreshUnreadCount }}>
+    <NotificationContext.Provider value={{ enabled, userId, unreadCount, refreshUnreadCount }}>
       {children}
     </NotificationContext.Provider>
   );
