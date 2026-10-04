@@ -44,9 +44,50 @@ function travelLabel(trip, item) {
   };
 }
 
+const LEG_MODES = {
+  Walking: { icon: "directions_walk", label: "Đi bộ", toStation: "đi bộ ra ga" },
+  Motorbike: { icon: "two_wheeler", label: "Xe máy", toStation: "xe máy ra ga" },
+};
+
+// Cách đi tới một chặng theo item.leg. Đoạn Metro: ra ga -> chờ tàu -> ngồi tàu -> đi bộ từ ga xuống.
+function LegInfo({ leg, fromOrigin }) {
+  const suffix = fromOrigin ? " từ điểm xuất phát" : "";
+  if (leg.mode !== "Metro") {
+    const mode = LEG_MODES[leg.mode] ?? LEG_MODES.Motorbike;
+    return (
+      <p className="mb-1 text-label-md text-on-surface-variant flex items-center gap-1">
+        <span className="material-symbols-outlined text-[14px]">{mode.icon}</span>
+        {mode.label} {leg.totalMinutes} phút{suffix}
+        {leg.fallback === "metro_unavailable" && " · đã hết chuyến tàu nên tính theo xe máy"}
+      </p>
+    );
+  }
+  const parts = [
+    // toStationMode null = đang đứng sẵn ở ga
+    leg.toStationMode &&
+      `${LEG_MODES[leg.toStationMode]?.toStation ?? "ra ga"} ${leg.toStationMinutes} phút`,
+    `chờ tàu ${leg.waitMinutes} phút`,
+    `đi tàu ${leg.rideMinutes} phút (${leg.stopCount} ga)`,
+    leg.walkMinutes > 0 && `đi bộ ${leg.walkMinutes} phút`,
+  ].filter(Boolean);
+  return (
+    <div className="mb-1 rounded bg-secondary/5 px-2 py-1 text-label-md">
+      <p className="flex items-center gap-1 font-medium text-secondary">
+        <span className="material-symbols-outlined text-[14px]">train</span>
+        Metro {leg.boardStation.name} → {leg.alightStation.name} · {leg.totalMinutes} phút{suffix}
+      </p>
+      <p className="text-on-surface-variant">Gồm: {parts.join(" · ")}. Giờ tàu là dự kiến.</p>
+    </div>
+  );
+}
+
 // Phương tiện cho nút chỉ đường Google Maps. Xe máy dùng "driving" (Maps URL không có xe máy).
 // Auto: BE chọn đi bộ khi gần, xa hơn thì xe máy; chặng đầu chưa có số liệu theo phương tiện nên để đi bộ.
 function mapsTravelMode(trip, item) {
+  if (item.leg) {
+    if (item.leg.mode === "Metro") return "transit";
+    return item.leg.mode === "Walking" ? "walking" : "driving";
+  }
   if (trip.travelMode === "Walking") return "walking";
   if (trip.travelMode === "Motorbike") return "driving";
   return item.travelMinutesFromPrevious != null &&
@@ -301,6 +342,11 @@ function DraftItineraryPageInner() {
               {currentTrip.totalTravelMinutes ?? 0} phút
             </p>
           )}
+          {currentTrip.travelMode === "Metro" && (
+            <p className="text-label-md text-on-surface-variant mt-1">
+              Đi Metro · giờ tàu là lịch dự kiến.
+            </p>
+          )}
           {currentTrip.totalMinutes != null &&
             currentTrip.totalMinutes < currentTrip.durationHours * 60 - 30 && (
               <p className="text-label-md text-on-surface-variant mt-1">
@@ -333,21 +379,28 @@ function DraftItineraryPageInner() {
               </div>
 
               <div className="flex-1 mb-4">
-                {idx === 0 && currentTrip.travelMinutesFromOrigin != null && (
-                  <p className="mb-1 text-label-md text-on-surface-variant flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px]">
-                      near_me
-                    </span>
-                    Đi {currentTrip.travelMinutesFromOrigin} phút từ điểm xuất phát
-                  </p>
-                )}
-                {travelLabel(currentTrip, item) && (
-                  <p className="mb-1 text-label-md text-on-surface-variant flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px]">
-                      {travelLabel(currentTrip, item).icon}
-                    </span>
-                    {travelLabel(currentTrip, item).text}
-                  </p>
+                {item.leg ? (
+                  <LegInfo leg={item.leg} fromOrigin={idx === 0} />
+                ) : (
+                  <>
+                    {/* Trip cũ / BE chưa trả leg */}
+                    {idx === 0 && currentTrip.travelMinutesFromOrigin != null && (
+                      <p className="mb-1 text-label-md text-on-surface-variant flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">
+                          near_me
+                        </span>
+                        Đi {currentTrip.travelMinutesFromOrigin} phút từ điểm xuất phát
+                      </p>
+                    )}
+                    {travelLabel(currentTrip, item) && (
+                      <p className="mb-1 text-label-md text-on-surface-variant flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">
+                          {travelLabel(currentTrip, item).icon}
+                        </span>
+                        {travelLabel(currentTrip, item).text}
+                      </p>
+                    )}
+                  </>
                 )}
                 <div className="card space-y-2">
                   <div className="flex items-start justify-between">

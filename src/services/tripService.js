@@ -6,6 +6,8 @@ import { mapMyTrip, mapTrip } from "../utils/tripMapper";
 export function toTripRequestDto({
   startLatitude,
   startLongitude,
+  startStationOrder,
+  destinationStationOrder,
   durationHours,
   budgetMaxPerPerson,
   tagIds,
@@ -14,8 +16,12 @@ export function toTripRequestDto({
   startTime,
 }) {
   return {
-    startLatitude,
-    startLongitude,
+    // Điểm xuất phát: đúng MỘT trong hai, ga (order 1–14) hoặc cặp toạ độ. Gửi cả hai BE trả 400.
+    ...(startStationOrder != null
+      ? { startStationOrder }
+      : { startLatitude, startLongitude }),
+    // Ga muốn chơi quanh đó (order 1–14). Bỏ trống = quanh ga gần điểm xuất phát.
+    ...(destinationStationOrder != null && { destinationStationOrder }),
     durationHours,
     budgetMin: 0,
     budgetMax: budgetMaxPerPerson,
@@ -24,7 +30,7 @@ export function toTripRequestDto({
     ...(plannedDate && { plannedDate }),
     // "HH:mm" giờ VN, luôn gửi (bỏ trống BE dùng 08:00, lịch có thể bắt đầu ở quá khứ)
     startTime: `${startTime}:00`,
-    // "Auto" (mặc định BE) | "Walking" | "Motorbike"
+    // "Auto" (mặc định BE) | "Walking" | "Motorbike" | "Metro"
     ...(travelMode && { travelMode }),
   };
 }
@@ -33,7 +39,9 @@ const getTripById = async (tripId) =>
   mapTrip(await apiClient.get(`/trips/${tripId}`));
 
 export const tripService = {
-  // { isFeasible, reason, nearestStation, durationCategory, budgetTier, estimatedStopCount, candidatePlaceCount }
+  // { isFeasible, reason, nearestStation (ga lên), anchorStation: { order, name } (ga lấy địa điểm quanh đó),
+  //   suggestedStations: [{ order, name, placeCount }] (chỉ có khi reason = InsufficientCandidates),
+  //   durationCategory, budgetTier, estimatedStopCount, candidatePlaceCount }
   checkFeasibility: (dto) =>
     apiClient.post("/trips/feasibility-check", dto, { auth: false }),
 
@@ -77,7 +85,7 @@ export const tripService = {
     apiClient.get(
       `/trips/${tripId}/items/${itemId}/alternatives${limit ? `?limit=${limit}` : ""}`,
     ),
-  // Trả { warnings, place, ... }, giữ nguyên để hiển thị cảnh báo
+  // Trả { warnings, place, items, ... }. BE tính lại giờ mọi chặng; TripContext gọi lại GET /trips/{id} nên không dùng items.
   replaceItem: (tripId, itemId, newPlaceId) =>
     apiClient.put(`/trips/${tripId}/items/${itemId}/replace`, { newPlaceId }),
   deleteItem: (tripId, itemId) =>

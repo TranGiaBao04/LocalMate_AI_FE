@@ -26,6 +26,7 @@ import ReplacePlacePage from "./pages/trip/ReplacePlacePage";
 import FinalizedItineraryPage from "./pages/trip/FinalizedItineraryPage";
 import MyTripsPage from "./pages/trip/MyTripsPage";
 import SavedTripDetailPage from "./pages/trip/SavedTripDetailPage";
+import CuratedItinerariesPage from "./pages/trip/CuratedItinerariesPage";
 
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
@@ -54,7 +55,7 @@ export default function App() {
   const showAppNav = !pathname.startsWith("/admin") && !["/", "/login", "/register", "/forgot-password", "/loading", "/payment/success", "/payment/cancel"].includes(
     pathname,
   ) && isLoggedIn;
-  const showBottomNav = ["/home", "/trips", "/profile"].includes(pathname);
+  const showBottomNav = ["/home", "/trips", "/metro", "/explore", "/profile", "/subscription"].includes(pathname);
   const requireAuth = (element) => {
     if (initializing) return null;
     return isLoggedIn ? element : <Navigate to="/login" replace />;
@@ -83,6 +84,7 @@ export default function App() {
 
         <Route path="/trips" element={requireAuth(<MyTripsPage />)} />
         <Route path="/metro" element={requireAuth(<MetroStationsPage />)} />
+        <Route path="/explore" element={requireAuth(<CuratedItinerariesPage />)} />
         <Route
           path="/trips/:tripId"
           element={requireAuth(<SavedTripDetailPage />)}
