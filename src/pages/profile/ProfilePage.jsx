@@ -12,6 +12,7 @@ import {
 import MobileLayout from "../../components/layout/MobileLayout";
 import { tagService } from "../../services/tagService";
 import { userService } from "../../services/userService";
+import NotificationBell from "../../components/notifications/NotificationBell";
 
 const PREFERENCE_GROUPS = [
   { key: "interestTagIds", type: "Interest", label: "Sở thích" },
@@ -558,8 +559,8 @@ export default function ProfilePage() {
         </section>
 
         <section className="card divide-y divide-outline-variant/20">
+          <NotificationBell variant="profile" />
           {[
-            { icon: "notifications", label: "Thông báo" },
             { icon: "privacy_tip", label: "Quyền riêng tư" },
             { icon: "help", label: "Trợ giúp" },
             { icon: "info", label: "Về LocalMate AI" },

@@ -9,6 +9,7 @@ import { SubscriptionProvider, useSubscription } from "../src/context/Subscripti
 import * as AuthContextModule from "../src/context/AuthContext";
 import * as SubscriptionContextModule from "../src/context/SubscriptionContext";
 import * as TripContextModule from "../src/context/TripContext";
+import * as NotificationContextModule from "../src/context/NotificationContext";
 import { subscriptionService } from "../src/services/subscriptionService";
 import {
   PAYMENT_ORDER_STATUS,
@@ -27,6 +28,7 @@ describe("FE-UP4: Current Subscription State & Renewal Verification", () => {
     localStorage.clear();
     vi.restoreAllMocks();
     vi.spyOn(tagService, "getTags").mockResolvedValue([]);
+    vi.spyOn(NotificationContextModule, "useNotifications").mockReturnValue({ enabled: false, unreadCount: 0 });
   });
 
   afterEach(() => {
