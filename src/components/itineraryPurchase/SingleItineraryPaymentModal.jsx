@@ -6,7 +6,7 @@ import {
   isAvailableSingleEntitlement, singleOrderState,
 } from "../../services/itineraryPurchaseService";
 import {
-  getSinglePaymentIntent, saveSinglePaymentIntent,
+  getSinglePaymentIntent, saveSinglePaymentIntent, prepareSinglePaymentReturn,
 } from "../../utils/itineraryPurchaseSession";
 import { formatPlanPrice } from "../../utils/subscriptionUtils";
 
@@ -219,7 +219,17 @@ function SingleItineraryPaymentModalInner({
               {order.qrCode && <div className="mx-auto p-4 bg-white rounded-lg border max-w-[240px] aspect-square">
                 <QRCode value={order.qrCode} size={200} style={{ height: "auto", maxWidth: "100%", width: "100%" }} />
               </div>}
-              {order.checkoutUrl && <a href={order.checkoutUrl} target="_blank" rel="noopener noreferrer"
+              {order.checkoutUrl && <a href={`/payment/success?singleCheckout=${encodeURIComponent(order.orderId)}`}
+                target="_blank" rel="noopener noreferrer"
+                onClick={(event) => {
+                  if (!prepareSinglePaymentReturn(ownerId, {
+                    orderId: order.orderId, productKind: order.productKind,
+                    clientAttemptId: attemptRef.current, draftTripId,
+                  })) {
+                    event.preventDefault();
+                    setReadError("Chưa thể mở thanh toán an toàn. Vui lòng thử lại.");
+                  }
+                }}
                 className="inline-flex w-full justify-center gap-2 rounded-lg bg-navy-dark py-3 px-4 text-white font-semibold">
                 Mở trang thanh toán PayOS<span className="material-symbols-outlined text-[20px]">open_in_new</span>
               </a>}
