@@ -49,6 +49,10 @@ const ADMIN_PAGES = {
   roles: AdminRolesPage,
 };
 
+import AdminPlaceListPage from "./pages/admin/AdminPlaceListPage";
+import AdminPlaceFormPage from "./pages/admin/AdminPlaceFormPage";
+import ImportStepperPage from "./pages/admin/ImportStepperPage";
+
 export default function App() {
   const { pathname } = useLocation();
   const { isLoggedIn, initializing } = useAuth();
@@ -89,6 +93,12 @@ export default function App() {
           path="/trips/:tripId"
           element={requireAuth(<SavedTripDetailPage />)}
         />
+
+        {/* Admin Place Management & Excel/CSV Import Engine */}
+        <Route path="/admin/places" element={requireAuth(<AdminPlaceListPage />)} />
+        <Route path="/admin/places/create" element={requireAuth(<AdminPlaceFormPage />)} />
+        <Route path="/admin/places/edit/:id" element={requireAuth(<AdminPlaceFormPage />)} />
+        <Route path="/admin/places/import" element={requireAuth(<ImportStepperPage />)} />
 
         <Route
           path="/admin"

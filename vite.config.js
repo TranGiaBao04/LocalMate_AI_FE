@@ -1,9 +1,15 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      'lucide-react': path.resolve(__dirname, './src/components/common/LucideShim.jsx'),
+    },
+  },
   server: {
     // Proxy /api tới backend LocalMateAI.API chạy local (mục 5.7 README backend).
     // Bỏ qua khi VITE_API_BASE_URL đã trỏ thẳng tới một backend khác (staging/prod).
