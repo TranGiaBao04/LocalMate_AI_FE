@@ -16,6 +16,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { adminPlaceService } from "../../services/adminPlaceService";
+import { buildMapsSearchUrl } from "../../utils/googleMaps";
 import { VerifiedBadge } from "../../components/admin/VerifiedBadge";
 
 const DAYS_MAP = {
@@ -262,7 +263,12 @@ export default function AdminPlaceDetailPage() {
 
               {place.latitude && place.longitude && (
                 <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${place.latitude},${place.longitude}`}
+                  href={buildMapsSearchUrl({
+                    lat: place.latitude,
+                    lng: place.longitude,
+                    query: place.name,
+                    placeId: place.googlePlaceId,
+                  })}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-xl transition border border-teal-200"

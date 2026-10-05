@@ -34,14 +34,6 @@ export const formatDistance = (meters) => {
     : `${(meters / 1000).toFixed(1)}km`;
 };
 
-export const buildGoogleMapsUrl = (lat, lng) => {
-  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-};
-
-export const buildGoogleMapsDirectionUrl = (lat, lng) => {
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-};
-
 export const formatDate = (dateStr) => {
   const date = new Date(dateStr);
 

@@ -24,19 +24,23 @@ export const isMobileDevice = () => {
  * @param {number} [options.lat] - điểm đi (khi chỉ đường) hoặc vị trí cần mở
  * @param {number} [options.lng]
  * @param {string} [options.query]
+ * @param {string} [options.placeId] - googlePlaceId của điểm (lat, lng) ở trên
  * @param {number} [options.destLat]
  * @param {number} [options.destLng]
  * @param {string} [options.destName]
- * @param {'walking'|'driving'} [options.travelMode='walking']
+ * @param {string} [options.destPlaceId] - googlePlaceId của điểm đến
+ * @param {'walking'|'driving'|'transit'} [options.travelMode] - bỏ trống thì Google Maps tự chọn
  */
 export const openGoogleMapsApp = ({
   lat,
   lng,
   query,
+  placeId,
   destLat,
   destLng,
   destName,
-  travelMode = 'walking',
+  destPlaceId,
+  travelMode,
 }) => {
   const isDirections = destLat != null && destLng != null;
   const url = isDirections
@@ -44,12 +48,14 @@ export const openGoogleMapsApp = ({
         originLat: lat,
         originLng: lng,
         originName: query,
+        originPlaceId: placeId,
         destLat,
         destLng,
         destName,
+        destPlaceId,
         travelMode,
       })
-    : buildMapsSearchUrl({ lat, lng, query });
+    : buildMapsSearchUrl({ lat, lng, query, placeId });
 
   window.open(url, '_blank', 'noopener,noreferrer');
 };

@@ -6,11 +6,19 @@ import { useTrip } from "../../context/TripContext";
 import { masterDataService } from "../../services/masterDataService";
 import { reviewService } from "../../services/reviewService";
 import {
-  buildGoogleMapsDirectionUrl,
   formatCurrencyShort,
   formatDate,
   formatDuration,
 } from "../../utils/formatCurrency";
+import { buildDirectionsUrl } from "../../utils/googleMaps";
+
+const toDirectionsUrl = (item) =>
+  buildDirectionsUrl({
+    destLat: item.latitude,
+    destLng: item.longitude,
+    destName: item.placeName,
+    destPlaceId: item.googlePlaceId,
+  });
 
 const HERO_IMAGE =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuDN0vFFKUc3e-K_f2h2SAI_wztdv4J8tWPy268gHEYWiMvNEY02ghKlxRGjcIGgLvWktn8MhgQqG3PouyjWXsfF0fhvVjT_8Zye_ciVRX0IhzwruLEugVApYcp1nlYHm-r9vZccXdHghUmv4QcY6NI3N1A3YrQFM5ZKkAX-xyzkr25N9ThWYEHuaBHaocG9lIxQI48mDGtdqB3zt-GV5JLEfBZgAKNb7Uz9hu7-E1J1W5fXd4Y5BhfDK-VF4JejubGDFvNnqyc-Zxg";
@@ -145,7 +153,7 @@ export default function SavedTripDetailPage() {
   const firstItem = trip.items[0];
   const mapHref =
     firstItem?.latitude && firstItem?.longitude
-      ? buildGoogleMapsDirectionUrl(firstItem.latitude, firstItem.longitude)
+      ? toDirectionsUrl(firstItem)
       : "https://www.google.com/maps/search/?api=1&query=Ho%20Chi%20Minh%20City";
 
   const openReview = (itemId) => {
@@ -386,10 +394,7 @@ export default function SavedTripDetailPage() {
                         <div className="flex gap-3">
                           {item.latitude && item.longitude && (
                             <a
-                              href={buildGoogleMapsDirectionUrl(
-                                item.latitude,
-                                item.longitude,
-                              )}
+                              href={toDirectionsUrl(item)}
                               target="_blank"
                               rel="noreferrer"
                               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-secondary/10 px-4 py-2 text-label-md font-bold text-secondary transition-transform active:scale-95"

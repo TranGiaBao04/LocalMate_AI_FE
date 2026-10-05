@@ -18,10 +18,13 @@ export const TimelineItemDirections = ({
   const currentLat = currentStop.latitude ?? currentStop.lat;
   const currentLng = currentStop.longitude ?? currentStop.lng;
   const currentName = currentStop.placeName ?? currentStop.name ?? currentStop.title;
+  const currentPlaceId = currentStop.googlePlaceId ?? null;
 
   const prevLat = prevStop ? (prevStop.latitude ?? prevStop.lat) : null;
   const prevLng = prevStop ? (prevStop.longitude ?? prevStop.lng) : null;
   const prevName = prevStop ? (prevStop.placeName ?? prevStop.name ?? prevStop.title) : null;
+  // Điểm xuất phát của người dùng không có mã, chỉ chặng trước là địa điểm mới có
+  const prevPlaceId = prevStop?.googlePlaceId ?? null;
 
   const handleDirectionsClick = (e) => {
     e.preventDefault();
@@ -33,9 +36,11 @@ export const TimelineItemDirections = ({
         lat: prevLat,
         lng: prevLng,
         query: prevName,
+        placeId: prevPlaceId,
         destLat: currentLat,
         destLng: currentLng,
         destName: currentName,
+        destPlaceId: currentPlaceId,
         travelMode,
       });
     } else {
@@ -44,6 +49,7 @@ export const TimelineItemDirections = ({
         lat: currentLat,
         lng: currentLng,
         query: currentName,
+        placeId: currentPlaceId,
       });
     }
   };
