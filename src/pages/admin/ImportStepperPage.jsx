@@ -43,7 +43,7 @@ export default function ImportStepperPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50/50 p-4 md:p-8 space-y-6">
       {/* Back button */}
       <div className="flex items-center justify-between">
         <Link
@@ -77,13 +77,12 @@ export default function ImportStepperPage() {
             return (
               <div key={step.id} className="flex items-center gap-3 flex-1">
                 <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition ${
-                    isDone
+                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition ${isDone
                       ? "bg-emerald-600 text-white"
                       : isCurrent
-                      ? "bg-teal-600 text-white shadow-md ring-4 ring-teal-50"
-                      : "bg-gray-100 text-gray-400"
-                  }`}
+                        ? "bg-teal-600 text-white shadow-md ring-4 ring-teal-50"
+                        : "bg-gray-100 text-gray-400"
+                    }`}
                 >
                   {isDone ? <CheckCircle2 className="w-5 h-5" /> : <Icon className="w-4 h-4" />}
                 </div>

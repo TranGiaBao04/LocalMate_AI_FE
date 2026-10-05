@@ -53,6 +53,7 @@ const ADMIN_PAGES = {
 
 import AdminPlaceListPage from "./pages/admin/AdminPlaceListPage";
 import AdminPlaceFormPage from "./pages/admin/AdminPlaceFormPage";
+import AdminPlaceDetailPage from "./pages/admin/AdminPlaceDetailPage";
 import ImportStepperPage from "./pages/admin/ImportStepperPage";
 
 export default function App() {
@@ -134,6 +135,14 @@ export default function App() {
             element={
               <AdminRoute permissions={[ADMIN_PERMISSIONS.MANAGE_PLACES]}>
                 <AdminPlaceFormPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="places/:id"
+            element={
+              <AdminRoute permissions={[ADMIN_PERMISSIONS.MANAGE_PLACES]}>
+                <AdminPlaceDetailPage />
               </AdminRoute>
             }
           />
