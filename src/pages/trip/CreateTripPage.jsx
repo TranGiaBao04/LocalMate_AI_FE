@@ -6,6 +6,7 @@ import { tagService } from "../../services/tagService";
 import { masterDataService } from "../../services/masterDataService";
 import { placeService } from "../../services/placeService";
 import { tripService, toTripRequestDto } from "../../services/tripService";
+import TripRequestAssistant from "../../components/trip/TripRequestAssistant";
 // Đồng hồ cập nhật định kỳ để chip buổi/thời lượng tự khoá khi đã qua giờ
 import { useClock } from "../../hooks/useClock";
 import { formatCurrency, formatDistance } from "../../utils/formatCurrency";
@@ -33,6 +34,7 @@ const START_TIME_STEP_MINUTES = 15;
 const MAX_DAYS_AHEAD = 90;
 const DEFAULT_START_MINUTES = 8 * 60;
 const DEFAULT_TRIP_LIMITS = { minDurationHours: 1, maxDurationHours: 24 };
+const NOTE_MAX_LENGTH = 300; // khớp TripNoteRules của BE
 
 // Buổi kết thúc khi buổi sau bắt đầu (buổi cuối tới 24:00). Với hôm nay, giờ bắt đầu thực tế là
 // max(giờ của buổi, giờ hiện tại làm tròn); buổi bị khoá khi đã qua hoặc không còn đủ thời lượng tối thiểu.
@@ -68,6 +70,73 @@ const TRAVEL_MODES = [
   { value: "Motorbike", label: "Xe máy", icon: "two_wheeler" },
 ];
 const DEFAULT_TRAVEL_MODE = "Auto";
+
+// Tên trường của parse-request (trùng body của generate) -> nhãn hiển thị
+const FIELD_LABELS = {
+  durationHours: "Thời lượng",
+  budgetMax: "Ngân sách",
+  tagIds: "Sở thích",
+  travelMode: "Di chuyển",
+  startStationOrder: "Ga xuất phát",
+  destinationStationOrder: "Chơi quanh ga",
+  plannedDate: "Ngày đi",
+  startTime: "Giờ xuất phát",
+  note: "Ghi chú",
+};
+const MISSING_LABELS = {
+  durationHours: "thời lượng",
+  budgetMax: "ngân sách",
+  startLocation: "điểm xuất phát",
+};
+
+const formatBudget = (value) => (value === 0 ? "Miễn phí" : `${formatCurrency(value)}/người`);
+
+// Giá trị một tiêu chí của parse-request thành chữ để hiển thị; null/rỗng trả ""
+function formatField(name, value, { tags, stations }) {
+  if (value == null || value.length === 0) return "";
+  switch (name) {
+    case "durationHours":
+      return `${value} giờ`;
+    case "budgetMax":
+      return formatBudget(value);
+    case "tagIds":
+      return value
+        .map((id) => tags.find((t) => t.id === id)?.name)
+        .filter(Boolean)
+        .join(", ");
+    case "travelMode":
+      return TRAVEL_MODES.find((m) => m.value === value)?.label ?? value;
+    case "startStationOrder":
+    case "destinationStationOrder":
+      return stations.find((s) => s.order === value)?.name ?? `ga số ${value}`;
+    case "plannedDate":
+      return formatPlannedDate(value);
+    case "startTime":
+      return value.slice(0, 5);
+    default:
+      return value;
+  }
+}
+
+// Bộ tiêu chí đầy đủ AI ghép từ lịch cũ (parse-request kèm base) -> cùng shape với request trong TripContext.
+// origin: toạ độ xuất phát của lịch cũ, dùng khi lịch đó không xuất phát từ ga.
+function prefillToRequest({ fields, origin }) {
+  const fromStation = fields.startStationOrder != null;
+  return {
+    startArea: fromStation ? "" : "Điểm xuất phát của lịch cũ",
+    startStationOrder: fields.startStationOrder,
+    startLatitude: fromStation ? null : origin.latitude,
+    startLongitude: fromStation ? null : origin.longitude,
+    destinationStationOrder: fields.destinationStationOrder,
+    travelMode: fields.travelMode,
+    durationHours: fields.durationHours,
+    plannedDate: fields.plannedDate,
+    customStartTime: fields.startTime?.slice(0, 5) ?? null,
+    budgetPerPerson: fields.budgetMax,
+    tagIds: fields.tagIds,
+    note: fields.note ?? "",
+  };
+}
 
 // reason của feasibility-check -> code 409 của generate, để dùng chung một bảng thông báo
 const REASON_CODES = {
@@ -171,6 +240,10 @@ export default function CreateTripPage() {
   const { request, setRequest, generateTrip, setCurrentTrip } = useTrip();
   const { isDemo } = useAuth();
   const now = useClock(CLOCK_TICK_MS);
+  // Mở từ "Muốn đổi gì?" ở trang Nháp: { fields, changed, missing, base, origin }
+  const prefill = location.state?.prefill ?? null;
+  // Giá trị ban đầu của form: tiêu chí AI vừa ghép từ lịch cũ, hoặc lần nhập trước
+  const initial = prefill ? prefillToRequest(prefill) : request;
   // Lỗi từ lần tạo trước (trang bị mount lại sau /loading nên truyền qua location.state)
   const [generateError, setGenerateError] = useState(
     () => location.state?.error ?? "",
@@ -184,25 +257,25 @@ export default function CreateTripPage() {
   const [generateSuggestedStations] = useState(
     () => location.state?.suggestedStations ?? [],
   );
-  const [step, setStep] = useState(() => (location.state?.error ? 3 : 0));
+  const [step, setStep] = useState(() => (location.state?.error || prefill ? 3 : 0));
   const stepHeadingRef = useRef(null);
   const previousStepRef = useRef(step);
 
-  const [startArea, setStartArea] = useState(() => request?.startArea ?? "");
+  const [startArea, setStartArea] = useState(() => initial?.startArea ?? "");
   // Điểm xuất phát: ga (startStationOrder) HOẶC toạ độ GPS (startCoords), không bao giờ cả hai
   const [startStationOrder, setStartStationOrder] = useState(
-    () => request?.startStationOrder ?? null,
+    () => initial?.startStationOrder ?? null,
   );
   const [startCoords, setStartCoords] = useState(() =>
-    request?.startStationOrder == null && request?.startLatitude != null
-      ? { latitude: request.startLatitude, longitude: request.startLongitude }
+    initial?.startStationOrder == null && initial?.startLatitude != null
+      ? { latitude: initial.startLatitude, longitude: initial.startLongitude }
       : null,
   );
   // null = "Gần tôi"
   const [destinationStationOrder, setDestinationStationOrder] = useState(
-    () => request?.destinationStationOrder ?? null,
+    () => initial?.destinationStationOrder ?? null,
   );
-  const [travelMode, setTravelMode] = useState(() => request?.travelMode ?? DEFAULT_TRAVEL_MODE);
+  const [travelMode, setTravelMode] = useState(() => initial?.travelMode ?? DEFAULT_TRAVEL_MODE);
   const [travelModes, setTravelModes] = useState([]);
   // stationId -> số địa điểm; null khi chưa tải được (không làm mờ ga nào)
   const [placeCounts, setPlaceCounts] = useState(null);
@@ -212,17 +285,25 @@ export default function CreateTripPage() {
   const [feasibilityIssue, setFeasibilityIssue] = useState(null); // { code, message, suggestedStations }
   const [checking, setChecking] = useState(false);
   const [startAreaError, setStartAreaError] = useState("");
-  const [durationHours, setDurationHours] = useState(() => request?.durationHours ?? 4);
-  const [plannedDate, setPlannedDate] = useState(() => request?.plannedDate ?? todayInVietnam());
+  const [durationHours, setDurationHours] = useState(() => initial?.durationHours ?? 4);
+  const [plannedDate, setPlannedDate] = useState(() => initial?.plannedDate ?? todayInVietnam());
   // null = tự chọn buổi đang diễn ra hoặc buổi sớm nhất còn dùng được
-  const [timeSlotCode, setTimeSlotCode] = useState(() => request?.timeSlotCode ?? null);
+  const [timeSlotCode, setTimeSlotCode] = useState(() => initial?.timeSlotCode ?? null);
+  // Giờ xuất phát lẻ "HH:mm" do AI điền; null = chọn theo buổi
+  const [customStartTime, setCustomStartTime] = useState(() => initial?.customStartTime ?? null);
   const [timeSlots, setTimeSlots] = useState([]);
   const [tripLimits, setTripLimits] = useState(DEFAULT_TRIP_LIMITS);
-  const [budgetPerPerson, setBudgetPerPerson] = useState(() => request?.budgetPerPerson ?? 300000);
+  const [budgetPerPerson, setBudgetPerPerson] = useState(() => initial?.budgetPerPerson ?? 300000);
   const [peopleCount, setPeopleCount] = useState(() => request?.peopleCount ?? 2);
   const [tags, setTags] = useState([]);
-  const [interests, setInterests] = useState(() => request?.interests ?? []);
-  const [travelStyles, setTravelStyles] = useState(() => request?.travelStyles ?? []);
+  // Một danh sách tag đã chọn (sở thích + phong cách), chia theo type khi hiển thị.
+  // interests/travelStyles: request lưu từ bản cũ.
+  const [selectedTagIds, setSelectedTagIds] = useState(
+    () => initial?.tagIds ?? [...(initial?.interests ?? []), ...(initial?.travelStyles ?? [])],
+  );
+  const [note, setNote] = useState(() => initial?.note ?? "");
+  // fields của lần AI đọc câu nhập gần nhất, để hiện lại những gì đã điền
+  const [aiFields, setAiFields] = useState(null);
 
   useEffect(() => {
     tagService.getTags().then(setTags).catch(() => setTags([]));
@@ -263,35 +344,70 @@ export default function CreateTripPage() {
   const isToday = effectiveDate === today;
   const nowMinutes = minutesNowInVietnam(now);
   const slots = buildTimeSlots(timeSlots, { isToday, nowMinutes, limits: tripLimits });
+  // Giờ lẻ trùng giờ bắt đầu một buổi thì coi như chọn buổi đó; hôm nay mà giờ đã qua thì bỏ, chọn theo buổi
+  const customMinutes = customStartTime ? timeToMinutes(customStartTime) : null;
+  const customSlot =
+    customMinutes != null
+      ? slots.find((s) => !s.disabled && timeToMinutes(s.startTime) === customMinutes)
+      : null;
+  const useCustomStart =
+    customMinutes != null && !customSlot && (!isToday || customMinutes >= nowMinutes);
   const selectedSlot =
+    customSlot ??
     slots.find((s) => s.code === timeSlotCode && !s.disabled) ??
     slots.find((s) => !s.disabled) ??
     null;
-  const slotAutoChanged = timeSlotCode != null && selectedSlot?.code !== timeSlotCode;
+  const slotAutoChanged =
+    !useCustomStart && timeSlotCode != null && selectedSlot?.code !== timeSlotCode;
   // Chưa có timeSlots (master-data lỗi): hôm nay dùng giờ hiện tại làm tròn, ngày khác 08:00
-  const startMinutes = selectedSlot
-    ? selectedSlot.startMinutes
-    : isToday
-      ? roundUpMinutes(nowMinutes, START_TIME_STEP_MINUTES)
-      : DEFAULT_START_MINUTES;
-  const maxHours = selectedSlot
-    ? selectedSlot.maxHours
-    : Math.min(Math.floor((DAY_MINUTES - startMinutes) / 60), tripLimits.maxDurationHours);
-  const noTimeLeft = slots.length > 0 ? !selectedSlot : maxHours < tripLimits.minDurationHours;
+  const startMinutes = useCustomStart
+    ? customMinutes
+    : selectedSlot
+      ? selectedSlot.startMinutes
+      : isToday
+        ? roundUpMinutes(nowMinutes, START_TIME_STEP_MINUTES)
+        : DEFAULT_START_MINUTES;
+  const maxHours =
+    selectedSlot && !useCustomStart
+      ? selectedSlot.maxHours
+      : Math.min(Math.floor((DAY_MINUTES - startMinutes) / 60), tripLimits.maxDurationHours);
+  const noTimeLeft =
+    slots.length > 0 && !useCustomStart ? !selectedSlot : maxHours < tripLimits.minDurationHours;
+  // Giá trị AI điền có thể không trùng mức có sẵn (vd 5 giờ, 350.000đ): thêm một lựa chọn riêng
+  const allDurations = DURATION_OPTIONS.some((o) => o.value === durationHours)
+    ? DURATION_OPTIONS
+    : [...DURATION_OPTIONS, { value: durationHours, label: `${durationHours} giờ` }].sort(
+        (a, b) => a.value - b.value,
+      );
   // Lựa chọn quá dài thì dùng mức dài nhất còn vừa. Không mức nào vừa thì thêm đúng số giờ còn lại.
-  const fittingOptions = DURATION_OPTIONS.filter((o) => o.value <= maxHours);
+  const fittingOptions = allDurations.filter((o) => o.value <= maxHours);
   const durationOptions =
     fittingOptions.length > 0 || noTimeLeft
-      ? DURATION_OPTIONS
-      : [{ value: maxHours, label: `${maxHours} giờ` }, ...DURATION_OPTIONS];
+      ? allDurations
+      : [{ value: maxHours, label: `${maxHours} giờ` }, ...allDurations];
   const effectiveDuration =
     durationHours <= maxHours ? durationHours : (fittingOptions.at(-1)?.value ?? maxHours);
   const startTime = minutesToTime(startMinutes);
   const endTime = minutesToTime(startMinutes + effectiveDuration * 60);
-  const budgetOption = BUDGET_OPTIONS.find((b) => b.value === budgetPerPerson);
+  const budgetOptions = BUDGET_OPTIONS.some((b) => b.value === budgetPerPerson)
+    ? BUDGET_OPTIONS
+    : [
+        {
+          id: "custom",
+          label:
+            budgetPerPerson === 0
+              ? "Chỉ địa điểm miễn phí"
+              : `Tối đa ${formatBudget(budgetPerPerson)}`,
+          value: budgetPerPerson,
+        },
+        ...BUDGET_OPTIONS,
+      ];
+  const budgetOption = budgetOptions.find((b) => b.value === budgetPerPerson);
   const peopleOption = PEOPLE_OPTIONS.find((p) => p.value === peopleCount);
 
   const hasOrigin = startStationOrder != null || startCoords != null;
+  // Tên ga xuất phát lấy theo order (AI/lịch cũ chỉ cho order), không có thì dùng nhãn đã lưu
+  const startLabel = stations.find((s) => s.order === startStationOrder)?.name ?? startArea;
   const modeOptions = TRAVEL_MODES.filter((m) => travelModes.includes(m.value));
   const effectiveTravelMode = modeOptions.some((m) => m.value === travelMode)
     ? travelMode
@@ -309,25 +425,22 @@ export default function CreateTripPage() {
       travelMode: effectiveTravelMode,
       durationHours: effectiveDuration,
       budgetMaxPerPerson: budgetPerPerson,
-      tagIds: [...interests, ...travelStyles],
+      tagIds: selectedTagIds,
       plannedDate: effectiveDate,
       startTime,
+      note,
       ...overrides,
     });
 
   const interestTags = tags.filter((t) => t.type === "Interest");
   const styleTags = tags.filter((t) => t.type === "TravelStyle");
+  const hasInterest = interestTags.some((t) => selectedTagIds.includes(t.id));
   const canContinue =
-    (step !== 1 || !noTimeLeft) && (step !== 2 || interests.length > 0);
+    (step !== 1 || !noTimeLeft) && (step !== 2 || hasInterest);
 
-  const toggleInterest = (id) =>
-    setInterests((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
-    );
-
-  const toggleStyle = (id) =>
-    setTravelStyles((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+  const toggleTag = (id) =>
+    setSelectedTagIds((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id],
     );
 
   const handleUseCurrentLocation = () => {
@@ -361,12 +474,48 @@ export default function CreateTripPage() {
     setStartAreaError("");
   };
 
+  // Chỉ ghi đè trường AI đọc được; trường null (hoặc tagIds rỗng) giữ giá trị đang có trên form
+  const handleParsed = (result) => {
+    if (!result.isTripRequest) return; // ô nhập đã hiện message của BE
+    const { fields } = result;
+    if (fields.durationHours != null) setDurationHours(fields.durationHours);
+    if (fields.budgetMax != null) setBudgetPerPerson(fields.budgetMax);
+    if (fields.tagIds.length > 0) setSelectedTagIds(fields.tagIds);
+    if (fields.travelMode != null) setTravelMode(fields.travelMode);
+    if (fields.startStationOrder != null) {
+      setStartStationOrder(fields.startStationOrder);
+      setStartCoords(null);
+      setStartAreaError("");
+    }
+    if (fields.destinationStationOrder != null)
+      setDestinationStationOrder(fields.destinationStationOrder);
+    if (fields.plannedDate != null) setPlannedDate(fields.plannedDate);
+    if (fields.startTime != null) {
+      setCustomStartTime(fields.startTime.slice(0, 5));
+      setTimeSlotCode(null);
+    }
+    if (fields.note != null) setNote(fields.note);
+    setAiFields(fields);
+  };
+
+  const lookups = { tags, stations };
+  const aiFilled = aiFields
+    ? Object.keys(FIELD_LABELS)
+        .map((name) => [name, formatField(name, aiFields[name], lookups)])
+        .filter(([, text]) => text)
+    : [];
+  // AI không đọc được thời lượng/ngân sách thì form vẫn có giá trị mặc định, chỉ nhắc người dùng xem lại
+  const aiUnread = aiFields
+    ? ["durationHours", "budgetMax"].filter((name) => aiFields[name] == null)
+    : [];
+
   const checkFeasibility = async (overrides) => {
     setFeasibilityIssue(null);
     setFeasibility(null);
     setChecking(true);
     try {
-      const result = await tripService.checkFeasibility(buildTripDto(overrides));
+      // feasibility-check không dùng ghi chú
+      const result = await tripService.checkFeasibility(buildTripDto({ ...overrides, note: "" }));
       setFeasibility(result);
       if (!result.isFeasible) {
         const code = REASON_CODES[result.reason];
@@ -395,7 +544,7 @@ export default function CreateTripPage() {
       setStartAreaError("");
       setRequest({
         ...(request || {}),
-        startArea,
+        startArea: startLabel,
         startStationOrder,
         startLatitude: startCoords?.latitude ?? null,
         startLongitude: startCoords?.longitude ?? null,
@@ -404,7 +553,7 @@ export default function CreateTripPage() {
       });
     }
     if (step === 2) {
-      if (interests.length === 0) return;
+      if (!hasInterest) return;
       if (!(await checkFeasibility())) return;
     }
     setStep((s) => s + 1);
@@ -412,19 +561,23 @@ export default function CreateTripPage() {
 
   const handleGenerate = async (overrides = {}) => {
     if (isDemo) return;
-    const trimmed = startArea.trim();
     const req = {
       ...(request || {}),
-      startArea: trimmed || startArea,
+      // Lưu cả điểm xuất phát: mở thẳng bước cuối từ "Muốn đổi gì?" thì bước 1 không chạy
+      startArea: startLabel,
+      startStationOrder,
+      startLatitude: startCoords?.latitude ?? null,
+      startLongitude: startCoords?.longitude ?? null,
       destinationStationOrder,
       travelMode: effectiveTravelMode,
       durationHours: effectiveDuration,
       plannedDate: effectiveDate,
-      timeSlotCode: selectedSlot?.code ?? null,
+      timeSlotCode: useCustomStart ? null : (selectedSlot?.code ?? null),
+      customStartTime: useCustomStart ? customStartTime : null,
       budgetPerPerson,
       peopleCount,
-      interests,
-      travelStyles,
+      tagIds: selectedTagIds,
+      note,
       ...overrides,
     };
 
@@ -508,6 +661,43 @@ export default function CreateTripPage() {
       <main className="content-shell flex-1 px-container-margin pb-28 pt-20 lg:px-8 lg:pb-32">
         {step === 0 && (
           <div className="space-y-stack-lg">
+            {!isDemo && (
+              <div className="mt-stack-lg space-y-stack-sm">
+                <TripRequestAssistant
+                  title="Kể cho LocalMate bạn muốn đi chơi thế nào"
+                  placeholder="Ví dụ: chiều mai rảnh khoảng 4 tiếng, có 300k, muốn đi cà phê chụp ảnh quanh Bến Thành"
+                  submitLabel="Điền giúp tôi"
+                  onParsed={handleParsed}
+                />
+                {aiFilled.length > 0 && (
+                  <div
+                    role="status"
+                    className="space-y-1 rounded-xl border border-primary/20 bg-primary/5 p-stack-md text-label-md"
+                  >
+                    <p className="font-semibold text-primary">
+                      AI đã điền giúp bạn, hãy xem lại ở từng bước:
+                    </p>
+                    <ul className="space-y-0.5 text-on-surface">
+                      {aiFilled.map(([name, text]) => (
+                        <li key={name}>
+                          {FIELD_LABELS[name]}: {text}
+                        </li>
+                      ))}
+                    </ul>
+                    {(aiUnread.length > 0 || !hasOrigin) && (
+                      <p className="text-on-surface-variant">
+                        Chưa đọc được:{" "}
+                        {[...(hasOrigin ? [] : ["startLocation"]), ...aiUnread]
+                          .map((name) => MISSING_LABELS[name])
+                          .join(", ")}
+                        . Bạn tự chọn giúp nhé.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <h2 ref={stepHeadingRef} tabIndex={-1} className="text-headline-lg-mobile font-bold text-on-surface mt-stack-lg focus:outline-none">
               Bạn đang ở đâu?
             </h2>
@@ -551,7 +741,7 @@ export default function CreateTripPage() {
               )}
               {hasOrigin && (
                 <p className="text-label-md text-on-surface-variant">
-                  📍 Xuất phát: {startArea}
+                  📍 Xuất phát: {startLabel}
                 </p>
               )}
             </div>
@@ -678,10 +868,13 @@ export default function CreateTripPage() {
                       key={slot.code}
                       type="button"
                       disabled={slot.disabled}
-                      aria-pressed={selectedSlot?.code === slot.code}
-                      onClick={() => setTimeSlotCode(slot.code)}
+                      aria-pressed={!useCustomStart && selectedSlot?.code === slot.code}
+                      onClick={() => {
+                        setTimeSlotCode(slot.code);
+                        setCustomStartTime(null);
+                      }}
                       className={`min-h-11 px-6 py-2 rounded-full font-semibold text-button active:scale-95 transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${
-                        selectedSlot?.code === slot.code
+                        !useCustomStart && selectedSlot?.code === slot.code
                           ? "bg-primary text-on-primary shadow-md shadow-primary/20"
                           : "border border-outline-variant text-on-surface-variant"
                       }`}
@@ -692,6 +885,13 @@ export default function CreateTripPage() {
                       </span>
                     </button>
                   ))}
+                  {/* Giờ lẻ do AI điền; bấm một buổi để bỏ */}
+                  {useCustomStart && (
+                    <span className="flex min-h-11 items-center rounded-full bg-primary px-6 py-2 text-button font-semibold text-on-primary shadow-md shadow-primary/20">
+                      Giờ riêng
+                      <span className="ml-1 font-normal opacity-80">· từ {customStartTime}</span>
+                    </span>
+                  )}
                 </div>
                 {slotAutoChanged && selectedSlot && (
                   <p className="mt-1 text-label-md text-on-surface-variant">
@@ -762,7 +962,7 @@ export default function CreateTripPage() {
                 Ngân sách mỗi người
               </h3>
               <div className="grid gap-stack-sm lg:grid-cols-3">
-                {BUDGET_OPTIONS.map((opt) => (
+                {budgetOptions.map((opt) => (
                   <button
                     key={opt.id}
                     type="button"
@@ -840,10 +1040,10 @@ export default function CreateTripPage() {
                 <button
                   key={tag.id}
                   type="button"
-                  aria-pressed={interests.includes(tag.id)}
-                  onClick={() => toggleInterest(tag.id)}
+                  aria-pressed={selectedTagIds.includes(tag.id)}
+                  onClick={() => toggleTag(tag.id)}
                   className={`min-h-11 px-4 py-2 rounded-full flex items-center gap-1.5 transition-all active:scale-95 text-body-md ${
-                    interests.includes(tag.id)
+                    selectedTagIds.includes(tag.id)
                       ? "bg-primary text-on-primary shadow-md"
                       : "bg-primary-container/10 border border-primary-container/20 text-on-primary-container hover:bg-primary-container/20"
                   }`}
@@ -944,16 +1144,16 @@ export default function CreateTripPage() {
                 <button
                   key={tag.id}
                   type="button"
-                  aria-pressed={travelStyles.includes(tag.id)}
-                  onClick={() => toggleStyle(tag.id)}
+                  aria-pressed={selectedTagIds.includes(tag.id)}
+                  onClick={() => toggleTag(tag.id)}
                   className={`p-stack-md rounded-lg border-2 flex flex-col items-start gap-1 transition-all active:scale-95 ${
-                    travelStyles.includes(tag.id)
+                    selectedTagIds.includes(tag.id)
                       ? "border-primary bg-primary-container/10"
                       : "border-surface-container-highest bg-white hover:border-primary-container"
                   }`}
                 >
                   <span
-                    className={`font-semibold text-body-md ${travelStyles.includes(tag.id) ? "text-primary" : "text-on-surface"}`}
+                    className={`font-semibold text-body-md ${selectedTagIds.includes(tag.id) ? "text-primary" : "text-on-surface"}`}
                   >
                     {tag.name}
                   </span>
@@ -961,10 +1161,79 @@ export default function CreateTripPage() {
               ))}
             </div>
 
+            <section className="space-y-stack-sm">
+              <label htmlFor="trip-note" className="text-title-md font-semibold text-on-surface">
+                Ghi chú thêm{" "}
+                <span className="font-normal text-on-surface-variant">(tuỳ chọn)</span>
+              </label>
+              <textarea
+                id="trip-note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={NOTE_MAX_LENGTH}
+                rows={3}
+                placeholder="Ví dụ: muốn chỗ yên tĩnh, có view sông, hợp chụp ảnh"
+                className="w-full resize-none rounded-DEFAULT bg-surface-container-low p-3 text-body-md placeholder:text-outline-variant focus:outline-none focus:ring-2 focus:ring-primary-container"
+              />
+              <p className="flex justify-between gap-2 text-label-md text-on-surface-variant">
+                <span>
+                  Địa điểm hợp ghi chú sẽ được ưu tiên. Nên viết khẳng định, ví dụ "yên tĩnh" thay vì "không ồn".
+                </span>
+                <span className="shrink-0">
+                  {note.length}/{NOTE_MAX_LENGTH}
+                </span>
+              </p>
+            </section>
+
             {isDemo && (
               <p role="status" className="card text-body-md text-on-surface-variant">
                 Phiên demo chỉ xem được gợi ý. Hãy đăng nhập hoặc đăng ký tài khoản để tạo và lưu lịch trình.
               </p>
+            )}
+
+            {prefill && (
+              <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-stack-md text-body-md">
+                <p className="font-semibold text-primary">Thay đổi so với lịch cũ</p>
+                <ul className="space-y-0.5 text-on-surface">
+                  {prefill.changed.map((name) => (
+                    <li key={name}>
+                      {FIELD_LABELS[name] ?? name}:{" "}
+                      {formatField(name, prefill.base[name], lookups) || "chưa chọn"} →{" "}
+                      <strong>
+                        {formatField(name, prefill.fields[name], lookups) || "chưa chọn"}
+                      </strong>
+                    </li>
+                  ))}
+                </ul>
+                {/* BE tự bỏ ngày đã qua của lịch cũ mà không báo trong changed */}
+                {prefill.fields.plannedDate == null && (
+                  <p className="text-label-md text-error">
+                    Ngày đi của lịch cũ đã qua nên đang để hôm nay.{" "}
+                    <button
+                      type="button"
+                      onClick={() => goToStep(1)}
+                      className="font-semibold underline"
+                    >
+                      Chọn ngày
+                    </button>
+                  </p>
+                )}
+                {prefill.fields.durationHours == null && (
+                  <p className="text-label-md text-error">
+                    Số giờ cũ không còn vừa trong ngày, đang để {effectiveDuration} giờ.{" "}
+                    <button
+                      type="button"
+                      onClick={() => goToStep(1)}
+                      className="font-semibold underline"
+                    >
+                      Chọn lại
+                    </button>
+                  </p>
+                )}
+                <p className="text-label-md text-on-surface-variant">
+                  Lịch cũ vẫn được giữ nguyên. Tạo lịch mới tính 1 lượt tạo lịch.
+                </p>
+              </div>
             )}
 
             <div className="card space-y-2">
@@ -972,7 +1241,7 @@ export default function CreateTripPage() {
                 Tóm tắt
               </p>
               <div className="space-y-1 text-body-md text-on-surface">
-                <p>📍 Xuất phát: {startStationOrder != null ? `ga ${startArea}` : startArea}</p>
+                <p>📍 Xuất phát: {startStationOrder != null ? `ga ${startLabel}` : startLabel}</p>
                 {startStationOrder == null && feasibility?.nearestStation && (
                   <p>
                     🚇 Ga gần bạn: {feasibility.nearestStation.stationName}, cách{" "}
@@ -993,6 +1262,7 @@ export default function CreateTripPage() {
                 </p>
                 <p>⏱ {effectiveDuration} giờ</p>
                 <p>💰 {budgetOption?.label}</p>
+                {note.trim() && <p>📝 {note.trim()}</p>}
                 <p>
                   👥 {peopleOption?.label}
                   {peopleCount > 1 &&
@@ -1045,7 +1315,7 @@ export default function CreateTripPage() {
             onClick={() => handleGenerate()}
             className="flex min-h-12 shrink-0 items-center whitespace-nowrap bg-primary text-on-primary rounded-full px-4 py-3 font-semibold text-button active:scale-95 transition-all shadow-lg shadow-primary/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary sm:px-8"
           >
-            Tạo lịch trình
+            {prefill ? "Tạo lịch mới" : "Tạo lịch trình"}
             <span className="material-symbols-outlined ml-2 hidden min-[360px]:inline">auto_awesome</span>
           </button>
         )}

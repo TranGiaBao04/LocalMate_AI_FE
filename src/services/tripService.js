@@ -14,6 +14,7 @@ export function toTripRequestDto({
   travelMode,
   plannedDate,
   startTime,
+  note,
 }) {
   return {
     // Điểm xuất phát: đúng MỘT trong hai, ga (order 1–14) hoặc cặp toạ độ. Gửi cả hai BE trả 400.
@@ -32,6 +33,23 @@ export function toTripRequestDto({
     startTime: `${startTime}:00`,
     // "Auto" (mặc định BE) | "Walking" | "Motorbike" | "Metro"
     ...(travelMode && { travelMode }),
+    // Ghi chú tự do (tối đa 300 ký tự), chỉ để ưu tiên địa điểm hợp ý. Rỗng thì không gửi.
+    ...(note?.trim() && { note: note.trim() }),
+  };
+}
+
+// Trip (đã qua mapTrip) -> `base` của parse-request: tiêu chí của lịch người dùng đang xem
+export function toParseBase(trip) {
+  return {
+    durationHours: trip.durationHours,
+    budgetMax: trip.budgetMax,
+    tagIds: trip.tagIds ?? [],
+    travelMode: trip.travelMode ?? null,
+    startStationOrder: trip.startStation?.order ?? null,
+    destinationStationOrder: trip.destinationStation?.order ?? null,
+    plannedDate: trip.plannedDate ?? null,
+    startTime: trip.startTime ? `${trip.startTime}:00` : null,
+    note: trip.note ?? null,
   };
 }
 
@@ -48,6 +66,17 @@ export const tripService = {
   // 201 TripDetailResponse: trip nháp đã lưu (có id)
   generateTrip: async (dto) =>
     mapTrip(await apiClient.post("/trips/generate", dto)),
+
+  // AI viết lại câu lý do cho từng chặng của trip nháp, không đổi địa điểm/giờ/chi phí.
+  // { items: [{ itemId, placeId, reasoning }], aiExplainedAt }
+  explainTrip: (tripId) => apiClient.post(`/trips/${tripId}/explanations`),
+
+  // AI đọc câu người dùng gõ thành tiêu chí tạo lịch, không tạo lịch. Có base thì câu được hiểu là
+  // yêu cầu THAY ĐỔI so với lịch đó và fields là bộ tiêu chí đầy đủ sau khi ghép.
+  // { isTripRequest, message, fields: { durationHours, budgetMax, tagIds, travelMode, startStationOrder,
+  //   destinationStationOrder, plannedDate, startTime: "HH:mm:ss", note }, missing, changed }
+  parseTripRequest: (text, base) =>
+    apiClient.post("/trips/parse-request", { text, ...(base && { base }) }),
 
   getTrips: async () =>
     (await apiClient.get("/trips/my-trips")).map(mapMyTrip),

@@ -103,6 +103,12 @@ export function TripProvider({ children }) {
 
   const generateTrip = async (req) => tripService.generateTrip(req);
 
+  // AI chỉ đổi câu lý do. Gọi lại GET /trips/{id} để không ghi đè thay đổi người dùng làm trong lúc chờ.
+  const explainTrip = async (tripId) => {
+    await tripService.explainTrip(tripId);
+    return refreshTrip(tripId);
+  };
+
   const saveTrip = async (trip) => {
     const saved = await tripService.saveTrip(trip.id);
     if (currentTrip?.id === saved.id) setCurrentTrip(saved);
@@ -156,6 +162,7 @@ export function TripProvider({ children }) {
         saveTrip,
         deleteTrip,
         generateTrip,
+        explainTrip,
         finalizeTrip,
         replaceItem,
         deleteItem,

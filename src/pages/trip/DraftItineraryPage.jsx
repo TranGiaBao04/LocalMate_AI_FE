@@ -12,6 +12,9 @@ import TimelineItemDirections from "../../components/TimelineItemDirections";
 import { itineraryPurchaseService, canPurchaseSingle, isAvailableSingleEntitlement } from "../../services/itineraryPurchaseService";
 import SingleItineraryPaymentModal from "../../components/itineraryPurchase/SingleItineraryPaymentModal";
 import { formatPlanPrice } from "../../utils/subscriptionUtils";
+import TripRequestAssistant from "../../components/trip/TripRequestAssistant";
+import { toParseBase } from "../../services/tripService";
+import { getAiErrorMessage } from "../../utils/aiErrors";
 
 const ITEM_ERROR_MESSAGES = {
   cannot_delete_last_item: "Lịch trình cần ít nhất một địa điểm nên không xoá được chặng cuối cùng.",
@@ -99,7 +102,8 @@ function mapsTravelMode(trip, item) {
 function DraftItineraryPageInner() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentTrip, finalizeTrip, deleteItem } = useTrip();
+  const { currentTrip, finalizeTrip, deleteItem, explainTrip } = useTrip();
+  const { isDemo } = useAuth();
   const { refreshSubscription } = useSubscription();
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [showSinglePurchaseModal, setShowSinglePurchaseModal] = useState(false);
@@ -115,6 +119,10 @@ function DraftItineraryPageInner() {
   const [finalizeError, setFinalizeError] = useState("");
   const [finalizeErrorCode, setFinalizeErrorCode] = useState("");
   const [toastMessage, setToastMessage] = useState(location.state?.toast ?? "");
+  const [explaining, setExplaining] = useState(false);
+  const [explainError, setExplainError] = useState("");
+  // 429 ai_trip_limit_reached: trip này đã hết số lần nhờ AI viết lý do
+  const [explainLocked, setExplainLocked] = useState(false);
 
   const fetchAvailability = useCallback(async () => {
     const generation = ++availabilityGeneration.current;
@@ -249,6 +257,39 @@ function DraftItineraryPageInner() {
     }
   };
 
+  const handleExplain = async () => {
+    setExplainError("");
+    setExplaining(true);
+    try {
+      await explainTrip(currentTrip.id);
+    } catch (err) {
+      if (!activeRef.current) return;
+      if (err.code === "ai_trip_limit_reached") setExplainLocked(true);
+      // AI lỗi thì các câu lý do đang có vẫn giữ nguyên
+      setExplainError(getAiErrorMessage(err));
+    } finally {
+      if (activeRef.current) setExplaining(false);
+    }
+  };
+
+  // "Muốn đổi gì?": AI ghép thay đổi vào tiêu chí của lịch này rồi mở form tạo lịch đã điền sẵn.
+  // Kết quả là một trip MỚI, lịch này không bị sửa.
+  const handleChangeParsed = (result) => {
+    // Không đổi gì: ô nhập tự hiện message của BE (isTripRequest có thể true hoặc false nên dựa vào changed)
+    if (result.changed.length === 0) return;
+    navigate("/create", {
+      state: {
+        prefill: {
+          fields: result.fields,
+          changed: result.changed,
+          missing: result.missing,
+          base: toParseBase(currentTrip),
+          origin: { latitude: currentTrip.startLatitude, longitude: currentTrip.startLongitude },
+        },
+      },
+    });
+  };
+
   useEffect(() => {
     if (!toastMessage) return undefined;
     const timer = setTimeout(() => setToastMessage(""), 2600);
@@ -347,6 +388,14 @@ function DraftItineraryPageInner() {
               Đi Metro · giờ tàu là lịch dự kiến.
             </p>
           )}
+          {currentTrip.note && (
+            <p className="text-label-md text-on-surface-variant mt-1">
+              Ghi chú: "{currentTrip.note}".{" "}
+              {currentTrip.noteApplied
+                ? "Đã ưu tiên theo ghi chú của bạn."
+                : "Chưa tìm được địa điểm khớp với ghi chú của bạn, lịch được tạo theo sở thích và vị trí."}
+            </p>
+          )}
           {currentTrip.totalMinutes != null &&
             currentTrip.totalMinutes < currentTrip.durationHours * 60 - 30 && (
               <p className="text-label-md text-on-surface-variant mt-1">
@@ -365,6 +414,30 @@ function DraftItineraryPageInner() {
             </div>
           )}
         </div>
+
+        {!isDemo && (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExplain}
+              disabled={explaining || explainLocked}
+              className="flex min-h-10 items-center gap-1 rounded-full border border-primary px-4 py-2 text-label-md font-bold text-primary transition-all active:scale-95 disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
+              {explaining
+                ? "AI đang viết…"
+                : currentTrip.aiExplainedAt
+                  ? "Nhờ AI viết lại lý do"
+                  : "Nhờ AI viết lý do"}
+            </button>
+            <span className="text-label-md text-on-surface-variant">
+              {currentTrip.aiExplainedAt ? "Lý do do AI viết. " : ""}Mỗi lần tính 1 lượt AI trong ngày.
+            </span>
+            {explainError && (
+              <p role="alert" className="w-full text-label-md text-error">{explainError}</p>
+            )}
+          </div>
+        )}
 
         <div className="space-y-0">
           {currentTrip.items.map((item, idx) => (
@@ -432,9 +505,16 @@ function DraftItineraryPageInner() {
                     </span>
                   </div>
 
-                  <p className="text-label-md text-on-surface-variant italic">
-                    "{item.reason}"
-                  </p>
+                  {/* Chặng vừa thay địa điểm có reason = null cho tới khi nhờ AI viết lại */}
+                  {explaining ? (
+                    <p className="text-label-md text-on-surface-variant italic">AI đang viết…</p>
+                  ) : (
+                    item.reason && (
+                      <p className="text-label-md text-on-surface-variant italic">
+                        "{item.reason}"
+                      </p>
+                    )
+                  )}
 
                   {/* SPEC-03 / FE-69: Nút chỉ đường trên từng điểm dừng Timeline */}
                   <TimelineItemDirections
@@ -502,6 +582,16 @@ function DraftItineraryPageInner() {
           <p className="text-label-md text-error bg-error-container/10 rounded-lg px-3 py-2">
             {deleteError}
           </p>
+        )}
+
+        {!isDemo && (
+          <TripRequestAssistant
+            title="Muốn đổi gì?"
+            placeholder='Ví dụ: "rẻ hơn chút", "ngắn hơn 1 tiếng", "dời sang thứ bảy"'
+            submitLabel="Xem thay đổi"
+            base={toParseBase(currentTrip)}
+            onParsed={handleChangeParsed}
+          />
         )}
       </main>
 

@@ -5,8 +5,10 @@ import { formatDateTimeInVietnam } from "../../utils/vnTime";
 
 // Nhãn theo `group` BE, nhóm lạ hiện nguyên mã
 const GROUP_INFO = {
+  Ai: { label: "AI", icon: "auto_awesome", description: "Bật/tắt và giới hạn lượt dùng các tính năng AI." },
   Dashboard: { label: "Dashboard", icon: "monitoring", description: "Chỉ số trên trang Tổng quan." },
-  Planning: { label: "Lập lịch trình", icon: "schedule", description: "Thời gian tham quan mặc định theo loại địa điểm." },
+  Planning: { label: "Lập lịch trình", icon: "schedule", description: "Thời gian tham quan mặc định và trọng số ghi chú khi tạo lịch." },
+  Semantic: { label: "Tìm theo nghĩa", icon: "manage_search", description: "Ngưỡng để một địa điểm được tính là gợi ý liên quan." },
   Stations: { label: "Ga Metro", icon: "directions_subway", description: "Cụm địa điểm quanh ga và ngưỡng thiếu dữ liệu." },
   Travel: { label: "Di chuyển", icon: "directions_walk", description: "Tốc độ và cách ước tính quãng đường giữa các chặng." },
   Trips: { label: "Lịch trình & gợi ý", icon: "route", description: "Vùng phục vụ và gợi ý thay thế địa điểm." },
