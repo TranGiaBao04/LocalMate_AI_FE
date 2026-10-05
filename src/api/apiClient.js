@@ -64,7 +64,7 @@ function dispatchSessionEndedIfApplicable(token, code) {
   }
 }
 
-async function request(path, { method = "GET", body, auth = true, withMeta = false } = {}) {
+async function request(path, { method = "GET", body, auth = true, withMeta = false, signal } = {}) {
   const headers = { "Content-Type": "application/json" };
   const token = auth ? getToken() : null;
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -73,6 +73,7 @@ async function request(path, { method = "GET", body, auth = true, withMeta = fal
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal,
   });
 
   if (res.status === 204) return withMeta ? { status: 204, data: null } : null;

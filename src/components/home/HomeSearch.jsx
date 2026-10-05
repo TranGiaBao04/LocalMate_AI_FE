@@ -7,7 +7,8 @@ import { formatDuration } from "../../utils/formatCurrency";
 // Khớp SearchQuery của BE
 const MIN_KEYWORD_LENGTH = 2;
 const MAX_KEYWORD_LENGTH = 100;
-const DEBOUNCE_MS = 300;
+// Request có tìm theo nghĩa chậm hơn 0,5–0,9 giây nên chờ lâu hơn trước khi gọi
+const DEBOUNCE_MS = 450;
 
 // Chuẩn hoá giống BE: cắt hai đầu, gộp khoảng trắng liền nhau
 const normalizeKeyword = (value) => value.trim().split(/\s+/).join(" ");
@@ -60,9 +61,11 @@ export default function HomeSearch() {
   useEffect(() => {
     if (!searchable) return undefined;
     let active = true;
+    // Huỷ request cũ khi người dùng gõ tiếp
+    const controller = new AbortController();
     const timer = setTimeout(() => {
       searchService
-        .search(keyword)
+        .search(keyword, { signal: controller.signal })
         .then((data) => {
           if (active) setResult({ keyword, data });
         })
@@ -73,6 +76,7 @@ export default function HomeSearch() {
     return () => {
       active = false;
       clearTimeout(timer);
+      controller.abort();
     };
   }, [keyword, searchable]);
 
@@ -97,10 +101,28 @@ export default function HomeSearch() {
     navigate(path, options);
   };
 
-  const data = loading ? null : result?.data;
-  const isEmpty =
+  // Giữ kết quả cũ trên màn hình trong lúc chờ kết quả của từ khoá mới
+  const data = result?.data;
+  const hasItems =
     data &&
-    data.stations.items.length + data.places.items.length + data.curatedItineraries.items.length === 0;
+    data.stations.items.length + data.places.items.length + data.curatedItineraries.items.length > 0;
+  // Kết quả so chuỗi đứng trước; gợi ý theo nghĩa (matchedOn = "Semantic") tách thành cụm riêng
+  const exactPlaces = data?.places.items.filter((place) => place.matchedOn !== "Semantic") ?? [];
+  const relatedPlaces = data?.places.items.filter((place) => place.matchedOn === "Semantic") ?? [];
+  const placeRow = (place) => (
+    <ResultRow
+      key={place.id}
+      icon={place.matchedOn === "Semantic" ? "auto_awesome" : "location_on"}
+      title={place.name}
+      subtitle={[
+        PLACE_CATEGORY_LABELS[place.category] ?? place.category,
+        place.station && `Ga ${place.station.name}`,
+      ]
+        .filter(Boolean)
+        .join(" · ")}
+      onSelect={() => go(`/place/${place.id}`)}
+    />
+  );
 
   return (
     <div ref={containerRef} className="relative order-last w-full sm:order-none sm:w-auto sm:max-w-[320px] sm:flex-1">
@@ -123,14 +145,11 @@ export default function HomeSearch() {
 
       {open && searchable && (
         <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-[60vh] overflow-y-auto rounded-2xl border border-border-soft bg-white py-1.5 shadow-xl">
-          {loading ? (
-            <p role="status" className="px-4 py-3 text-body-md text-text-muted">Đang tìm...</p>
-          ) : result.error ? (
-            <p role="alert" className="px-4 py-3 text-body-md text-error">Không tìm được lúc này. Vui lòng thử lại.</p>
-          ) : isEmpty ? (
-            <p className="px-4 py-3 text-body-md text-text-muted">Không có kết quả cho "{keyword}".</p>
-          ) : (
-            <>
+          {loading && (
+            <p role="status" className="px-4 py-2 text-label-sm text-text-muted">Đang tìm...</p>
+          )}
+          {hasItems ? (
+            <div className={loading ? "opacity-60" : undefined}>
               <ResultGroup title="Ga Metro" group={data.stations}>
                 {data.stations.items.map((station) => (
                   <ResultRow
@@ -142,21 +161,11 @@ export default function HomeSearch() {
                   />
                 ))}
               </ResultGroup>
-              <ResultGroup title="Địa điểm" group={data.places}>
-                {data.places.items.map((place) => (
-                  <ResultRow
-                    key={place.id}
-                    icon="location_on"
-                    title={place.name}
-                    subtitle={[
-                      PLACE_CATEGORY_LABELS[place.category] ?? place.category,
-                      place.station && `Ga ${place.station.name}`,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                    onSelect={() => go(`/place/${place.id}`)}
-                  />
-                ))}
+              <ResultGroup title="Địa điểm" group={{ items: exactPlaces, hasMore: data.places.hasMore }}>
+                {exactPlaces.map(placeRow)}
+              </ResultGroup>
+              <ResultGroup title="Gợi ý liên quan" group={{ items: relatedPlaces, hasMore: false }}>
+                {relatedPlaces.map(placeRow)}
               </ResultGroup>
               <ResultGroup title="Lịch trình mẫu" group={data.curatedItineraries}>
                 {data.curatedItineraries.items.map((itinerary) => (
@@ -174,7 +183,11 @@ export default function HomeSearch() {
                   />
                 ))}
               </ResultGroup>
-            </>
+            </div>
+          ) : loading ? null : result.error ? (
+            <p role="alert" className="px-4 py-3 text-body-md text-error">Không tìm được lúc này. Vui lòng thử lại.</p>
+          ) : (
+            <p className="px-4 py-3 text-body-md text-text-muted">Không có kết quả cho "{keyword}".</p>
           )}
         </div>
       )}

@@ -72,6 +72,11 @@ export function mapTrip(trip) {
     startStation: trip.startStation ?? null,
     destinationStation: trip.destinationStation ?? null,
     tagIds: trip.tagIds ?? [],
+    // Ghi chú lúc tạo lịch; noteApplied = true khi ghi chú đã được dùng để ưu tiên địa điểm
+    note: trip.note ?? null,
+    noteApplied: trip.noteApplied ?? false,
+    // Lần gần nhất AI viết lý do cho các chặng; null = lý do mặc định
+    aiExplainedAt: trip.aiExplainedAt ?? null,
     createdAt: trip.createdAt,
     updatedAt: trip.updatedAt,
     finalizedAt: trip.finalizedAt,
