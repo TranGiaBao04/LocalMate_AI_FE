@@ -9,9 +9,12 @@ export const GoogleMapsButton = ({
   lat,
   lng,
   placeName,
+  placeId,
   destLat,
   destLng,
   destName,
+  destPlaceId,
+  travelMode,
   variant = 'primary', // 'primary' | 'outline' | 'text' | 'compact'
   size = 'md', // 'sm' | 'md' | 'lg'
   children,
@@ -25,9 +28,12 @@ export const GoogleMapsButton = ({
       lat,
       lng,
       query: placeName,
+      placeId,
       destLat,
       destLng,
       destName,
+      destPlaceId,
+      travelMode,
     });
   };
 

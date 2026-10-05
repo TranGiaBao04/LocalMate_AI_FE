@@ -20,6 +20,8 @@ export function mapTripItem(item) {
     placeImageUrl: item.imageUrl,
     latitude: item.latitude,
     longitude: item.longitude,
+    // Mã địa điểm Google Maps; null thì mở bản đồ theo toạ độ
+    googlePlaceId: item.googlePlaceId ?? null,
     nearestMetroStation: item.stationName,
     orderIndex: item.orderIndex,
     time: toHHmm(item.scheduledTime),
