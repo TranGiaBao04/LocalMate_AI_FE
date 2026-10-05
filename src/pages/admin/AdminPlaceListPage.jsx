@@ -5,6 +5,7 @@ import {
   FileSpreadsheet,
   Edit2,
   Trash2,
+  Eye,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -216,6 +217,14 @@ export default function AdminPlaceListPage() {
 
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => navigate(`/admin/places/${place.id}`)}
+                          className="p-1.5 text-gray-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition"
+                          title="Xem chi tiết địa điểm"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+
                         <button
                           onClick={() => navigate(`/admin/places/edit/${place.id}`)}
                           className="p-1.5 text-gray-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition"

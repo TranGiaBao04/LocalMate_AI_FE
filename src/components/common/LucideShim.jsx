@@ -35,6 +35,11 @@ const ICON_MAP = {
   ShieldAlert: 'shield',
   Edit2: 'edit',
   Trash2: 'delete',
+  Eye: 'visibility',
+  DollarSign: 'attach_money',
+  Train: 'train',
+  Star: 'star',
+  ExternalLink: 'open_in_new',
 };
 
 function createIcon(materialIconName) {
@@ -86,5 +91,10 @@ export const RefreshCw = createIcon(ICON_MAP.RefreshCw);
 export const ShieldAlert = createIcon(ICON_MAP.ShieldAlert);
 export const Edit2 = createIcon(ICON_MAP.Edit2);
 export const Trash2 = createIcon(ICON_MAP.Trash2);
+export const Eye = createIcon(ICON_MAP.Eye);
+export const DollarSign = createIcon(ICON_MAP.DollarSign);
+export const Train = createIcon(ICON_MAP.Train);
+export const Star = createIcon(ICON_MAP.Star);
+export const ExternalLink = createIcon(ICON_MAP.ExternalLink);
 
 export default createIcon('info');
