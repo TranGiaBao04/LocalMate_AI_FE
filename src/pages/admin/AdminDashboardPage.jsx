@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import AdminPageHeader from "../../components/admin/AdminPageHeader";
 import { ADMIN_SECTIONS } from "../../components/admin/adminSections";
 import BreakEvenCard from "../../components/admin/dashboard/BreakEvenCard";
 import DashboardRangeFilter from "../../components/admin/dashboard/DashboardRangeFilter";
@@ -276,22 +277,17 @@ export default function AdminDashboardPage() {
   const updatedAt = summary.data?.generatedAt;
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-10">
-      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-sm font-semibold text-navy-mid">{getGreeting()}, {user?.fullName || "quản trị viên"}</p>
-          <h1 className="mt-1 text-[28px] font-bold leading-tight tracking-tight text-navy-darkest sm:text-[32px]">
-            Tổng quan vận hành
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
-            Theo dõi độ phủ dữ liệu quanh 14 ga Metro số 1, việc cần xử lý và chỉ số kinh doanh của LocalMate.
-          </p>
-        </div>
+    <div className="space-y-10">
+      <AdminPageHeader
+        eyebrow={`${getGreeting()}, ${user?.fullName || "quản trị viên"}`}
+        title="Tổng quan vận hành"
+        description="Theo dõi độ phủ dữ liệu quanh 14 ga Metro số 1, việc cần xử lý và chỉ số kinh doanh của LocalMate."
+      >
         <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[#dde1ff] px-3.5 py-1.5 text-sm font-semibold text-navy-mid">
           <span className="material-symbols-outlined text-[18px]">calendar_today</span>
           {formatPlannedDate(todayInVietnam())}
         </span>
-      </header>
+      </AdminPageHeader>
 
       {canManagePlaces && (
         <section aria-labelledby="coverage-title" className="space-y-4">

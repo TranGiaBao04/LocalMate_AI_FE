@@ -96,7 +96,7 @@ export default function ImportPreviewTable({ preview }) {
 
                     <td className="p-3">
                       {row.matchedStationNames && row.matchedStationNames.length > 0 ? (
-                        <span className="font-medium text-teal-700">{row.matchedStationNames.join(", ")}</span>
+                        <span className="font-medium text-primary">{row.matchedStationNames.join(", ")}</span>
                       ) : (
                         <span className="text-gray-400">{row.rawStations || "-"}</span>
                       )}

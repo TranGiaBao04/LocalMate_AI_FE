@@ -5,6 +5,8 @@ import {
   ConfirmDialog,
   StatusBadge,
 } from "../../components/admin/ui";
+import AdminPageHeader from "../../components/admin/AdminPageHeader";
+import { ADMIN_PRIMARY_BUTTON } from "../../components/admin/adminStyles";
 import PlanFormModal from "../../components/admin/plans/PlanFormModal";
 import PlanVersionHistoryModal from "../../components/admin/plans/PlanVersionHistoryModal";
 import { adminPlanService } from "../../services/adminPlanService";
@@ -394,7 +396,7 @@ export default function AdminPlansPage() {
   );
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-6">
+    <div className="space-y-6">
       {/* Toast Notification */}
       {notice && (
         <div
@@ -427,26 +429,20 @@ export default function AdminPlansPage() {
       )}
 
       {/* Page Header (FE-122) */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-sm font-semibold text-[#1d3e82]">Quản trị hệ thống</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-            Quản lý gói dịch vụ
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Quản lý danh mục gói cước, định giá, hạn mức sử dụng và lịch sử phiên bản của LocalMate AI.
-          </p>
-        </div>
-
+      <AdminPageHeader
+        eyebrow="Gói cước & Doanh thu"
+        title="Quản lý gói dịch vụ"
+        description="Quản lý danh mục gói cước, định giá, hạn mức sử dụng và lịch sử phiên bản của LocalMate AI."
+      >
         <button
           type="button"
           onClick={() => setFormModal({ open: true, mode: "create", plan: null })}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#1d3e82] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#17366f] focus:outline-none focus:ring-4 focus:ring-blue-100"
+          className={ADMIN_PRIMARY_BUTTON}
         >
           <span className="material-symbols-outlined text-[20px]">add</span>
           Tạo gói mới
         </button>
-      </div>
+      </AdminPageHeader>
 
       {/* Filter Bar */}
       <FilterBar

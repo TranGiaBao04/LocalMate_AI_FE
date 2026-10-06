@@ -1,11 +1,10 @@
+import AdminPageHeader from "../../components/admin/AdminPageHeader";
+
 // section: 1 phần tử của ADMIN_SECTIONS, truyền từ route
 export default function AdminSectionPlaceholder({ section }) {
   return (
-    <div className="mx-auto max-w-[1440px]">
-      <div>
-        <p className="text-sm font-semibold text-[#1d3e82]">{section.group}</p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{section.label}</h1>
-      </div>
+    <div>
+      <AdminPageHeader eyebrow={section.group} title={section.label} />
 
       <section className="mt-7 grid min-h-[420px] place-items-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-[0_1px_2px_rgba(15,23,42,.03)]">
         <div className="max-w-md">

@@ -39,10 +39,10 @@ export default function FileUploadStep({ onPreviewLoaded }) {
   return (
     <div className="space-y-6">
       {/* Template download section */}
-      <div className="bg-teal-50/50 border border-teal-100 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+      <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         <div className="space-y-0.5">
-          <p className="text-xs font-bold text-teal-900">Tải file mẫu địa điểm chuẩn cấu trúc</p>
-          <p className="text-[11px] text-teal-700">
+          <p className="text-xs font-bold text-primary">Tải file mẫu địa điểm chuẩn cấu trúc</p>
+          <p className="text-[11px] text-primary">
             File mẫu chứa sẵn các cột tiêu đề và 3 dòng dữ liệu ví dụ chuẩn hóa
           </p>
         </div>
@@ -50,7 +50,7 @@ export default function FileUploadStep({ onPreviewLoaded }) {
       </div>
 
       {/* Upload Zone */}
-      <label className="relative flex flex-col items-center justify-center w-full h-56 border-2 border-dashed border-gray-300 rounded-2xl cursor-pointer hover:border-teal-500 hover:bg-teal-50/20 transition bg-white shadow-sm p-6">
+      <label className="relative flex flex-col items-center justify-center w-full h-56 border-2 border-dashed border-gray-300 rounded-2xl cursor-pointer hover:border-primary hover:bg-blue-50/20 transition bg-white shadow-sm p-6">
         <input
           type="file"
           accept=".xlsx, .csv"
@@ -60,14 +60,14 @@ export default function FileUploadStep({ onPreviewLoaded }) {
         />
 
         {loading ? (
-          <div className="flex flex-col items-center gap-3 text-teal-600">
-            <Loader2 className="w-10 h-10 animate-spin text-teal-600" />
+          <div className="flex flex-col items-center gap-3 text-primary">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
             <span className="text-xs font-semibold">Đang đọc và phân tích file địa điểm ({selectedFile?.name})...</span>
             <span className="text-[11px] text-gray-400">Đang thẩm định dữ liệu từng dòng & kiểm tra nghi trùng</span>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2 text-center">
-            <div className="p-4 bg-teal-50 text-teal-600 rounded-full">
+            <div className="p-4 bg-blue-50 text-primary rounded-full">
               <UploadCloud className="w-8 h-8" />
             </div>
             <p className="text-sm font-bold text-gray-800">

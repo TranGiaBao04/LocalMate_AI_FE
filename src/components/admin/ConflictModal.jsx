@@ -32,7 +32,7 @@ export default function ConflictModal({ isOpen, onClose, onReload }) {
           <button
             type="button"
             onClick={onReload}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-[#17366f] rounded-lg transition"
           >
             <RefreshCw className="w-4 h-4" />
             Tải lại dữ liệu mới nhất

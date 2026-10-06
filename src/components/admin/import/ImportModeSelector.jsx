@@ -15,7 +15,7 @@ export default function ImportModeSelector({ preview, onCommit, loading }) {
         <label
           className={`p-4 rounded-xl border-2 cursor-pointer transition flex items-start gap-3 ${
             mode === 0
-              ? "border-teal-500 bg-teal-50/20"
+              ? "border-primary bg-blue-50/20"
               : "border-gray-200 hover:border-gray-300 bg-white"
           }`}
         >
@@ -24,7 +24,7 @@ export default function ImportModeSelector({ preview, onCommit, loading }) {
             name="importMode"
             checked={mode === 0}
             onChange={() => setMode(0)}
-            className="mt-1 text-teal-600 focus:ring-teal-500"
+            className="mt-1 text-primary focus:ring-blue-200"
           />
           <div>
             <p className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
@@ -41,7 +41,7 @@ export default function ImportModeSelector({ preview, onCommit, loading }) {
         <label
           className={`p-4 rounded-xl border-2 cursor-pointer transition flex items-start gap-3 ${
             mode === 1
-              ? "border-teal-500 bg-teal-50/20"
+              ? "border-primary bg-blue-50/20"
               : "border-gray-200 hover:border-gray-300 bg-white"
           }`}
         >
@@ -50,7 +50,7 @@ export default function ImportModeSelector({ preview, onCommit, loading }) {
             name="importMode"
             checked={mode === 1}
             onChange={() => setMode(1)}
-            className="mt-1 text-teal-600 focus:ring-teal-500"
+            className="mt-1 text-primary focus:ring-blue-200"
           />
           <div>
             <p className="text-xs font-bold text-gray-900">Hủy toàn bộ nếu có lỗi (Strict)</p>
@@ -73,7 +73,7 @@ export default function ImportModeSelector({ preview, onCommit, loading }) {
           type="button"
           disabled={loading || (mode === 1 && hasErrors)}
           onClick={() => onCommit(mode)}
-          className="inline-flex items-center gap-2 px-6 py-2.5 text-xs font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition shadow-sm disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-6 py-2.5 text-xs font-medium text-white bg-primary hover:bg-[#17366f] rounded-xl transition shadow-sm disabled:opacity-50"
         >
           {loading ? (
             <>

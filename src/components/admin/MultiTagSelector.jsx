@@ -32,7 +32,7 @@ export default function MultiTagSelector({ selectedTagIds = [], onChange }) {
   return (
     <div className="space-y-2">
       <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-        <TagIcon className="w-3.5 h-3.5 text-teal-600" />
+        <TagIcon className="w-3.5 h-3.5 text-primary" />
         <span>Thẻ phân loại (Tags)</span>
       </label>
 
@@ -46,7 +46,7 @@ export default function MultiTagSelector({ selectedTagIds = [], onChange }) {
               onClick={() => handleToggleTag(tag.id)}
               className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full transition ${
                 isSelected
-                  ? "bg-teal-600 text-white shadow-sm"
+                  ? "bg-primary text-white shadow-sm"
                   : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
               }`}
             >

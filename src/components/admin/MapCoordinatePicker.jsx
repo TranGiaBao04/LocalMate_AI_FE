@@ -52,7 +52,7 @@ export default function MapCoordinatePicker({ latitude, longitude, onChange }) {
     <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
       <div className="flex items-center justify-between">
         <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-          <MapPin className="w-4 h-4 text-teal-600" />
+          <MapPin className="w-4 h-4 text-primary" />
           <span>Tọa độ địa lý TP.HCM (Latitude / Longitude) <span className="text-red-500">*</span></span>
         </label>
       </div>
@@ -68,7 +68,7 @@ export default function MapCoordinatePicker({ latitude, longitude, onChange }) {
             placeholder="10.7769"
             value={latInput}
             onChange={(e) => handleInputChange(e.target.value, lngInput)}
-            className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
           />
         </div>
 
@@ -82,7 +82,7 @@ export default function MapCoordinatePicker({ latitude, longitude, onChange }) {
             placeholder="106.7009"
             value={lngInput}
             onChange={(e) => handleInputChange(latInput, e.target.value)}
-            className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
           />
         </div>
       </div>

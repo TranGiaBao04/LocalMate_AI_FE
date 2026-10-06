@@ -344,7 +344,7 @@ function UserDetail({ userId }) {
       );
     }
     return (
-      <div className="mx-auto max-w-[1440px] space-y-4">
+      <div className="space-y-4">
         <BackLink />
         {response.error?.code === "user_not_found" ? (
           <div className={CARD_CLASS}>
@@ -364,7 +364,7 @@ function UserDetail({ userId }) {
   const stats = detail.stats ?? {};
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-6">
+    <div className="space-y-6">
       <BackLink />
 
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">

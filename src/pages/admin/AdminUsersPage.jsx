@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import AdminPageHeader from "../../components/admin/AdminPageHeader";
 import { DataTable, FilterBar, NoticeBanner, StatusBadge } from "../../components/admin/ui";
 import LockUserDialog from "../../components/admin/users/LockUserDialog";
 import { USER_STATUS_BADGE, describeLockResult } from "../../components/admin/users/userLabels";
@@ -186,12 +187,12 @@ export default function AdminUsersPage() {
   ], []);
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-6">
-      <div>
-        <p className="text-sm font-semibold text-[#1d3e82]">Người dùng & Phân quyền</p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Quản lý người dùng</h1>
-        <p className="mt-2 text-sm text-slate-500">Tra cứu tài khoản, gói đang dùng, khoá và mở khoá đăng nhập.</p>
-      </div>
+    <div className="space-y-6">
+      <AdminPageHeader
+        eyebrow="Người dùng & Phân quyền"
+        title="Quản lý người dùng"
+        description="Tra cứu tài khoản, gói đang dùng, khoá và mở khoá đăng nhập."
+      />
 
       <NoticeBanner notice={notice} onClose={() => setNotice(null)} />
 

@@ -62,7 +62,7 @@ export default function ImageUploadDropzone({ value, onChange, error }) {
           </div>
         </div>
       ) : (
-        <label className="relative flex flex-col items-center justify-center w-full h-44 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-teal-500 hover:bg-teal-50/30 transition bg-gray-50">
+        <label className="relative flex flex-col items-center justify-center w-full h-44 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary hover:bg-blue-50/30 transition bg-gray-50">
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
@@ -71,7 +71,7 @@ export default function ImageUploadDropzone({ value, onChange, error }) {
             disabled={loading}
           />
           {loading ? (
-            <div className="flex flex-col items-center gap-2 text-teal-600">
+            <div className="flex flex-col items-center gap-2 text-primary">
               <Loader2 className="w-8 h-8 animate-spin" />
               <span className="text-xs font-medium">Đang tải ảnh lên Cloudinary...</span>
             </div>
