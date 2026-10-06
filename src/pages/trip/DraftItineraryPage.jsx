@@ -102,7 +102,7 @@ function mapsTravelMode(trip, item) {
 function DraftItineraryPageInner() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentTrip, finalizeTrip, deleteItem, explainTrip } = useTrip();
+  const { currentTrip, finalizeTrip, deleteItem, explainTrip, explainingTripIds } = useTrip();
   const { isDemo } = useAuth();
   const { refreshSubscription } = useSubscription();
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
@@ -119,9 +119,10 @@ function DraftItineraryPageInner() {
   const [finalizeError, setFinalizeError] = useState("");
   const [finalizeErrorCode, setFinalizeErrorCode] = useState("");
   const [toastMessage, setToastMessage] = useState(location.state?.toast ?? "");
-  const [explaining, setExplaining] = useState(false);
+  const explaining = explainingTripIds.includes(currentTrip?.id);
   const [explainError, setExplainError] = useState("");
-  // 429 ai_trip_limit_reached: trip này đã hết số lần nhờ AI viết lý do
+  // 429 ai_trip_limit_reached: khoá nút trong lần xem này. Không lưu lại vì mã này cũng trả khi một lần gọi khác
+  // của trip đang chờ kết quả; tải lại trang thì cho bấm lại, BE tự chặn nếu thật sự hết lượt.
   const [explainLocked, setExplainLocked] = useState(false);
 
   const fetchAvailability = useCallback(async () => {
@@ -259,7 +260,6 @@ function DraftItineraryPageInner() {
 
   const handleExplain = async () => {
     setExplainError("");
-    setExplaining(true);
     try {
       await explainTrip(currentTrip.id);
     } catch (err) {
@@ -267,8 +267,6 @@ function DraftItineraryPageInner() {
       if (err.code === "ai_trip_limit_reached") setExplainLocked(true);
       // AI lỗi thì các câu lý do đang có vẫn giữ nguyên
       setExplainError(getAiErrorMessage(err));
-    } finally {
-      if (activeRef.current) setExplaining(false);
     }
   };
 

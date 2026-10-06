@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import MobileLayout from "../../components/layout/MobileLayout";
+import PageHeader from "../../components/layout/PageHeader";
 import CuratedItineraryCard from "../../components/trip/CuratedItineraryCard";
 import { useCuratedItineraries } from "../../hooks/useCuratedItineraries";
 
@@ -10,11 +11,7 @@ export default function CuratedItinerariesPage() {
 
   return (
     <MobileLayout>
-      <header className="app-header flex h-16 items-center justify-between border-b border-outline-variant/20 px-container-margin py-stack-sm lg:px-8">
-        <h1 className="text-headline-lg-mobile font-extrabold text-primary">
-          Khám phá
-        </h1>
-      </header>
+      <PageHeader title="Khám phá" />
 
       <main className="content-shell flex-1 space-y-stack-lg px-container-margin pb-28 pt-20 lg:px-8 lg:pb-12">
         <section className="space-y-stack-md">

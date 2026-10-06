@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import MobileLayout from "../../components/layout/MobileLayout";
+import PageHeader from "../../components/layout/PageHeader";
 import { masterDataService } from "../../services/masterDataService";
 import { metroService } from "../../services/metroService";
 import { useClock } from "../../hooks/useClock";
@@ -361,13 +362,12 @@ export default function MetroStationsPage() {
 
   return (
     <MobileLayout>
-      <main className="content-shell flex flex-1 flex-col gap-5 px-container-margin pb-28 pt-6 lg:px-8 lg:pb-12">
-        <div>
-          <h1 className="text-headline-lg-mobile font-bold text-on-surface">Lịch tàu Metro số 1</h1>
-          <p className="text-body-md text-on-surface-variant">
-            Giờ tàu dự kiến, theo giờ Việt Nam. Lịch ước tính, không phải giờ tàu chạy thật.
-          </p>
-        </div>
+      <PageHeader title="Lịch tàu Metro số 1" />
+
+      <main className="content-shell flex flex-1 flex-col gap-5 px-container-margin pb-28 pt-20 lg:px-8 lg:pb-12">
+        <p className="text-body-md text-on-surface-variant">
+          Giờ tàu dự kiến, theo giờ Việt Nam. Lịch ước tính, không phải giờ tàu chạy thật.
+        </p>
 
         <div
           role="tablist"
