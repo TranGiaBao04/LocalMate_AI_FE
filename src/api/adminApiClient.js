@@ -1,5 +1,6 @@
 import { apiClient, isSessionEndingError } from "./apiClient";
 import { STORAGE_KEYS } from "../constants";
+import { removeToken } from "../utils/authStorage";
 
 export const ADMIN_API_EVENTS = {
   UNAUTHORIZED: "localmate:admin-api-unauthorized",
@@ -13,7 +14,7 @@ function emitAdminApiEvent(name, detail) {
 }
 
 function clearSession() {
-  localStorage.removeItem(STORAGE_KEYS.TOKEN);
+  removeToken();
   localStorage.removeItem(STORAGE_KEYS.IS_DEMO);
 }
 

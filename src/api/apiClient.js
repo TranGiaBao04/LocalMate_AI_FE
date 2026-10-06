@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from "../constants";
+import { getToken } from "../utils/authStorage";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
@@ -47,10 +47,6 @@ function buildErrorMessage(status, data, code) {
   return status >= 500
     ? "Máy chủ đang gặp sự cố. Vui lòng thử lại sau."
     : `Yêu cầu thất bại (${status}).`;
-}
-
-function getToken() {
-  return localStorage.getItem(STORAGE_KEYS.TOKEN);
 }
 
 function dispatchSessionEndedIfApplicable(token, code) {
