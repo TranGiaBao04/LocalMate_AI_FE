@@ -57,3 +57,7 @@ export const formatRelativeTime = (dateStr) => {
 
   return formatDate(dateStr);
 };
+
+// 5 -> "5,0"; 4.3 -> "4,3" (BE trả số tròn dạng 5, không phải 5.0)
+export const formatRating = (value) =>
+  Number(value).toLocaleString("vi-VN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });

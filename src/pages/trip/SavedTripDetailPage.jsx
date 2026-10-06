@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ExportTripModal from "../../components/trip/export/ExportTripModal";
+import TripFeedbackCard from "../../components/trip/TripFeedbackCard";
 import { REVIEW_MAX_TAGS } from "../../constants";
 import { useTrip } from "../../context/TripContext";
 import { masterDataService } from "../../services/masterDataService";
@@ -79,6 +80,9 @@ export default function SavedTripDetailPage() {
   const [reviewReloadKey, setReviewReloadKey] = useState(0);
   const [showToast, setShowToast] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null); // chặng đang hỏi xoá đánh giá
+  const [deletingReview, setDeletingReview] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const visitPending = useRef(false);
   const reviewPending = useRef(false);
   const visitedItemIds = trip?.items.filter((item) => item.isVisited).map((item) => item.id).join(",") ?? "";
@@ -225,6 +229,29 @@ export default function SavedTripDetailPage() {
       if (prev.includes(value)) return prev.filter((t) => t !== value);
       return prev.length >= REVIEW_MAX_TAGS ? prev : [...prev, value];
     });
+  };
+
+  const handleDeleteReview = async () => {
+    if (!deleteTarget || deletingReview) return;
+    setDeletingReview(true);
+    setDeleteError("");
+    try {
+      await reviewService.deleteReview(deleteTarget.id);
+    } catch (err) {
+      // review_not_found: đã xoá rồi (bấm hai lần) ⇒ coi như xong
+      if (err.code !== "review_not_found") {
+        setDeleteError(err.code === "itinerary_item_not_found"
+          ? "Không tìm thấy địa điểm này trong lịch trình."
+          : err.status === 401 || err.status === 403
+            ? "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại."
+            : "Không thể xoá đánh giá lúc này. Vui lòng thử lại.");
+        setDeletingReview(false);
+        return;
+      }
+    }
+    setReviewsByItem((previous) => ({ ...previous, [deleteTarget.id]: { status: "available" } }));
+    setDeleteTarget(null);
+    setDeletingReview(false);
   };
 
   return (
@@ -407,10 +434,20 @@ export default function SavedTripDetailPage() {
                           )}
 
                           {item.isVisited && reviewsByItem[item.id]?.status === "reviewed" ? (
-                            <button type="button" disabled className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-tertiary/15 px-4 py-2 text-label-md font-bold text-tertiary">
-                              <span className="material-symbols-outlined text-[18px]">star</span>
-                              Đã đánh giá {reviewsByItem[item.id].review.rating}/5
-                            </button>
+                            <div className="flex flex-1 items-center gap-2">
+                              <span className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-tertiary/15 px-4 py-2 text-label-md font-bold text-tertiary">
+                                <span className="material-symbols-outlined text-[18px]">star</span>
+                                Đã đánh giá {reviewsByItem[item.id].review.rating}/5
+                              </span>
+                              <button
+                                type="button"
+                                aria-label={`Xoá đánh giá ${item.placeName}`}
+                                onClick={() => { setDeleteError(""); setDeleteTarget(item); }}
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-outline-variant text-on-surface-variant transition-colors hover:border-error hover:text-error"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">delete</span>
+                              </button>
+                            </div>
                           ) : item.isVisited && reviewsByItem[item.id]?.status === "error" ? (
                             <button type="button" onClick={() => { setReviewsByItem((previous) => ({ ...previous, [item.id]: { status: "loading" } })); setReviewReloadKey((key) => key + 1); }} className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-tertiary px-4 py-2 text-label-md font-bold text-tertiary">
                               Thử tải đánh giá
@@ -508,6 +545,8 @@ export default function SavedTripDetailPage() {
               </div>
             </section>
 
+            {trip.status === "finalized" && <TripFeedbackCard tripId={trip.id} />}
+
             <section className="relative h-40 overflow-hidden rounded-lg border border-outline-variant/30 shadow-sm">
               <img
                 src={MAP_IMAGE}
@@ -547,6 +586,28 @@ export default function SavedTripDetailPage() {
           open
           trip={trip}
         />
+      )}
+
+      {deleteTarget && (
+        <div role="dialog" aria-modal="true" aria-labelledby="delete-review-title" className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 lg:items-center">
+          <div className="w-full max-w-md space-y-stack-md rounded-t-lg bg-surface p-stack-lg animate-fade-in-up lg:rounded-lg">
+            <h3 id="delete-review-title" className="text-title-md font-bold text-on-surface">Xoá đánh giá?</h3>
+            <p className="text-body-md text-on-surface-variant">
+              Đánh giá của bạn cho <strong>{deleteTarget.placeName}</strong> sẽ bị xoá hẳn và không còn hiện trên trang địa điểm. Bạn có thể đánh giá lại sau.
+            </p>
+            {deleteError && (
+              <p role="alert" className="rounded-lg bg-error-container/10 px-3 py-2 text-label-md text-error">{deleteError}</p>
+            )}
+            <div className="flex gap-3">
+              <button type="button" disabled={deletingReview} onClick={() => setDeleteTarget(null)} className="flex-1 rounded-full border border-outline-variant py-3 font-semibold text-on-surface-variant transition-transform active:scale-95">
+                Giữ lại
+              </button>
+              <button type="button" disabled={deletingReview} onClick={handleDeleteReview} className="flex-1 rounded-full bg-error py-3 font-semibold text-white transition-transform active:scale-95 disabled:opacity-50">
+                {deletingReview ? "Đang xoá..." : "Xoá đánh giá"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {reviewModal && (

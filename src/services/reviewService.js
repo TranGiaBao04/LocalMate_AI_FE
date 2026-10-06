@@ -13,4 +13,8 @@ export const reviewService = {
 
   // 404 review_not_found nếu chưa đánh giá
   getReview: (itemId) => apiClient.get(`/trips/items/${itemId}/review`),
+
+  // 204, xoá hẳn. 404 review_not_found nếu chưa có hoặc đã xoá rồi,
+  // 404 itinerary_item_not_found nếu chuyến đi đã bị xoá.
+  deleteReview: (itemId) => apiClient.delete(`/trips/items/${itemId}/review`),
 };

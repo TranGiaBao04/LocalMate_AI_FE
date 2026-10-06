@@ -59,9 +59,6 @@ const FEATURES = [
 
 // Video nền của phần mở đầu, đặt trong public/landing/
 const HERO_VIDEO = "/landing/hero.mp4";
-// Giây cuối của video là bảng tên chữ tiếng Anh, trùng với logo và tiêu đề của trang
-// ⇒ quay lại đầu trước đoạn đó. Đặt null để phát hết video.
-const HERO_LOOP_END_SECONDS = 8.75;
 
 const NAV_LINKS = [
   { id: "tinh-nang", label: "Tính năng AI" },
@@ -196,14 +193,10 @@ function HeroVideo() {
       playsInline
       preload="auto"
       aria-hidden="true"
-      onTimeUpdate={(event) => {
-        const video = event.currentTarget;
-        if (HERO_LOOP_END_SECONDS && video.currentTime >= HERO_LOOP_END_SECONDS) {
-          video.currentTime = 0;
-        }
-      }}
       onError={() => setFailed(true)}
-      className="absolute inset-0 h-full w-full object-cover"
+      // Rộng hết màn hình, cao vừa một màn hình trừ header (5rem + viền 1px). Màn hình ngang hơn 16:9 thì
+      // cắt bớt mép dưới (giữ mép trên vì chữ của video nằm ở đó); màn hình hẹp thì hiện nguyên khung 16:9.
+      className="block h-[calc(100svh-5rem-1px)] max-h-[56.25vw] w-full object-cover object-top"
     />
   );
 }
@@ -337,7 +330,6 @@ export default function WelcomePage() {
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [error, setError] = useState("");
   const [plans, setPlans] = useState(FALLBACK_PLANS);
-  const [scrolled, setScrolled] = useState(() => window.scrollY > 8);
 
   const [stations, setStations] = useState([]);
   const [clusters, setClusters] = useState([]);
@@ -348,12 +340,6 @@ export default function WelcomePage() {
   // Người đã đăng nhập xem landing (qua /about) thì các nút dẫn thẳng vào app
   const createPath = isLoggedIn ? "/create" : "/login";
   const signupPath = isLoggedIn ? "/create" : "/register";
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   // Backend /api/subscriptions/plans là nguồn chân lý (authoritative) cho giao dịch thực tế.
   // WelcomePage giữ FALLBACK_PLANS làm marketing copy tĩnh để trang đích không bị crash khi chưa có mạng.
@@ -447,14 +433,8 @@ export default function WelcomePage() {
 
   return (
     <div className="min-h-screen w-full bg-background text-on-surface">
-      {/* Header: trong suốt khi nằm trên video, cuộn xuống thì có nền trắng */}
-      <header
-        className={`fixed inset-x-0 top-0 z-50 border-b transition-colors duration-300 ${
-          scrolled
-            ? "border-outline-variant/30 bg-white/95 backdrop-blur-md"
-            : "border-transparent bg-transparent"
-        }`}
-      >
+      {/* Header: nền trắng cố định, nằm trên video chứ không đè lên */}
+      <header className="sticky top-0 z-50 border-b border-outline-variant/30 bg-white/95 backdrop-blur-md">
         <div className={`${WIDE_CONTAINER} flex h-20 items-center justify-between`}>
           <button
             type="button"
@@ -469,38 +449,24 @@ export default function WelcomePage() {
             />
             <div>
               <div className="flex items-center gap-1.5">
-                <span
-                  className={`text-xl font-extrabold tracking-tight transition-colors ${scrolled ? "text-navy-dark" : "text-white"}`}
-                >
+                <span className="text-xl font-extrabold tracking-tight text-navy-dark">
                   LocalMate
                 </span>
-                <span
-                  className={`rounded-md px-1.5 py-0.5 text-[11px] font-extrabold transition-colors ${
-                    scrolled ? "bg-navy text-white" : "bg-white text-navy-darkest"
-                  }`}
-                >
+                <span className="rounded-md bg-navy px-1.5 py-0.5 text-[11px] font-extrabold text-white">
                   AI
                 </span>
               </div>
-              <p
-                className={`mt-px text-[11px] transition-colors ${scrolled ? "text-text-muted" : "text-white/80"}`}
-              >
-                Metro-friendly planner
-              </p>
+              <p className="mt-px text-[11px] text-text-muted">Metro-friendly planner</p>
             </div>
           </button>
 
-          <nav
-            className={`hidden lg:flex items-center gap-5 xl:gap-8 whitespace-nowrap text-sm font-semibold transition-colors ${
-              scrolled ? "text-text-muted" : "text-white/85"
-            }`}
-          >
+          <nav className="hidden lg:flex items-center gap-5 xl:gap-8 whitespace-nowrap text-sm font-semibold text-text-muted">
             {NAV_LINKS.map((link) => (
               <button
                 key={link.id}
                 type="button"
                 onClick={() => scrollToSection(link.id)}
-                className={`transition-colors ${scrolled ? "hover:text-navy" : "hover:text-white"}`}
+                className="transition-colors hover:text-navy"
               >
                 {link.label}
               </button>
@@ -511,20 +477,14 @@ export default function WelcomePage() {
             {!isLoggedIn && (
               <button
                 onClick={() => navigate("/login")}
-                className={`hidden sm:inline-flex text-sm font-semibold px-3 py-2 transition-colors ${
-                  scrolled ? "text-text-muted hover:text-navy" : "text-white/85 hover:text-white"
-                }`}
+                className="hidden sm:inline-flex text-sm font-semibold text-text-muted hover:text-navy px-3 py-2 transition-colors"
               >
                 Đăng nhập
               </button>
             )}
             <button
               onClick={() => navigate(isLoggedIn ? "/home" : "/login")}
-              className={`inline-flex items-center justify-center px-4 py-2.5 rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition-all active:scale-95 ${
-                scrolled
-                  ? "bg-navy-darkest text-white hover:bg-slate-900"
-                  : "bg-white text-navy-darkest hover:bg-white/90"
-              }`}
+              className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-navy-darkest hover:bg-slate-900 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all active:scale-95"
             >
               <span>{isLoggedIn ? "Vào ứng dụng" : "Tạo lịch trình"}</span>
               <span className="material-symbols-outlined hidden text-[18px] ml-1.5 sm:inline-block">
@@ -536,30 +496,35 @@ export default function WelcomePage() {
       </header>
 
       <main>
-        {/* Mở đầu: video phủ kín, tự phát, tắt tiếng. Thiếu video thì còn nền navy. */}
-        <section className="hero-gradient relative flex min-h-svh items-center overflow-hidden">
-          <HeroVideo />
-          <div className="absolute inset-0 bg-gradient-to-b from-navy-darkest/70 via-navy-darkest/45 to-navy-darkest/75" />
+        {/* Mở đầu: video hiện sạch (đã có chữ riêng), bấm vào là tới trang tạo lịch trình */}
+        <section className="bg-navy-darkest">
+          <button
+            type="button"
+            onClick={() => navigate(createPath)}
+            aria-label="Tạo lịch trình với LocalMate AI"
+            className="block w-full"
+          >
+            <HeroVideo />
+          </button>
+        </section>
 
-          <div className={`${CONTAINER} relative z-10 py-28 text-center`}>
+        <section className="bg-white py-14 sm:py-16">
+          <div className={`${CONTAINER} text-center`}>
             <div className="mb-6 flex justify-center">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3.5 py-1.5 text-xs font-medium text-white backdrop-blur-md sm:text-sm">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75 motion-reduce:animate-none" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
-                </span>
+              <div className="inline-flex items-center gap-2 rounded-full border border-border-soft bg-chip-bg px-3.5 py-1.5 text-xs font-medium text-navy-dark sm:text-sm">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
                 <span>Khám phá Sài Gòn với trải nghiệm đường sắt đô thị hiện đại nhất</span>
               </div>
             </div>
 
-            <h1 className="mx-auto max-w-4xl text-3xl font-extrabold leading-[1.18] tracking-tight text-white sm:text-5xl lg:text-6xl">
+            <h1 className="mx-auto max-w-4xl text-3xl font-extrabold leading-[1.18] tracking-tight text-navy-darkest sm:text-5xl lg:text-6xl">
               Khám Phá Sài Gòn Thông Minh Dọc Tuyến Metro Số 1 Cùng{" "}
-              <span className="text-accent">LocalMate AI</span>
+              <span className="text-navy-mid">LocalMate AI</span>
             </h1>
-            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-white/85 sm:text-lg">
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-text-muted sm:text-lg">
               Lên lịch trình khám phá ẩm thực, check-in cà phê và điểm du lịch quanh 14 ga Bến
               Thành – Suối Tiên chỉ trong 30 giây. Tự động hóa trải nghiệm theo phong cách{" "}
-              <span className="font-semibold text-white underline decoration-accent decoration-2">
+              <span className="font-semibold text-navy-darkest underline decoration-accent decoration-2">
                 cá nhân
               </span>
               .
@@ -581,17 +546,14 @@ export default function WelcomePage() {
                   type="button"
                   onClick={handleDemo}
                   disabled={loadingDemo}
-                  className="rounded-full border border-white/40 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-white/10 disabled:opacity-60"
+                  className="rounded-full border border-border-soft px-6 py-3.5 text-sm font-semibold text-navy-darkest transition-colors hover:bg-chip-bg disabled:opacity-60"
                 >
                   {loadingDemo ? "Đang chuẩn bị..." : "Trải nghiệm nhanh phiên Demo"}
                 </button>
               )}
             </div>
             {error && (
-              <p
-                role="alert"
-                className="mx-auto mt-4 w-fit rounded-full bg-white/15 px-4 py-2 text-sm text-white"
-              >
+              <p role="alert" className="mt-4 text-sm text-error">
                 {error}
               </p>
             )}

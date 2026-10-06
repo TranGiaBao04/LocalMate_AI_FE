@@ -16,4 +16,10 @@ export const placeService = {
   getPlaces: ({ latitude, longitude, category } = {}) =>
     apiClient.get(`/places/nearby${toQueryString({ latitude, longitude, category })}`),
   getPlaceById: (placeId) => apiClient.get(`/places/${placeId}`),
+  // Đánh giá công khai của địa điểm (PagedResult). Dòng: { id, rating, quickTags, comment, createdAt, reviewerName }
+  // sortBy: createdAt | rating; rating 1–5 (bỏ trống = mọi mức sao). 404 place_not_found.
+  getPlaceReviews: (placeId, { page, pageSize, sortBy, sortDirection, rating } = {}) =>
+    apiClient.get(
+      `/places/${placeId}/reviews${toQueryString({ page, pageSize, sortBy, sortDirection, rating })}`,
+    ),
 };
