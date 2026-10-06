@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import AdminPageHeader from "../../components/admin/AdminPageHeader";
+import { ADMIN_PRIMARY_BUTTON } from "../../components/admin/adminStyles";
 import { DataTable, FilterBar } from "../../components/admin/ui";
 import { adminTransactionService } from "../../services/adminTransactionService";
 import { formatPlanPrice } from "../../utils/subscriptionUtils";
@@ -251,7 +253,7 @@ export default function AdminTransactionsPage() {
   );
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-6">
+    <div className="space-y-6">
       {/* Toast Notification */}
       {notice && (
         <div
@@ -300,29 +302,23 @@ export default function AdminTransactionsPage() {
       )}
 
       {/* Page Header (FE-129, FE-136) */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-sm font-semibold text-[#1d3e82]">Quản trị hệ thống</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-            Quản lý giao dịch
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Theo dõi đơn hàng, doanh thu thanh toán qua PayOS và lịch sử giao dịch gói dịch vụ.
-          </p>
-        </div>
-
+      <AdminPageHeader
+        eyebrow="Gói cước & Doanh thu"
+        title="Quản lý giao dịch"
+        description="Theo dõi đơn hàng, doanh thu thanh toán qua PayOS và lịch sử giao dịch gói dịch vụ."
+      >
         <button
           type="button"
           onClick={handleExportCsv}
           disabled={exporting || Boolean(dateError)}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#1d3e82] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#17366f] focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className={ADMIN_PRIMARY_BUTTON}
         >
           <span className="material-symbols-outlined text-[20px]">
             {exporting ? "hourglass_top" : "download"}
           </span>
           {exporting ? "Đang xuất CSV..." : "Xuất CSV"}
         </button>
-      </div>
+      </AdminPageHeader>
 
       {/* Summary Cards (FE-132) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">

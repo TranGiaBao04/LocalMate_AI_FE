@@ -27,7 +27,7 @@ export function PlaceStatusToggle({ status, onToggle, loading }) {
       onClick={onToggle}
       disabled={loading}
       className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-        isActive ? "bg-teal-600" : "bg-gray-300"
+        isActive ? "bg-emerald-500" : "bg-gray-300"
       } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
       title={isActive ? "Tạm ẩn địa điểm" : "Kích hoạt địa điểm"}
     >

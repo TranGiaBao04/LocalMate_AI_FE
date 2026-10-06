@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import AdminPageHeader from "../../components/admin/AdminPageHeader";
+import { ADMIN_PRIMARY_BUTTON } from "../../components/admin/adminStyles";
 import { ConfirmDialog, DataTable, NoticeBanner } from "../../components/admin/ui";
 import RoleFormDialog from "../../components/admin/roles/RoleFormDialog";
 import { getRoleErrorMessage } from "../../components/admin/roles/roleLabels";
@@ -132,25 +134,22 @@ export default function AdminRolesPage() {
   ], [permissionNames]);
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-sm font-semibold text-[#1d3e82]">Người dùng & Phân quyền</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Phân quyền & Quản trị</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Tạo role và chọn quyền cho từng role. Gán role cho người dùng ở trang chi tiết người dùng.
-          </p>
-        </div>
+    <div className="space-y-6">
+      <AdminPageHeader
+        eyebrow="Người dùng & Phân quyền"
+        title="Phân quyền & Quản trị"
+        description="Tạo role và chọn quyền cho từng role. Gán role cho người dùng ở trang chi tiết người dùng."
+      >
         <button
           type="button"
           onClick={() => setFormTarget({ role: null })}
           disabled={response.key === null || response.permissions.length === 0}
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#1d3e82] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#17366f] focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className={ADMIN_PRIMARY_BUTTON}
         >
           <span className="material-symbols-outlined text-[20px]">add</span>
           Tạo role
         </button>
-      </div>
+      </AdminPageHeader>
 
       <NoticeBanner notice={notice} onClose={() => setNotice(null)} />
 

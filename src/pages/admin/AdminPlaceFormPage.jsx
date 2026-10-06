@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, Save, Loader2, Building2 } from "lucide-react";
+import { Save, Loader2 } from "lucide-react";
+import AdminPageHeader from "../../components/admin/AdminPageHeader";
 import { adminPlaceService } from "../../services/adminPlaceService";
 import MapCoordinatePicker from "../../components/admin/MapCoordinatePicker";
 import ValidationAlert from "../../components/admin/ValidationAlert";
@@ -159,36 +160,21 @@ export default function AdminPlaceFormPage() {
 
   if (fetching) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+      <div className="grid min-h-64 place-items-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-4 md:p-8 space-y-6">
-      {/* Top action bar */}
-      <div className="flex items-center justify-between">
-        <Link
-          to="/admin/places"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 transition"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Quay lại danh sách địa điểm
-        </Link>
-      </div>
+    <div className="space-y-6">
+      <AdminPageHeader
+        back={{ to: "/admin/places", label: "Danh sách địa điểm" }}
+        title={isEdit ? "Chỉnh sửa địa điểm" : "Thêm địa điểm mới"}
+        description="Nhập thông tin chi tiết và vị trí tọa độ địa điểm dành cho Admin"
+      />
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
-        <div className="border-b border-gray-100 pb-4">
-          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <Building2 className="w-6 h-6 text-teal-600" />
-            {isEdit ? "Chỉnh Sửa Địa Điểm" : "Thêm Địa Điểm Mới"}
-          </h1>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Nhập thông tin chi tiết và vị trí tọa độ địa điểm dành cho Admin
-          </p>
-        </div>
-
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Info Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -201,7 +187,7 @@ export default function AdminPlaceFormPage() {
                 placeholder="Ví dụ: Phở Phượng Sài Gòn"
                 value={form.name}
                 onChange={(e) => handleChange("name", e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
+                className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition"
               />
               {errors.name && <p className="text-xs text-red-500 mt-1 font-medium">{errors.name}</p>}
             </div>
@@ -213,7 +199,7 @@ export default function AdminPlaceFormPage() {
               <select
                 value={form.category}
                 onChange={(e) => handleChange("category", e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
+                className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition"
               >
                 {CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -233,7 +219,7 @@ export default function AdminPlaceFormPage() {
               placeholder="Ví dụ: 25 Hoàng Sa, Phường Đa Kao, Quận 1"
               value={form.address}
               onChange={(e) => handleChange("address", e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
+              className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition"
             />
             {errors.address && <p className="text-xs text-red-500 mt-1 font-medium">{errors.address}</p>}
           </div>
@@ -262,7 +248,7 @@ export default function AdminPlaceFormPage() {
                 placeholder="30000"
                 value={form.estimatedCostMin}
                 onChange={(e) => handleChange("estimatedCostMin", e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
+                className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition"
               />
               {errors.estimatedCostMin && <p className="text-xs text-red-500 mt-1 font-medium">{errors.estimatedCostMin}</p>}
             </div>
@@ -276,7 +262,7 @@ export default function AdminPlaceFormPage() {
                 placeholder="50000"
                 value={form.estimatedCostMax}
                 onChange={(e) => handleChange("estimatedCostMax", e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
+                className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition"
               />
             </div>
           </div>
@@ -298,7 +284,7 @@ export default function AdminPlaceFormPage() {
               placeholder="Nhập mô tả về không gian, món ăn nổi bật hoặc lưu ý..."
               value={form.description}
               onChange={(e) => handleChange("description", e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
+              className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition"
             />
           </div>
 
@@ -326,7 +312,7 @@ export default function AdminPlaceFormPage() {
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center gap-2 px-5 py-2 text-xs font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition shadow-sm disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-5 py-2 text-xs font-medium text-white bg-primary hover:bg-[#17366f] rounded-xl transition shadow-sm disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {isEdit ? "Cập nhật địa điểm" : "Tạo địa điểm"}

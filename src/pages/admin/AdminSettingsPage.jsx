@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import AdminPageHeader from "../../components/admin/AdminPageHeader";
+import { ADMIN_SECONDARY_BUTTON } from "../../components/admin/adminStyles";
 import { ConfirmDialog } from "../../components/admin/ui";
 import { adminSettingService } from "../../services/adminSettingService";
 import { formatDateTimeInVietnam } from "../../utils/vnTime";
@@ -206,31 +208,22 @@ export default function AdminSettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1200px]">
-      <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[#0f2042] sm:text-[30px]">Cấu hình hệ thống</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-            Thông số dùng khi tạo lịch trình, gợi ý thay thế và thống kê. Thay đổi có hiệu lực ngay; lịch trình đã tạo giữ nguyên giờ đã lưu.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {settings && (
-            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
-              {customizedCount} / {settings.length} thông số đã chỉnh
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={reload}
-            disabled={loading}
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 shadow-sm transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-wait"
-          >
-            <span className={`material-symbols-outlined text-[18px] ${loading ? "animate-spin" : ""}`}>sync</span>
-            Tải lại
-          </button>
-        </div>
-      </section>
+    <div>
+      <AdminPageHeader
+        eyebrow="Hệ thống"
+        title="Cấu hình hệ thống"
+        description="Thông số dùng khi tạo lịch trình, gợi ý thay thế và thống kê. Thay đổi có hiệu lực ngay; lịch trình đã tạo giữ nguyên giờ đã lưu."
+      >
+        {settings && (
+          <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
+            {customizedCount} / {settings.length} thông số đã chỉnh
+          </span>
+        )}
+        <button type="button" onClick={reload} disabled={loading} className={ADMIN_SECONDARY_BUTTON}>
+          <span className={`material-symbols-outlined text-[18px] ${loading ? "animate-spin" : ""}`}>sync</span>
+          Tải lại
+        </button>
+      </AdminPageHeader>
 
       {notice && (
         <div

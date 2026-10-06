@@ -278,7 +278,10 @@ export default function AdminLayout() {
         </nav>
 
         <main className="px-5 py-7 sm:px-8 lg:py-8">
-          <Outlet />
+          {/* Khung nội dung chung: trang con không tự đặt max-width hay lề ngoài */}
+          <div className="mx-auto max-w-[1440px]">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

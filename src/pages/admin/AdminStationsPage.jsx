@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import AdminPageHeader from "../../components/admin/AdminPageHeader";
+import { ADMIN_SECONDARY_BUTTON } from "../../components/admin/adminStyles";
 import { useAuth } from "../../context/AuthContext";
 import { ADMIN_PERMISSIONS, PLACE_CATEGORY_LABELS } from "../../constants";
 import { adminStationService } from "../../services/adminStationService";
@@ -182,33 +184,27 @@ export default function AdminStationsPage() {
 
   return (
     <div>
-      <section className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-        <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-blue-700">
-            <span className="material-symbols-outlined text-[15px]">train</span>Metro Line 1
-          </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[#0f2042] sm:text-[30px]">Quản lý 14 Ga Metro Tuyến 1</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+      <AdminPageHeader
+        eyebrow="Dữ liệu Metro"
+        title="Quản lý 14 Ga Metro Tuyến 1"
+        description={
+          <>
             {data
               ? `Địa điểm trong bán kính ${countFormatter.format(data.radiusMeters)} m, mỗi địa điểm tính cho ga gần nhất. Ga có dưới ${data.minActivePlacesPerStation} địa điểm đang hoạt động bị đánh dấu thiếu.`
               : "Số địa điểm quanh từng ga theo trạng thái và loại địa điểm."}
             {data && canManageSettings && (
-              <Link to="/admin/settings" className="ml-1 font-semibold text-blue-700 hover:underline">
+              <Link to="/admin/settings" className="ml-1 font-semibold text-primary hover:underline">
                 Đổi trong Cấu hình hệ thống
               </Link>
             )}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={reload}
-          disabled={loading}
-          className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 shadow-sm transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-wait"
-        >
+          </>
+        }
+      >
+        <button type="button" onClick={reload} disabled={loading} className={ADMIN_SECONDARY_BUTTON}>
           <span className={`material-symbols-outlined text-[18px] ${loading ? "animate-spin" : ""}`}>sync</span>
           Tải lại
         </button>
-      </section>
+      </AdminPageHeader>
 
       <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard label="Tổng số ga" icon="subway" iconTone="text-blue-600" loading={!data && loading} value={data ? stations.length : "—"} />

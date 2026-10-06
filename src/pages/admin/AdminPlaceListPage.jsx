@@ -10,10 +10,11 @@ import {
   ChevronRight,
   Loader2,
   MapPin,
-  Building2,
 } from "lucide-react";
 import { adminPlaceService } from "../../services/adminPlaceService";
 import { adminStationService } from "../../services/adminStationService";
+import AdminPageHeader from "../../components/admin/AdminPageHeader";
+import { ADMIN_PRIMARY_BUTTON, ADMIN_SECONDARY_BUTTON } from "../../components/admin/adminStyles";
 import PlaceFilterBar from "../../components/admin/PlaceFilterBar";
 import { VerifiedBadge, PlaceStatusToggle } from "../../components/admin/VerifiedBadge";
 import DeletePlaceDialog from "../../components/admin/DeletePlaceDialog";
@@ -95,37 +96,21 @@ export default function AdminPlaceListPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-4 md:p-8 space-y-6">
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Building2 className="w-7 h-7 text-teal-600" />
-            Quản Lý Danh Mục Địa Điểm (Admin Places)
-          </h1>
-          <p className="text-xs text-gray-500 mt-1">
-            Tổng số {data.totalCount || 0} địa điểm trong hệ thống
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Link
-            to="/admin/places/import"
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 rounded-xl transition shadow-sm"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            Import CSV / Excel
-          </Link>
-
-          <Link
-            to="/admin/places/create"
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Thêm địa điểm mới
-          </Link>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <AdminPageHeader
+        eyebrow="Dữ liệu Metro"
+        title="Quản lý địa điểm"
+        description={`Tổng số ${data.totalCount || 0} địa điểm trong hệ thống`}
+      >
+        <Link to="/admin/places/import" className={ADMIN_SECONDARY_BUTTON}>
+          <FileSpreadsheet className="w-4 h-4" />
+          Import CSV / Excel
+        </Link>
+        <Link to="/admin/places/create" className={ADMIN_PRIMARY_BUTTON}>
+          <Plus className="w-4 h-4" />
+          Thêm địa điểm mới
+        </Link>
+      </AdminPageHeader>
 
       {/* Filter Bar */}
       <PlaceFilterBar
@@ -139,7 +124,7 @@ export default function AdminPlaceListPage() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
           <div className="flex flex-col items-center justify-center p-12 text-gray-400 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
             <span className="text-xs">Đang tải danh sách địa điểm...</span>
           </div>
         ) : data.items.length === 0 ? (
@@ -181,7 +166,7 @@ export default function AdminPlaceListPage() {
                     </td>
 
                     <td className="p-4">
-                      <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-teal-50 text-teal-700 border border-teal-100">
+                      <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-blue-50 text-primary border border-blue-100">
                         {place.category}
                       </span>
                     </td>
@@ -219,7 +204,7 @@ export default function AdminPlaceListPage() {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => navigate(`/admin/places/${place.id}`)}
-                          className="p-1.5 text-gray-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition"
+                          className="p-1.5 text-gray-500 hover:text-primary hover:bg-blue-50 rounded-lg transition"
                           title="Xem chi tiết địa điểm"
                         >
                           <Eye className="w-4 h-4" />
@@ -227,7 +212,7 @@ export default function AdminPlaceListPage() {
 
                         <button
                           onClick={() => navigate(`/admin/places/edit/${place.id}`)}
-                          className="p-1.5 text-gray-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition"
+                          className="p-1.5 text-gray-500 hover:text-primary hover:bg-blue-50 rounded-lg transition"
                           title="Chỉnh sửa địa điểm"
                         >
                           <Edit2 className="w-4 h-4" />

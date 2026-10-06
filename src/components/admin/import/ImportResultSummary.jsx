@@ -63,7 +63,7 @@ export default function ImportResultSummary({ commitResult, preview }) {
       <div className="pt-4 flex items-center justify-center gap-3">
         <Link
           to="/admin/places"
-          className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition shadow-sm"
+          className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold text-white bg-primary hover:bg-[#17366f] rounded-xl transition shadow-sm"
         >
           <Building2 className="w-4 h-4" />
           Về danh sách quản lý địa điểm

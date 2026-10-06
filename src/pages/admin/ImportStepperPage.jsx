@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeft, FileSpreadsheet, CheckCircle2, FileText, BarChart3 } from "lucide-react";
+import { FileSpreadsheet, CheckCircle2, FileText, BarChart3 } from "lucide-react";
 
+import AdminPageHeader from "../../components/admin/AdminPageHeader";
 import FileUploadStep from "../../components/admin/import/FileUploadStep";
 import ImportPreviewTable from "../../components/admin/import/ImportPreviewTable";
 import ImportModeSelector from "../../components/admin/import/ImportModeSelector";
@@ -43,32 +43,16 @@ export default function ImportStepperPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-4 md:p-8 space-y-6">
-      {/* Back button */}
-      <div className="flex items-center justify-between">
-        <Link
-          to="/admin/places"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 transition"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Quay lại danh sách địa điểm
-        </Link>
-      </div>
+    <div className="space-y-6">
+      <AdminPageHeader
+        eyebrow="Dữ liệu Metro"
+        title="Nhập địa điểm từ CSV / Excel"
+        description="Quy trình 3 bước thẩm định dữ liệu, kiểm tra nghi trùng và commit an toàn vào hệ thống"
+      />
 
-      {/* Title */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <FileSpreadsheet className="w-6 h-6 text-teal-600" />
-            Công Cụ Import Địa Điểm Từ CSV / Excel
-          </h1>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Quy trình 3 bước thẩm định dữ liệu, kiểm tra nghi trùng và commit an toàn vào hệ thống
-          </p>
-        </div>
-
         {/* Stepper Header */}
-        <div className="flex items-center justify-between border-y border-gray-100 py-4">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
           {STEPS.map((step, index) => {
             const Icon = step.icon;
             const isDone = currentStep > step.id;
@@ -80,7 +64,7 @@ export default function ImportStepperPage() {
                   className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition ${isDone
                       ? "bg-emerald-600 text-white"
                       : isCurrent
-                        ? "bg-teal-600 text-white shadow-md ring-4 ring-teal-50"
+                        ? "bg-primary text-white shadow-md ring-4 ring-blue-50"
                         : "bg-gray-100 text-gray-400"
                     }`}
                 >
@@ -88,7 +72,7 @@ export default function ImportStepperPage() {
                 </div>
 
                 <div className="hidden sm:block">
-                  <p className={`text-xs font-bold ${isCurrent ? "text-teal-700" : isDone ? "text-gray-900" : "text-gray-400"}`}>
+                  <p className={`text-xs font-bold ${isCurrent ? "text-primary" : isDone ? "text-gray-900" : "text-gray-400"}`}>
                     Bước {step.id}: {step.label}
                   </p>
                 </div>

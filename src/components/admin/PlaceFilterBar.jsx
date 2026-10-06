@@ -50,7 +50,7 @@ export default function PlaceFilterBar({
             placeholder="Tìm kiếm theo tên địa điểm, địa chỉ..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
+            className="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition"
           />
           {searchTerm && (
             <button
@@ -71,7 +71,7 @@ export default function PlaceFilterBar({
           <select
             value={filters.category || ""}
             onChange={(e) => onChange({ category: e.target.value, page: 1 })}
-            className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-700"
+            className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 text-gray-700"
           >
             <option value="">Tất cả danh mục</option>
             {CATEGORIES.map((c) => (
@@ -85,7 +85,7 @@ export default function PlaceFilterBar({
           <select
             value={filters.status || ""}
             onChange={(e) => onChange({ status: e.target.value, page: 1 })}
-            className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-700"
+            className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 text-gray-700"
           >
             <option value="">Tất cả trạng thái</option>
             {STATUSES.map((s) => (
@@ -99,7 +99,7 @@ export default function PlaceFilterBar({
           <select
             value={filters.stationId || ""}
             onChange={(e) => onChange({ stationId: e.target.value, page: 1 })}
-            className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-700 max-w-[180px]"
+            className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 text-gray-700 max-w-[180px]"
           >
             <option value="">Tất cả ga Metro</option>
             {stations.map((st) => (

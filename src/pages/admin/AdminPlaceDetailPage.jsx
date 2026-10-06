@@ -15,6 +15,8 @@ import {
   Loader2,
   ExternalLink,
 } from "lucide-react";
+import AdminPageHeader from "../../components/admin/AdminPageHeader";
+import { ADMIN_PRIMARY_BUTTON } from "../../components/admin/adminStyles";
 import { adminPlaceService } from "../../services/adminPlaceService";
 import { buildMapsSearchUrl } from "../../utils/googleMaps";
 import { VerifiedBadge } from "../../components/admin/VerifiedBadge";
@@ -57,8 +59,8 @@ export default function AdminPlaceDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50/50 p-6 flex flex-col items-center justify-center gap-3 text-gray-500">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+      <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-gray-500">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
         <span className="text-sm font-medium">Đang tải chi tiết địa điểm...</span>
       </div>
     );
@@ -66,14 +68,14 @@ export default function AdminPlaceDetailPage() {
 
   if (error || !place) {
     return (
-      <div className="min-h-screen bg-gray-50/50 p-6">
+      <div>
         <div className="max-w-3xl mx-auto bg-white rounded-2xl p-8 border border-gray-100 shadow-sm text-center space-y-4">
           <XCircle className="w-12 h-12 text-red-500 mx-auto" />
           <h2 className="text-xl font-bold text-gray-900">Không tìm thấy địa điểm</h2>
           <p className="text-sm text-gray-500">{error || "Địa điểm không tồn tại hoặc đã bị xóa."}</p>
           <button
             onClick={() => navigate("/admin/places")}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-[#17366f] rounded-xl transition"
           >
             <ArrowLeft className="w-4 h-4" />
             Quay lại danh sách
@@ -86,36 +88,18 @@ export default function AdminPlaceDetailPage() {
   const openingHours = place.openingHours || place.openingHoursList || [];
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-4 md:p-8 space-y-6">
-      {/* Top Bar Navigation & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate("/admin/places")}
-            className="p-2 text-gray-600 hover:bg-white border border-gray-200 rounded-xl transition shadow-sm"
-            title="Quay lại"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-gray-900">{place.name}</h1>
-              <VerifiedBadge isVerified={place.isVerified} />
-            </div>
-            <p className="text-xs text-gray-400 mt-0.5">ID: {place.id}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Link
-            to={`/admin/places/edit/${place.id}`}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition shadow-sm"
-          >
-            <Edit2 className="w-4 h-4" />
-            Chỉnh sửa địa điểm
-          </Link>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <AdminPageHeader
+        back={{ to: "/admin/places", label: "Danh sách địa điểm" }}
+        title={place.name}
+        badge={<VerifiedBadge isVerified={place.isVerified} />}
+        description={`ID: ${place.id}`}
+      >
+        <Link to={`/admin/places/edit/${place.id}`} className={ADMIN_PRIMARY_BUTTON}>
+          <Edit2 className="w-4 h-4" />
+          Chỉnh sửa địa điểm
+        </Link>
+      </AdminPageHeader>
 
       {/* Main Grid Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -146,21 +130,21 @@ export default function AdminPlaceDetailPage() {
           {/* Place Details & Attributes */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
             <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 border-b pb-3 border-gray-100">
-              <Building2 className="w-5 h-5 text-teal-600" />
+              <Building2 className="w-5 h-5 text-primary" />
               Thông Tin Tổng Quan
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="p-4 bg-gray-50/80 rounded-xl space-y-1">
                 <span className="text-xs font-medium text-gray-400 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-teal-600" /> Địa chỉ
+                  <MapPin className="w-3.5 h-3.5 text-primary" /> Địa chỉ
                 </span>
                 <p className="font-semibold text-gray-800">{place.address || "Chưa cập nhật"}</p>
               </div>
 
               <div className="p-4 bg-gray-50/80 rounded-xl space-y-1">
                 <span className="text-xs font-medium text-gray-400 flex items-center gap-1">
-                  <DollarSign className="w-3.5 h-3.5 text-teal-600" /> Chi phí ước tính
+                  <DollarSign className="w-3.5 h-3.5 text-primary" /> Chi phí ước tính
                 </span>
                 <p className="font-semibold text-gray-800">
                   {place.estimatedCostMin || place.estimatedCostMax ? (
@@ -173,7 +157,7 @@ export default function AdminPlaceDetailPage() {
 
               <div className="p-4 bg-gray-50/80 rounded-xl space-y-1">
                 <span className="text-xs font-medium text-gray-400 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-teal-600" /> Thời gian trải nghiệm
+                  <Clock className="w-3.5 h-3.5 text-primary" /> Thời gian trải nghiệm
                 </span>
                 <p className="font-semibold text-gray-800">
                   {place.estimatedDurationMinutes
@@ -207,13 +191,13 @@ export default function AdminPlaceDetailPage() {
             {place.tags && place.tags.length > 0 && (
               <div className="space-y-2">
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
-                  <Tag className="w-3.5 h-3.5 text-teal-600" /> Thẻ phân loại (Tags)
+                  <Tag className="w-3.5 h-3.5 text-primary" /> Thẻ phân loại (Tags)
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {place.tags.map((t, idx) => (
                     <span
                       key={t.id || idx}
-                      className="px-3 py-1 bg-teal-50 text-teal-700 text-xs font-medium rounded-lg border border-teal-100"
+                      className="px-3 py-1 bg-blue-50 text-primary text-xs font-medium rounded-lg border border-blue-100"
                     >
                       {t.name || t}
                     </span>
@@ -229,14 +213,14 @@ export default function AdminPlaceDetailPage() {
           {/* Location & Coordinates Card */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
             <h2 className="text-base font-bold text-gray-900 flex items-center gap-2 border-b pb-3 border-gray-100">
-              <Train className="w-5 h-5 text-teal-600" />
+              <Train className="w-5 h-5 text-primary" />
               Kết Nối Ga Metro & Tọa Độ
             </h2>
 
             <div className="space-y-3 text-xs">
-              <div className="flex justify-between items-center p-3 bg-teal-50/50 rounded-xl border border-teal-100">
+              <div className="flex justify-between items-center p-3 bg-blue-50/50 rounded-xl border border-blue-100">
                 <span className="text-gray-600 font-medium">Ga Metro gần nhất:</span>
-                <span className="font-bold text-teal-800">
+                <span className="font-bold text-primary">
                   {place.nearestStationName || place.stationName || "Chưa gán ga"}
                 </span>
               </div>
@@ -271,7 +255,7 @@ export default function AdminPlaceDetailPage() {
                   })}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-xl transition border border-teal-200"
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-primary bg-blue-50 hover:bg-blue-100 rounded-xl transition border border-blue-200"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   Mở vị trí trên Google Maps
@@ -283,7 +267,7 @@ export default function AdminPlaceDetailPage() {
           {/* Opening Hours Schedule Card */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
             <h2 className="text-base font-bold text-gray-900 flex items-center gap-2 border-b pb-3 border-gray-100">
-              <Clock className="w-5 h-5 text-teal-600" />
+              <Clock className="w-5 h-5 text-primary" />
               Lịch Giờ Mở Cửa (Opening Hours)
             </h2>
 

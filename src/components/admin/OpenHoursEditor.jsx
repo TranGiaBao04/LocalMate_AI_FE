@@ -33,7 +33,7 @@ export default function OpenHoursEditor({ value = [], onChange }) {
   return (
     <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
       <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-        <Clock className="w-4 h-4 text-teal-600" />
+        <Clock className="w-4 h-4 text-primary" />
         <span>Giờ mở cửa 7 ngày trong tuần (OpenHours)</span>
       </div>
 
@@ -51,7 +51,7 @@ export default function OpenHoursEditor({ value = [], onChange }) {
                     type="checkbox"
                     checked={item.isClosed}
                     onChange={(e) => handleDayChange(d.key, "isClosed", e.target.checked)}
-                    className="rounded border-gray-300 text-teal-600 focus:ring-teal-500 w-3.5 h-3.5"
+                    className="rounded border-gray-300 text-primary focus:ring-blue-200 w-3.5 h-3.5"
                   />
                   <span className="text-xs text-gray-500">Đóng cửa</span>
                 </label>
@@ -62,14 +62,14 @@ export default function OpenHoursEditor({ value = [], onChange }) {
                       type="time"
                       value={item.openTime || "08:00"}
                       onChange={(e) => handleDayChange(d.key, "openTime", e.target.value)}
-                      className="px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:ring-1 focus:ring-teal-500"
+                      className="px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:ring-1 focus:ring-blue-200"
                     />
                     <span>-</span>
                     <input
                       type="time"
                       value={item.closeTime || "22:00"}
                       onChange={(e) => handleDayChange(d.key, "closeTime", e.target.value)}
-                      className="px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:ring-1 focus:ring-teal-500"
+                      className="px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:ring-1 focus:ring-blue-200"
                     />
                   </div>
                 )}
