@@ -6,6 +6,7 @@ import { ADMIN_PERMISSIONS } from "../../constants";
 import { hasAnyPermission } from "../../utils/adminAccess";
 import { ADMIN_SECTIONS } from "./adminSections";
 import { NavigationItem } from "../layout/BottomNavigation";
+import { goHomeOrScrollTop } from "../../utils/scrollToTop";
 import logo from "../../assets/logo.jpg";
 
 const DASHBOARD_ITEM = { label: "Tổng quan", icon: "grid_view", to: "/admin", end: true };
@@ -90,7 +91,12 @@ export default function AdminLayout() {
     <div className="min-h-screen bg-background text-on-surface lg:pl-[220px]">
       {/* Cùng khung với SideNavigation bên người dùng, chỉ khác nội dung */}
       <aside className="desktop-sidebar-bg fixed inset-y-0 left-0 z-50 hidden w-[220px] flex-col gap-[22px] border-r border-navy/10 px-3.5 py-6 lg:flex">
-        <div className="flex items-center gap-2.5 px-1.5">
+        <button
+          type="button"
+          onClick={() => goHomeOrScrollTop(navigate, pathname, "/admin")}
+          aria-label="LocalMate AI, về Tổng quan"
+          className="flex items-center gap-2.5 rounded-xl px-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+        >
           <div className="h-[42px] w-[42px] flex-none overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(20,30,60,0.1)]">
             <img src={logo} alt="LocalMate AI" className="h-full w-full object-cover object-top" />
           </div>
@@ -101,7 +107,7 @@ export default function AdminLayout() {
             </div>
             <div className="mt-px text-[10.5px] text-text-muted">Admin Portal</div>
           </div>
-        </div>
+        </button>
 
         <nav className="flex flex-col gap-[3px] overflow-y-auto" aria-label="Điều hướng quản trị">
           {menuItems.map((item) => (
@@ -174,9 +180,14 @@ export default function AdminLayout() {
 
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-navy/10 bg-background/90 px-5 backdrop-blur-xl sm:px-8">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="h-9 w-9 flex-none overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(20,30,60,0.1)] lg:hidden">
+            <button
+              type="button"
+              onClick={() => goHomeOrScrollTop(navigate, pathname, "/admin")}
+              aria-label="LocalMate AI, về Tổng quan"
+              className="h-9 w-9 flex-none overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(20,30,60,0.1)] lg:hidden"
+            >
               <img src={logo} alt="LocalMate AI" className="h-full w-full object-cover object-top" />
-            </div>
+            </button>
             <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
               <Link to="/admin" className="hidden shrink-0 text-text-muted transition hover:text-navy-darkest md:inline">
                 Quản trị hệ thống

@@ -4,6 +4,7 @@ import { useTrip } from "../../context/TripContext";
 import { useSubscription } from "../../context/SubscriptionContext";
 import { PLAN_CODES, PLAN_DISPLAY_NAMES } from "../../utils/subscriptionUtils";
 import { canAccessAdmin } from "../../utils/adminAccess";
+import { goHomeOrScrollTop } from "../../utils/scrollToTop";
 import logo from "../../assets/logo.jpg";
 
 // Dùng chung cho sidebar (label) và thanh dưới mobile (shortLabel ?? label)
@@ -101,7 +102,12 @@ export function SideNavigation() {
 
   return (
     <aside className="desktop-sidebar-bg fixed inset-y-0 left-0 z-50 hidden w-[220px] flex-col gap-[22px] border-r border-navy/10 px-3.5 py-6 lg:flex">
-      <div className="flex items-center gap-2.5 px-1.5">
+      <button
+        type="button"
+        onClick={() => goHomeOrScrollTop(navigate, pathname, "/home")}
+        aria-label="LocalMate AI, về Trang chủ"
+        className="flex items-center gap-2.5 rounded-xl px-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+      >
         <div className="h-[42px] w-[42px] flex-none overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(20,30,60,0.1)]">
           <img
             src={logo}
@@ -122,7 +128,7 @@ export function SideNavigation() {
             Metro-friendly planner
           </div>
         </div>
-      </div>
+      </button>
 
       <nav className="flex flex-col gap-[3px]">
         {navItems.map((item, i) => (

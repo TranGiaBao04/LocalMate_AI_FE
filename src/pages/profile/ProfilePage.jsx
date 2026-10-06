@@ -561,10 +561,12 @@ export default function ProfilePage() {
           {[
             { icon: "privacy_tip", label: "Quyền riêng tư" },
             { icon: "help", label: "Trợ giúp" },
-            { icon: "info", label: "Về LocalMate AI" },
+            { icon: "info", label: "Về LocalMate AI", to: "/about" },
           ].map((item) => (
             <button
               key={item.label}
+              type="button"
+              onClick={() => item.to && navigate(item.to)}
               className="w-full flex items-center gap-3 py-stack-md text-left hover:bg-surface-container-low transition-colors px-1"
             >
               <span className="material-symbols-outlined text-on-surface-variant">
