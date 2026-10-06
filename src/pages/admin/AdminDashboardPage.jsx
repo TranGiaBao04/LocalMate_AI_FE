@@ -7,6 +7,7 @@ import BreakEvenCard from "../../components/admin/dashboard/BreakEvenCard";
 import DashboardRangeFilter from "../../components/admin/dashboard/DashboardRangeFilter";
 import RevenueChart from "../../components/admin/dashboard/RevenueChart";
 import TopStationList from "../../components/admin/dashboard/TopStationList";
+import TripsFinalizedChart from "../../components/admin/dashboard/TripsFinalizedChart";
 import {
   DEFAULT_RANGE_PRESET,
   DEFAULT_STATION_LIMIT,
@@ -234,6 +235,10 @@ export default function AdminDashboardPage() {
 
   const loadSummary = useCallback(() => adminDashboardService.getSummary(range), [range]);
   const loadRevenueDaily = useCallback(() => adminDashboardService.getRevenueDaily(range), [range]);
+  const loadTripsFinalizedDaily = useCallback(
+    () => adminDashboardService.getTripsFinalizedDaily(range),
+    [range],
+  );
   const loadTopStations = useCallback(
     () => adminDashboardService.getTopStations({ ...range, limit: stationLimit }),
     [range, stationLimit],
@@ -244,6 +249,7 @@ export default function AdminDashboardPage() {
   const placeSummary = useDashboardData(loadPlaceSummary, canManagePlaces);
   const summary = useDashboardData(loadSummary, canViewRevenue);
   const revenueDaily = useDashboardData(loadRevenueDaily, canViewRevenue);
+  const tripsFinalizedDaily = useDashboardData(loadTripsFinalizedDaily, canViewRevenue);
   const topStations = useDashboardData(loadTopStations, canViewRevenue);
   const breakEven = useDashboardData(loadBreakEven, canViewRevenue);
 
@@ -265,7 +271,7 @@ export default function AdminDashboardPage() {
     if (key !== "custom") setRange(resolvePresetRange(key));
   };
 
-  const rangeSources = [summary, revenueDaily, topStations];
+  const rangeSources = [summary, revenueDaily, tripsFinalizedDaily, topStations];
   const rangeErrorSource = rangeSources.find((source) => source.fieldErrors?.from || source.fieldErrors?.to);
   const rangeFieldErrors = rangeErrorSource
     ? { from: rangeErrorSource.fieldErrors.from, to: rangeErrorSource.fieldErrors.to }
@@ -535,6 +541,20 @@ export default function AdminDashboardPage() {
               <TopStationList stations={topStations.data?.stations ?? []} totalTrips={topStations.data?.totalTrips ?? 0} />
             </DataPanel>
           </div>
+
+          <DataPanel
+            title="Lịch trình đã chốt theo ngày"
+            icon="task_alt"
+            source={tripsFinalizedDaily}
+            isEmpty={!tripsFinalizedDaily.data?.days?.length || tripsFinalizedDaily.data.totalTripsFinalized === 0}
+            pendingText="Biểu đồ lịch trình đã chốt từng ngày sẽ hiển thị khi hệ thống có API thống kê."
+            emptyText="Chưa có lịch trình nào được chốt trong khoảng này."
+          >
+            <TripsFinalizedChart
+              days={tripsFinalizedDaily.data?.days ?? []}
+              total={tripsFinalizedDaily.data?.totalTripsFinalized ?? 0}
+            />
+          </DataPanel>
 
           <DataPanel
             title="Tiến độ hoà vốn"

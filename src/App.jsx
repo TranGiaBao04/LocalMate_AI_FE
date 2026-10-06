@@ -59,7 +59,7 @@ import ImportStepperPage from "./pages/admin/ImportStepperPage";
 export default function App() {
   const { pathname } = useLocation();
   const { isLoggedIn, initializing } = useAuth();
-  const showAppNav = !pathname.startsWith("/admin") && !["/", "/login", "/register", "/forgot-password", "/loading", "/payment/success", "/payment/cancel"].includes(
+  const showAppNav = !pathname.startsWith("/admin") && !["/", "/about", "/login", "/register", "/forgot-password", "/loading", "/payment/success", "/payment/cancel"].includes(
     pathname,
   ) && isLoggedIn;
   const showBottomNav = ["/home", "/trips", "/metro", "/explore", "/profile", "/subscription"].includes(pathname);
@@ -67,12 +67,18 @@ export default function App() {
     if (initializing) return null;
     return isLoggedIn ? element : <Navigate to="/login" replace />;
   };
+  // Trang đích: đã đăng nhập thì vào thẳng app, không dựng landing (tránh nháy và gọi API thừa)
+  const landingOrHome = () => {
+    if (initializing) return null;
+    return isLoggedIn ? <Navigate to="/home" replace /> : <WelcomePage />;
+  };
 
   return (
     <>
       {showAppNav && <SideNavigation />}
       <Routes>
-        <Route path="/" element={<WelcomePage />} />
+        <Route path="/" element={landingOrHome()} />
+        <Route path="/about" element={<WelcomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />

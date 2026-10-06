@@ -15,6 +15,10 @@ export const adminDashboardService = {
   // → { from, to, currency, totalRevenue, days: [{ date, revenue, paidOrders }], generatedAt }, đủ mọi ngày
   getRevenueDaily: ({ from, to }) =>
     adminApiClient.get(`/admin/dashboard/revenue-daily?${toQuery({ from, to })}`),
+  // → { from, to, totalTripsFinalized, days: [{ date, tripsFinalized }], generatedAt }, đủ mọi ngày.
+  // Khác summary.tripsCreated (đếm mọi lịch trình theo ngày tạo).
+  getTripsFinalizedDaily: ({ from, to }) =>
+    adminApiClient.get(`/admin/dashboard/trips-finalized-daily?${toQuery({ from, to })}`),
   // → { from, to, totalTrips, stations: [{ order, name, tripCount, sharePercent }], generatedAt }
   getTopStations: ({ from, to, limit }) =>
     adminApiClient.get(`/admin/dashboard/top-stations?${toQuery({ from, to, limit })}`),
