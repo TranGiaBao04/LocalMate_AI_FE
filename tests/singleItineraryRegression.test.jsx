@@ -71,7 +71,7 @@ describe("FE-UP7: Single Itinerary contract and regression closure", () => {
     refreshSubscription = vi.fn().mockResolvedValue({ savedTrips: { used: 1, limit: 1 } });
     vi.spyOn(Subscription, "useSubscription").mockReturnValue({ refreshSubscription });
     finalize = vi.fn().mockResolvedValue({ id: trip.id, status: "finalized" });
-    vi.spyOn(Trip, "useTrip").mockImplementation(() => ({ currentTrip: trip, finalizeTrip: finalize, deleteItem: vi.fn(), savedTrips: Array(20).fill({ status: "finalized" }) }));
+    vi.spyOn(Trip, "useTrip").mockImplementation(() => ({ currentTrip: trip, finalizeTrip: finalize, deleteItem: vi.fn(), explainingTripIds: [], savedTrips: Array(20).fill({ status: "finalized" }) }));
     checkout = vi.spyOn(itineraryPurchaseService, "checkout").mockResolvedValue({ status: 200, data: ownedOrder() });
     getOrder = vi.spyOn(itineraryPurchaseService, "getOrder").mockImplementation(async (orderId) => ownedOrder({ orderId }));
     getAvailability = vi.spyOn(itineraryPurchaseService, "getAvailability").mockResolvedValue(availability);

@@ -10,6 +10,7 @@ import {
   getPlanDisplayName,
 } from "../../utils/subscriptionUtils";
 import MobileLayout from "../../components/layout/MobileLayout";
+import PageHeader from "../../components/layout/PageHeader";
 import { tagService } from "../../services/tagService";
 import { userService } from "../../services/userService";
 import NotificationBell from "../../components/notifications/NotificationBell";
@@ -172,11 +173,8 @@ export default function ProfilePage() {
 
   return (
     <MobileLayout>
-      <header className="app-header flex h-16 items-center justify-between border-b border-outline-variant/20 px-container-margin py-stack-sm lg:px-8">
-        <h1 className="text-headline-lg-mobile font-extrabold text-primary">
-          Hồ sơ
-        </h1>
-        <div className="flex items-center gap-stack-md">
+      <PageHeader title="Hồ sơ">
+        <div className="flex flex-none items-center gap-stack-md">
           {!isDemo && !draft && (
             <button
               type="button"
@@ -197,7 +195,7 @@ export default function ProfilePage() {
             </span>
           </div>
         </div>
-      </header>
+      </PageHeader>
 
       <main className="content-shell flex flex-col gap-stack-lg px-container-margin pb-28 pt-20 lg:px-8 lg:pb-12">
         <section className="flex flex-col items-center gap-stack-sm py-stack-lg text-center lg:items-start lg:text-left">

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useSubscription } from "../../context/SubscriptionContext";
+import PageHeader from "../../components/layout/PageHeader";
 import SubscriptionSummary from "../../components/subscription/SubscriptionSummary";
 import PlanCard from "../../components/subscription/PlanCard";
 import PaymentCheckoutModal from "../../components/subscription/PaymentCheckoutModal";
@@ -422,29 +423,7 @@ export default function SubscriptionPage() {
 
   return (
     <div className="app-shell flex flex-col min-h-screen bg-background lg:pl-[220px]">
-      {/* Top Header */}
-      <header className="app-header sticky top-0 z-40 flex h-16 items-center justify-between border-b border-outline-variant/20 bg-surface/90 px-container-margin backdrop-blur-md lg:px-8">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
-            aria-label="Quay lại"
-          >
-            <span className="material-symbols-outlined text-[22px]">
-              arrow_back
-            </span>
-          </button>
-          <div>
-            <h1 className="text-title-md font-bold text-on-surface">
-              Gói dịch vụ & Hội viên
-            </h1>
-            <p className="text-label-sm text-on-surface-variant hidden sm:block">
-              Nâng cấp lượt tạo lịch trình AI và số lượng lịch trình lưu trữ
-            </p>
-          </div>
-        </div>
-
+      <PageHeader title="Gói dịch vụ & Hội viên">
         <button
           type="button"
           onClick={() => refreshAll()}
@@ -461,10 +440,10 @@ export default function SubscriptionPage() {
             refresh
           </span>
         </button>
-      </header>
+      </PageHeader>
 
       {/* Main Content */}
-      <main className="content-shell flex-1 px-container-margin py-6 lg:px-8 max-w-5xl mx-auto w-full space-y-8 pb-28 lg:pb-12">
+      <main className="content-shell flex-1 px-container-margin pt-20 lg:px-8 max-w-5xl mx-auto w-full space-y-8 pb-28 lg:pb-12">
         {/* Demo Account Banner */}
         {isDemo && (
           <div className="card border border-amber-300 bg-amber-50/80 p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

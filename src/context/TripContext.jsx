@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { STORAGE_KEYS } from "../constants";
 import { tripService } from "../services/tripService";
 import { useAuth } from "./AuthContext";
@@ -30,6 +30,9 @@ export function TripProvider({ children }) {
   const [tripsLoaded, setTripsLoaded] = useState(false);
   const [tripsError, setTripsError] = useState(false);
   const [tripsReloadKey, setTripsReloadKey] = useState(0);
+  // Lần gọi AI viết lý do đang chờ, theo tripId. Giữ ở context để rời trang Nháp rồi quay lại vẫn biết đang chờ.
+  const explainRequests = useRef(new Map());
+  const [explainingTripIds, setExplainingTripIds] = useState([]);
 
   useEffect(() => {
     let active = true;
@@ -104,9 +107,23 @@ export function TripProvider({ children }) {
   const generateTrip = async (req) => tripService.generateTrip(req);
 
   // AI chỉ đổi câu lý do. Gọi lại GET /trips/{id} để không ghi đè thay đổi người dùng làm trong lúc chờ.
-  const explainTrip = async (tripId) => {
-    await tripService.explainTrip(tripId);
-    return refreshTrip(tripId);
+  // Mỗi trip chỉ một lần gọi cùng lúc: BE tính lần đang chờ là 1 lượt của trip, lần gọi chồng lên sẽ nhận
+  // 429 ai_trip_limit_reached dù trip chưa hết lượt. Gọi lại khi đang chờ thì nhận đúng promise cũ.
+  const explainTrip = (tripId) => {
+    const pending = explainRequests.current.get(tripId);
+    if (pending) return pending;
+    const request = (async () => {
+      try {
+        await tripService.explainTrip(tripId);
+        return await refreshTrip(tripId);
+      } finally {
+        explainRequests.current.delete(tripId);
+        setExplainingTripIds((ids) => ids.filter((id) => id !== tripId));
+      }
+    })();
+    explainRequests.current.set(tripId, request);
+    setExplainingTripIds((ids) => [...ids, tripId]);
+    return request;
   };
 
   const saveTrip = async (trip) => {
@@ -163,6 +180,7 @@ export function TripProvider({ children }) {
         deleteTrip,
         generateTrip,
         explainTrip,
+        explainingTripIds,
         finalizeTrip,
         replaceItem,
         deleteItem,

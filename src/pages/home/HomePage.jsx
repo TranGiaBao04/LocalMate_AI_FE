@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import MobileLayout from "../../components/layout/MobileLayout";
+import PageHeader from "../../components/layout/PageHeader";
 import GuestTourCard from "../../components/home/GuestTourCard";
 import HomeSearch from "../../components/home/HomeSearch";
 import NotificationBell from "../../components/notifications/NotificationBell";
@@ -95,27 +96,25 @@ export default function HomePage() {
 
   return (
     <MobileLayout>
-      <main className="content-shell flex flex-1 flex-col gap-6 px-container-margin pb-28 pt-6 lg:gap-7 lg:px-8 lg:pb-12">
-        {/* Top bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex-none">
-            <div className="text-[15px] font-extrabold text-navy-dark">
-              Trang chủ
-            </div>
-            <div className="text-xs text-text-faint">Tổng quan chuyến đi</div>
-          </div>
-
+      <PageHeader title="Trang chủ">
+        {/* Từ sm trở lên ô tìm nằm trong thanh tiêu đề; mobile xuống hàng riêng bên dưới */}
+        <div className="hidden min-w-0 flex-1 justify-center sm:flex">
           <HomeSearch />
+        </div>
+        <div className="flex flex-none items-center gap-2.5">
+          <NotificationBell />
+          <button
+            onClick={() => navigate("/profile")}
+            className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-full bg-navy text-sm font-bold text-white active:scale-95"
+          >
+            {initial}
+          </button>
+        </div>
+      </PageHeader>
 
-          <div className="flex flex-none items-center gap-2.5">
-            <NotificationBell />
-            <button
-              onClick={() => navigate("/profile")}
-              className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-full bg-navy text-sm font-bold text-white active:scale-95"
-            >
-              {initial}
-            </button>
-          </div>
+      <main className="content-shell flex flex-1 flex-col gap-6 px-container-margin pb-28 pt-20 lg:gap-7 lg:px-8 lg:pb-12">
+        <div className="sm:hidden">
+          <HomeSearch />
         </div>
 
         {/* Guest Tour banner / quick guide */}
