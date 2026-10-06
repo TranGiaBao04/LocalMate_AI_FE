@@ -69,8 +69,9 @@ const FIELD_NAME_PATTERN = /(^|\s)(From|To|Limit|Month)(?=[\s.,]|$)/g;
 
 // 400 invalid_dashboard_query → { from, to, limit, month }. Câu lỗi BE dùng tên field tiếng Anh
 // ("From phải trước hoặc bằng To.") nên thay bằng nhãn tiếng Việt. Lỗi khác ⇒ null.
-export function getDashboardFieldErrors(err) {
-  if (err?.code !== "invalid_dashboard_query" || !err.errors) return null;
+// `code`: API thống kê phản hồi dùng chung luật ngày nhưng trả mã invalid_admin_feedback_query.
+export function getDashboardFieldErrors(err, code = "invalid_dashboard_query") {
+  if (err?.code !== code || !err.errors) return null;
   return Object.fromEntries(
     Object.entries(err.errors).map(([field, messages]) => {
       const message = String(messages?.[0] ?? "Giá trị không hợp lệ.").replace(

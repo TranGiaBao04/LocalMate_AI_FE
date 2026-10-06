@@ -38,6 +38,7 @@ export const ADMIN_PERMISSIONS = {
   MANAGE_USERS: "ManageUsers",
   MANAGE_ROLES: "ManageRoles",
   MANAGE_SETTINGS: "ManageSettings",
+  VIEW_FEEDBACK: "ViewFeedback",
 };
 
 // PlaceCategory của BE, cùng thứ tự với GET /admin/stations. Loại lạ hiện nguyên mã.

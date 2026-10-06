@@ -58,6 +58,15 @@ export const ADMIN_SECTIONS = [
     tone: "bg-blue-50 text-blue-700",
   },
   {
+    path: "feedback",
+    label: "Phản hồi & đánh giá",
+    group: "Người dùng & Phân quyền",
+    icon: "reviews",
+    permissions: [P.VIEW_FEEDBACK],
+    description: "Xem đánh giá địa điểm, feedback chuyến đi và thống kê.",
+    tone: "bg-rose-50 text-rose-700",
+  },
+  {
     path: "roles",
     label: "Phân quyền & Quản trị",
     group: "Người dùng & Phân quyền",
