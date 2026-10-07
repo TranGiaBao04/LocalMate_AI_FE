@@ -111,19 +111,19 @@ export default function LoginPage() {
   };
 
   const busy = loading || loadingDemo || loadingGoogle;
-  const fieldClass = "h-14 w-full rounded-[12px] border border-[#dce3e9] bg-[#fafcfd] pl-12 pr-4 text-sm text-[#172b3b] outline-none transition-colors placeholder:text-[#8b99a5] focus:border-[#2181a5] focus:bg-white focus:ring-2 focus:ring-[#2181a5]/15 disabled:opacity-60";
-  const linkClass = "rounded-sm text-[#176883] outline-none hover:text-[#104a62] hover:underline focus-visible:ring-2 focus-visible:ring-[#2181a5] focus-visible:ring-offset-4";
+  const fieldClass = "h-14 w-full rounded-[12px] border border-border-soft bg-surface pl-12 pr-4 text-sm text-on-surface outline-none transition-colors placeholder:text-text-faint focus:border-navy-mid focus:bg-white focus:ring-2 focus:ring-navy-mid/15 disabled:opacity-60";
+  const linkClass = "rounded-sm text-primary outline-none hover:text-navy-dark hover:underline focus-visible:ring-2 focus-visible:ring-navy-mid focus-visible:ring-offset-4";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#edf3f5] px-3 py-5 sm:px-6 md:px-8 md:py-10">
-      <div className="grid w-full max-w-[1220px] grid-cols-1 gap-0 rounded-[30px] border border-white bg-white p-2.5 shadow-[0_24px_80px_-28px_rgba(23,58,75,0.28)] md:p-3 lg:grid-cols-[46%_54%]">
+    <main className="flex min-h-screen items-center justify-center bg-background px-3 py-5 sm:px-6 md:px-8 md:py-10">
+      <div className="grid w-full max-w-[1220px] grid-cols-1 gap-0 rounded-[30px] border border-white bg-white p-2.5 shadow-[0_24px_80px_-28px_rgba(15,33,72,0.28)] md:p-3 lg:grid-cols-[46%_54%]">
         <LoginTravelPanel />
 
         <section aria-labelledby="login-title" className="mx-auto flex w-full min-w-0 max-w-[520px] flex-col justify-center px-4 py-5 sm:px-9 md:px-8 lg:max-w-none lg:px-16">
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="mb-3 inline-flex h-8 w-fit shrink-0 items-center gap-2 whitespace-nowrap rounded-[8px] px-2.5 text-xs font-medium text-[#176883] no-underline outline-none transition-colors hover:bg-[#edf5f7] hover:text-[#104a62] focus-visible:ring-2 focus-visible:ring-[#2181a5] focus-visible:ring-offset-2 motion-reduce:transition-none lg:mb-2"
+            className="mb-3 inline-flex h-8 w-fit shrink-0 items-center gap-2 whitespace-nowrap rounded-[8px] px-2.5 text-xs font-medium text-primary no-underline outline-none transition-colors hover:bg-surface-container-low hover:text-navy-dark focus-visible:ring-2 focus-visible:ring-navy-mid focus-visible:ring-offset-2 motion-reduce:transition-none lg:mb-2"
           >
             <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[17px] leading-none">arrow_back</span>
             <span>Quay lại trang chủ</span>
@@ -133,18 +133,19 @@ export default function LoginPage() {
             type="button"
             aria-label="LocalMate AI - Trang chủ"
             onClick={() => navigate("/")}
-            className="mb-4 flex w-fit items-center gap-3 rounded-[8px] outline-none focus-visible:ring-2 focus-visible:ring-[#2181a5] focus-visible:ring-offset-4"
+            className="mb-4 flex w-fit items-center gap-3 rounded-[8px] outline-none focus-visible:ring-2 focus-visible:ring-navy-mid focus-visible:ring-offset-4"
           >
             <img src={logo} alt="LocalMate AI" className="h-12 w-12 rounded-[8px] object-cover object-top" />
-            <span className="text-lg font-semibold text-[#173f57]">
-              LocalMate <span className="text-[#24828d]">AI</span>
+            <span className="flex items-center gap-1.5 text-lg font-extrabold tracking-tight text-navy-dark">
+              LocalMate
+              <span className="rounded-md bg-navy px-1.5 py-0.5 text-[11px] font-extrabold text-white">AI</span>
             </span>
           </button>
 
-          <h1 id="login-title" className="text-[26px] font-bold leading-snug text-[#172b3b] lg:text-[30px]">
+          <h1 id="login-title" className="text-[26px] font-bold leading-snug text-navy-darkest lg:text-[30px]">
             Chào mừng bạn trở lại
           </h1>
-          <p className="mb-5 mt-2 text-sm leading-6 text-[#657784] lg:mb-4">
+          <p className="mb-5 mt-2 text-sm leading-6 text-text-muted lg:mb-4">
             Đăng nhập để tiếp tục hành trình cùng LocalMate AI.
           </p>
 
@@ -162,11 +163,11 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} noValidate aria-busy={busy} className="space-y-4 lg:space-y-3">
             <div>
-              <label htmlFor="login-email" className="mb-2 block text-sm font-medium text-[#324b5a]">
+              <label htmlFor="login-email" className="mb-2 block text-sm font-medium text-navy-dark">
                 Email
               </label>
               <div className="relative">
-                <span aria-hidden="true" className="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-[#81949e]">mail</span>
+                <span aria-hidden="true" className="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-text-faint">mail</span>
                 <input
                   id="login-email"
                   name="email"
@@ -183,11 +184,11 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="login-password" className="mb-2 block text-sm font-medium text-[#324b5a]">
+              <label htmlFor="login-password" className="mb-2 block text-sm font-medium text-navy-dark">
                 Mật khẩu
               </label>
               <div className="relative">
-                <span aria-hidden="true" className="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-[#81949e]">lock</span>
+                <span aria-hidden="true" className="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-text-faint">lock</span>
                 <input
                   id="login-password"
                   name="password"
@@ -206,7 +207,7 @@ export default function LoginPage() {
                   aria-pressed={showPass}
                   onClick={() => setShowPass(!showPass)}
                   disabled={busy}
-                  className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-[8px] text-[#81949e] outline-none hover:bg-[#edf3f5] hover:text-[#176883] focus-visible:ring-2 focus-visible:ring-[#2181a5]"
+                  className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-[8px] text-text-faint outline-none hover:bg-surface-container-low hover:text-primary focus-visible:ring-2 focus-visible:ring-navy-mid"
                 >
                   <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
                     {showPass ? "visibility_off" : "visibility"}
@@ -216,14 +217,14 @@ export default function LoginPage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs sm:text-sm">
-              <label className="flex min-h-8 cursor-pointer items-center gap-2.5 text-[#506773]">
+              <label className="flex min-h-8 cursor-pointer items-center gap-2.5 text-text-muted">
                 <input
                   type="checkbox"
                   name="rememberMe"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                   disabled={busy}
-                  className="h-4 w-4 rounded border-[#c4d2d9] accent-[#176883] outline-none focus-visible:ring-2 focus-visible:ring-[#2181a5] focus-visible:ring-offset-2"
+                  className="h-4 w-4 rounded border-border-soft accent-primary outline-none focus-visible:ring-2 focus-visible:ring-navy-mid focus-visible:ring-offset-2"
                 />
                 Ghi nhớ đăng nhập
               </label>
@@ -239,16 +240,16 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={busy}
-              className="flex h-14 w-full items-center justify-center gap-3 rounded-[12px] bg-[#176883] text-sm font-semibold text-white shadow-[0_5px_14px_-5px_rgba(23,104,131,0.4)] outline-none transition-colors hover:bg-[#10556e] focus-visible:ring-2 focus-visible:ring-[#2181a5] focus-visible:ring-offset-4 disabled:cursor-wait disabled:opacity-60"
+              className="flex h-14 w-full items-center justify-center gap-3 rounded-[12px] bg-primary text-sm font-semibold text-white shadow-[0_5px_14px_-5px_rgba(29,62,130,0.4)] outline-none transition-colors hover:bg-navy-dark focus-visible:ring-2 focus-visible:ring-navy-mid focus-visible:ring-offset-4 disabled:cursor-wait disabled:opacity-60"
             >
               {loading ? "Đang đăng nhập..." : "Đăng nhập"}
               <span aria-hidden="true" className="material-symbols-outlined text-[20px]">arrow_forward</span>
             </button>
 
-            <div className="flex items-center gap-4 text-xs text-[#8b99a5]">
-              <span className="h-px flex-1 bg-[#e6ecef]" />
+            <div className="flex items-center gap-4 text-xs text-text-faint">
+              <span className="h-px flex-1 bg-border-soft" />
               hoặc
-              <span className="h-px flex-1 bg-[#e6ecef]" />
+              <span className="h-px flex-1 bg-border-soft" />
             </div>
 
             <GoogleSignInButton
@@ -261,14 +262,14 @@ export default function LoginPage() {
               type="button"
               onClick={handleDemoLogin}
               disabled={busy}
-              className="mx-auto flex min-h-10 items-center justify-center gap-2 rounded-[8px] px-3 text-sm text-[#607680] outline-none hover:bg-[#f2f7f8] hover:text-[#176883] focus-visible:ring-2 focus-visible:ring-[#2181a5] disabled:opacity-60"
+              className="mx-auto flex min-h-10 items-center justify-center gap-2 rounded-[8px] px-3 text-sm text-text-muted outline-none hover:bg-surface-container-low hover:text-primary focus-visible:ring-2 focus-visible:ring-navy-mid disabled:opacity-60"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[19px]">explore</span>
               {loadingDemo ? "Đang vào demo..." : "Trải nghiệm nhanh (Demo)"}
             </button>
           </form>
 
-          <p className="mt-5 text-center text-sm text-[#657784]">
+          <p className="mt-5 text-center text-sm text-text-muted">
             Chưa có tài khoản?{" "}
             <button type="button" onClick={() => navigate("/register")} className={`ml-1 font-semibold ${linkClass}`}>
               Đăng ký
