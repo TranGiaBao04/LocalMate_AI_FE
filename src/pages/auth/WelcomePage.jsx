@@ -8,6 +8,8 @@ import { placeService } from "../../services/placeService";
 import { itineraryService } from "../../services/itineraryService";
 import { subscriptionService } from "../../services/subscriptionService";
 import { publicStatsService } from "../../services/publicStatsService";
+import { publicReviewService } from "../../services/publicReviewService";
+import RatingStars from "../../components/ui/RatingStars";
 import {
   FALLBACK_PLANS,
   PLAN_CODES,
@@ -67,9 +69,8 @@ const NAV_LINKS = [
   { id: "bang-gia", label: "Gói dịch vụ" },
 ];
 
-// Chưa có nguồn đánh giá thật. Khi có, thêm vào đây: { name, role, comment, rating }
-const REVIEWS = [];
-const REVIEW_PLACEHOLDER_COUNT = 3;
+// Số thẻ đánh giá ở trang đích. API trả ít hơn thì các ô còn lại hiện ô giữ chỗ
+const REVIEW_LIMIT = 3;
 
 const CAROUSEL_INTERVAL_MS = 5000;
 const CURATED_LIMIT = 6;
@@ -335,6 +336,8 @@ export default function WelcomePage() {
   const [clusters, setClusters] = useState([]);
   const [curated, setCurated] = useState([]);
   const [tripsFinalized, setTripsFinalized] = useState(0);
+  const [reviews, setReviews] = useState([]);
+  const [reviewTagLabels, setReviewTagLabels] = useState({});
   const [publicDataLoaded, setPublicDataLoaded] = useState(false);
 
   // Người đã đăng nhập xem landing (qua /about) thì các nút dẫn thẳng vào app
@@ -364,13 +367,22 @@ export default function WelcomePage() {
       placeService.getMetroClusters(),
       itineraryService.getCuratedItineraries(),
       publicStatsService.getPublicStats(),
-    ]).then(([masterData, clusterData, curatedData, publicStats]) => {
+      publicReviewService.getPublicReviews(REVIEW_LIMIT),
+    ]).then(([masterData, clusterData, curatedData, publicStats, publicReviews]) => {
       if (!active) return;
+      if (publicReviews.status === "fulfilled" && Array.isArray(publicReviews.value?.items)) {
+        setReviews(publicReviews.value.items.slice(0, REVIEW_LIMIT));
+      }
       if (publicStats.status === "fulfilled" && typeof publicStats.value?.tripsFinalized === "number") {
         setTripsFinalized(publicStats.value.tripsFinalized);
       }
       if (masterData.status === "fulfilled") {
         setStations([...masterData.value.metroStations].sort((a, b) => a.order - b.order));
+        setReviewTagLabels(
+          Object.fromEntries(
+            (masterData.value.reviewQuickTags ?? []).map((tag) => [tag.code, tag.label]),
+          ),
+        );
       }
       if (clusterData.status === "fulfilled" && Array.isArray(clusterData.value)) {
         setClusters(clusterData.value);
@@ -517,7 +529,7 @@ export default function WelcomePage() {
               </div>
             </div>
 
-            <h1 className="mx-auto max-w-4xl text-3xl font-extrabold leading-[1.18] tracking-tight text-navy-darkest sm:text-5xl lg:text-6xl">
+            <h1 className="mx-auto max-w-4xl text-3xl font-extrabold leading-[1.25] tracking-tight text-navy-darkest sm:text-5xl sm:leading-[1.25] lg:text-6xl lg:leading-[1.25]">
               Khám Phá Sài Gòn Thông Minh Dọc Tuyến Metro Số 1 Cùng{" "}
               <span className="text-navy-mid">LocalMate AI</span>
             </h1>
@@ -716,45 +728,44 @@ export default function WelcomePage() {
         {/* Đánh giá */}
         <section className="bg-background py-16 sm:py-20">
           <div className={CONTAINER}>
-            <SectionHeading title="Người dùng nói gì về LocalMate AI" />
+            <SectionHeading title="Người dùng nói gì về các điểm đến" />
             <Reveal className="grid grid-cols-1 gap-5 md:grid-cols-3">
-              {REVIEWS.length > 0
-                ? REVIEWS.map((review) => (
-                    <figure key={review.name} className="rounded-3xl bg-white p-6">
-                      <div
-                        className="mb-3 flex gap-0.5 text-accent"
-                        aria-label={`${review.rating} trên 5 sao`}
-                      >
-                        {Array.from({ length: review.rating }, (_, i) => (
-                          <span
-                            key={i}
-                            aria-hidden="true"
-                            className="material-symbols-outlined material-symbols-filled text-[18px]"
+              {reviews.map((review) => (
+                <figure key={review.id} className="flex flex-col rounded-3xl bg-white p-6">
+                  <RatingStars value={review.rating} size={18} />
+                  <blockquote className="mt-3 line-clamp-5 break-words text-sm leading-relaxed text-on-surface">
+                    {review.comment}
+                  </blockquote>
+                  {/* Chỉ hiện nhãn đã có tên tiếng Việt từ master-data */}
+                  {review.quickTags?.some((code) => reviewTagLabels[code]) && (
+                    <ul className="mt-3 flex flex-wrap gap-1.5">
+                      {review.quickTags
+                        .filter((code) => reviewTagLabels[code])
+                        .map((code) => (
+                          <li
+                            key={code}
+                            className="rounded-full bg-chip-bg px-2.5 py-1 text-xs font-medium text-navy-dark"
                           >
-                            star
-                          </span>
+                            {reviewTagLabels[code]}
+                          </li>
                         ))}
-                      </div>
-                      <blockquote className="text-sm leading-relaxed text-on-surface">
-                        {review.comment}
-                      </blockquote>
-                      <figcaption className="mt-4 text-sm font-bold text-navy-darkest">
-                        {review.name}
-                        {review.role && (
-                          <span className="block text-xs font-medium text-text-muted">
-                            {review.role}
-                          </span>
-                        )}
-                      </figcaption>
-                    </figure>
-                  ))
-                : Array.from({ length: REVIEW_PLACEHOLDER_COUNT }, (_, i) => (
-                    <MediaPlaceholder
-                      key={i}
-                      label="Đánh giá của người dùng sẽ hiển thị ở đây"
-                      className="min-h-[180px] bg-white"
-                    />
-                  ))}
+                    </ul>
+                  )}
+                  <figcaption className="mt-auto pt-4 text-sm font-bold text-navy-darkest">
+                    {review.reviewerName}
+                    <span className="block truncate text-xs font-medium text-text-muted">
+                      Đánh giá {review.place.name}
+                    </span>
+                  </figcaption>
+                </figure>
+              ))}
+              {Array.from({ length: Math.max(0, REVIEW_LIMIT - reviews.length) }, (_, i) => (
+                <MediaPlaceholder
+                  key={i}
+                  label="Đánh giá của người dùng sẽ hiển thị ở đây"
+                  className="min-h-[180px] bg-white"
+                />
+              ))}
             </Reveal>
           </div>
         </section>
