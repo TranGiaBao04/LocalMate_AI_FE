@@ -97,7 +97,7 @@ function SettingRow({ setting, onSaved, onMissing, onResetRequest }) {
               aria-describedby={`${inputId}-hint${error ? ` ${inputId}-error` : ""}`}
               className="h-11 w-full min-w-0 flex-1 bg-transparent text-sm font-semibold leading-5 text-[#0F2148] outline-none disabled:cursor-not-allowed disabled:text-[#8993AC]"
             />
-            {setting.unit && <span className="ml-2 shrink-0 text-xs leading-[18px] text-[#5C6B8A]">{setting.unit}</span>}
+            {setting.unit && <span title={setting.unit} className="ml-2 max-w-[40%] truncate text-xs leading-[18px] text-[#5C6B8A]">{setting.unit}</span>}
           </div>
           <button
             type="submit"
@@ -209,7 +209,7 @@ export default function AdminSettingsPage() {
   };
 
   return (
-    <div>
+    <div className="min-w-0 [overflow-wrap:anywhere]">
       <AdminPageHeader
         eyebrow="Hệ thống"
         title="Cấu hình hệ thống"

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatVnDateTime } from "../../../utils/subscriptionUtils";
+import { ADMIN_ICON_BUTTON } from "../adminStyles";
 
 const GRANT_STATUS_CONFIG = {
   Granted: {
@@ -134,10 +135,11 @@ export default function EntitlementRepairPanel({
                   <button
                     type="button"
                     onClick={() => handleCopyPeriodId(entitlement.subscriptionPeriodId)}
-                    className="inline-flex shrink-0 items-center text-[#5C6B8A] hover:text-slate-600"
+                    className={ADMIN_ICON_BUTTON}
+                    aria-label="Sao chép ID kỳ hội viên"
                     title="Sao chép ID kỳ hội viên"
                   >
-                    <span className="material-symbols-outlined text-[14px]">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
                       {copiedPeriodId ? "done" : "content_copy"}
                     </span>
                   </button>
