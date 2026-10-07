@@ -11,8 +11,8 @@ const SOURCE_STATES = {
 function EvidenceField({ label, children }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="mt-0.5 break-words text-sm font-medium text-slate-900 [overflow-wrap:anywhere]">
+      <dt className="text-xs text-[#5C6B8A]">{label}</dt>
+      <dd className="mt-0.5 break-words text-sm font-medium text-[#0F2148] [overflow-wrap:anywhere]">
         {children}
       </dd>
     </div>
@@ -43,9 +43,9 @@ export default function CreditSourcesPanel({ sources }) {
           };
           const evidence = source.releaseEvidence;
           return (
-            <article key={index} aria-label={`Nguồn credit ${index + 1}`} className="space-y-4 rounded-lg border border-slate-200 p-4">
+            <article key={index} aria-label={`Nguồn credit ${index + 1}`} className="space-y-4 rounded-[8px] border border-[#DCE2EE] p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <p className="min-w-0 break-words font-semibold text-slate-900 [overflow-wrap:anywhere]">
+                <p className="min-w-0 break-words font-semibold text-[#0F2148] [overflow-wrap:anywhere]">
                   {source.planName || source.planCode || "Gói đăng ký"}
                 </p>
                 <StatusBadge status={state.status} label={state.label} />

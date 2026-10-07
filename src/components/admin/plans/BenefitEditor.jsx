@@ -62,9 +62,9 @@ export default function BenefitEditor({
         <label className="block text-sm font-semibold text-slate-700">
           Quyền lợi & Tính năng (Đang tải...)
         </label>
-        <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+        <div className="space-y-2 rounded-[12px] border border-[#DCE2EE] bg-slate-50/50 p-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-10 animate-pulse rounded-lg bg-slate-200/70" />
+            <div key={i} className="h-10 animate-pulse rounded-[8px] bg-slate-200/70" />
           ))}
         </div>
       </div>
@@ -77,7 +77,7 @@ export default function BenefitEditor({
         <label className="block text-sm font-semibold text-slate-700">
           Quyền lợi & Tính năng
         </label>
-        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+        <div className="flex items-center gap-2 rounded-[12px] border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
           <span className="material-symbols-outlined text-[18px]">error</span>
           <span>{fetchError}</span>
         </div>
@@ -89,7 +89,7 @@ export default function BenefitEditor({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between">
         <label className="block text-sm font-semibold text-slate-700">
           Quyền lợi & Tính năng
           <span className="ml-2 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-[#1d3e82]">
@@ -120,20 +120,20 @@ export default function BenefitEditor({
       </div>
 
       {features.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500">
+        <div className="rounded-[12px] border border-dashed border-[#DCE2EE] p-4 text-center text-xs text-[#5C6B8A]">
           Hệ thống chưa có quyền lợi khả dụng nào.
         </div>
       ) : (
-        <div className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/40 p-3">
+        <div className="max-h-56 space-y-2 overflow-y-auto rounded-[12px] border border-[#DCE2EE] bg-slate-50/40 p-3">
           {features.map((feature) => {
             const isChecked = selectedIds.includes(feature.id);
             return (
               <label
                 key={feature.id}
-                className={`flex cursor-pointer select-none items-start gap-3 rounded-lg border p-2.5 transition ${
+                className={`flex cursor-pointer select-none items-start gap-3 rounded-[8px] border p-2.5 transition ${
                   isChecked
                     ? "border-blue-200 bg-blue-50/60"
-                    : "border-slate-200/80 bg-white hover:border-slate-300"
+                    : "border-[#DCE2EE]/80 bg-white hover:border-slate-300"
                 } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
               >
                 <input
@@ -148,12 +148,12 @@ export default function BenefitEditor({
                     <span className="text-sm font-semibold text-slate-800">
                       {feature.name}
                     </span>
-                    <span className="font-mono text-[10px] uppercase text-slate-400">
+                    <span className="font-mono text-xs uppercase text-[#5C6B8A]">
                       [{feature.code}]
                     </span>
                   </div>
                   {feature.description && (
-                    <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
+                    <p className="mt-0.5 text-xs leading-relaxed text-[#5C6B8A]">
                       {feature.description}
                     </p>
                   )}

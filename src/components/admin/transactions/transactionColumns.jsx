@@ -4,7 +4,7 @@ import { formatPlanPrice, formatVnDateTime } from "../../../utils/subscriptionUt
 // Cột bảng giao dịch dùng chung: màn Giao dịch và lịch sử thanh toán trong chi tiết user
 const OPERATION_CONFIG = {
   Purchase: { label: "Mua", icon: "shopping_cart", color: "text-blue-700" },
-  Renewal: { label: "Gia hạn", icon: "autorenew", color: "text-purple-700" },
+  Renewal: { label: "Gia hạn", icon: "autorenew", color: "text-blue-700" },
   Upgrade: { label: "Nâng cấp", icon: "upgrade", color: "text-teal-700" },
 };
 
@@ -25,6 +25,7 @@ export function buildTransactionColumns({ onOpenDetail, showCustomer = true } = 
   return [
     {
       key: "createdAt",
+      cellClassName: "min-w-[150px]",
       header: "Thời gian tạo",
       sortable: true,
       render: (row) => (
@@ -47,12 +48,12 @@ export function buildTransactionColumns({ onOpenDetail, showCustomer = true } = 
       sortable: true,
       render: (row) => (
         <div className="flex flex-col">
-          <span className="font-mono text-xs font-bold text-slate-900">
+          <span className="font-mono text-xs font-bold text-[#0F2148]">
             #{row.providerOrderCode || row.id}
           </span>
           {row.providerOrderCode && row.id && (
             <span
-              className="max-w-[130px] truncate font-mono text-[10px] text-slate-400"
+              className="max-w-[130px] truncate font-mono text-xs text-[#5C6B8A]"
               title={row.id}
             >
               {row.id}
@@ -63,14 +64,15 @@ export function buildTransactionColumns({ onOpenDetail, showCustomer = true } = 
     },
     showCustomer && {
       key: "userEmail",
+      cellClassName: "min-w-[170px]",
       header: "Khách hàng",
       sortable: true,
       render: (row) => (
         <div>
-          <p className="font-medium text-slate-900">
+          <p className="font-medium text-[#0F2148]">
             {row.userFullName || "Khách hàng"}
           </p>
-          <p className="mt-0.5 font-mono text-xs text-slate-500">
+          <p className="mt-0.5 font-mono text-xs text-[#5C6B8A]">
             {row.userEmail}
           </p>
         </div>
@@ -86,7 +88,7 @@ export function buildTransactionColumns({ onOpenDetail, showCustomer = true } = 
             ? "Lịch trình đơn lẻ"
             : row.planName || row.planCode || "Gói đăng ký";
         return (
-          <span className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+          <span className="inline-flex min-h-11 items-center rounded-[8px] bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
             {displayName}
           </span>
         );
@@ -120,11 +122,11 @@ export function buildTransactionColumns({ onOpenDetail, showCustomer = true } = 
       sortable: true,
       render: (row) => (
         <div className="min-w-[120px]">
-          <p className="font-semibold text-slate-900">
+          <p className="font-semibold text-[#0F2148]">
             {row.amount != null ? formatPlanPrice(row.amount) : "—"}
           </p>
           {row.operationType === "Upgrade" && (
-            <div className="mt-1 space-y-0.5 text-xs text-slate-500">
+            <div className="mt-1 space-y-0.5 text-xs text-[#5C6B8A]">
               <p>Credit: {row.creditAmount != null ? formatPlanPrice(row.creditAmount) : "—"}</p>
               <p>Giá gốc: {row.listPrice != null ? formatPlanPrice(row.listPrice) : "—"}</p>
             </div>
@@ -134,6 +136,7 @@ export function buildTransactionColumns({ onOpenDetail, showCustomer = true } = 
     },
     {
       key: "status",
+      cellClassName: "whitespace-nowrap",
       header: "Trạng thái",
       sortable: true,
       render: (row) => {
@@ -148,12 +151,12 @@ export function buildTransactionColumns({ onOpenDetail, showCustomer = true } = 
       key: "actions",
       header: "Thao tác",
       className: "text-right",
-      cellClassName: "text-right",
+      cellClassName: "whitespace-nowrap text-right",
       render: (row) => (
         <button
           type="button"
           onClick={() => onOpenDetail(row.id)}
-          className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#1d3e82] transition hover:bg-blue-50 hover:text-[#17366f]"
+          className="inline-flex min-h-11 items-center gap-1 rounded-[8px] px-2.5 py-1.5 text-xs font-semibold text-[#1d3e82] transition hover:bg-blue-50 hover:text-[#17366f]"
           title="Xem chi tiết giao dịch"
           aria-label={`Xem chi tiết đơn hàng #${row.providerOrderCode || row.id}`}
         >
