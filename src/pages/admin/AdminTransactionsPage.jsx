@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import AdminPageHeader from "../../components/admin/AdminPageHeader";
-import { ADMIN_PRIMARY_BUTTON } from "../../components/admin/adminStyles";
-import { DataTable, FilterBar } from "../../components/admin/ui";
+import { ADMIN_SECONDARY_BUTTON } from "../../components/admin/adminStyles";
+import { DataTable, FilterBar, AdminRecordCard, AdminPagination, AdminErrorState, LoadingState, EmptyState } from "../../components/admin/ui";
 import { adminTransactionService } from "../../services/adminTransactionService";
 import { formatPlanPrice } from "../../utils/subscriptionUtils";
 import { downloadBlob } from "../../utils/exportFiles";
@@ -254,11 +255,10 @@ export default function AdminTransactionsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast Notification */}
-      {notice && (
+      {notice && createPortal(
         <div
           role="alert"
-          className={`fixed right-5 top-5 z-[110] flex max-w-md items-start gap-3 rounded-2xl border p-4 shadow-xl backdrop-blur-md transition ${
+          className={`fixed right-5 top-5 z-[110] flex max-w-md items-start gap-3 rounded-[12px] border p-4 shadow-lg transition ${
             notice.type === "success"
               ? "border-emerald-200 bg-white text-emerald-900"
               : notice.type === "info"
@@ -293,13 +293,13 @@ export default function AdminTransactionsPage() {
           <button
             type="button"
             onClick={() => setNotice(null)}
-            className="text-slate-400 hover:text-slate-600"
+            className="text-[#5C6B8A] hover:text-slate-600"
             aria-label="Đóng thông báo"
           >
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
-      )}
+      , document.body)}
 
       {/* Page Header (FE-129, FE-136) */}
       <AdminPageHeader
@@ -311,7 +311,7 @@ export default function AdminTransactionsPage() {
           type="button"
           onClick={handleExportCsv}
           disabled={exporting || Boolean(dateError)}
-          className={ADMIN_PRIMARY_BUTTON}
+          className={ADMIN_SECONDARY_BUTTON}
         >
           <span className="material-symbols-outlined text-[20px]">
             {exporting ? "hourglass_top" : "download"}
@@ -321,9 +321,9 @@ export default function AdminTransactionsPage() {
       </AdminPageHeader>
 
       {/* Summary Cards (FE-132) */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
         {/* Card 1: Gross Revenue */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,.03)]">
+        <div className="rounded-[12px] border border-[#DCE2EE] bg-white p-5 ">
           {summaryLoading ? (
             <div className="animate-pulse space-y-3">
               <div className="h-4 w-28 rounded bg-slate-100" />
@@ -331,19 +331,19 @@ export default function AdminTransactionsPage() {
               <div className="h-3 w-44 rounded bg-slate-100" />
             </div>
           ) : (
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 flex-col items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-xs font-semibold uppercase tracking-normal text-[#5C6B8A]">
                   Doanh thu gộp
                 </p>
-                <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
+                <p className="mt-2 break-words text-xl font-bold tracking-normal text-[#0F2148]">
                   {summary?.grossRevenue != null ? formatPlanPrice(summary.grossRevenue) : "—"}
                 </p>
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-1 text-xs text-[#5C6B8A]">
                   Tổng tiền từ giao dịch thành công
                 </p>
               </div>
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
+              <div className="hidden rounded-[12px] bg-emerald-50 text-emerald-700">
                 <span className="material-symbols-outlined text-[24px]">payments</span>
               </div>
             </div>
@@ -351,7 +351,7 @@ export default function AdminTransactionsPage() {
         </div>
 
         {/* Card 2: Total Transactions */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,.03)]">
+        <div className="rounded-[12px] border border-[#DCE2EE] bg-white p-5 ">
           {summaryLoading ? (
             <div className="animate-pulse space-y-3">
               <div className="h-4 w-28 rounded bg-slate-100" />
@@ -359,19 +359,19 @@ export default function AdminTransactionsPage() {
               <div className="h-3 w-40 rounded bg-slate-100" />
             </div>
           ) : (
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 flex-col items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-xs font-semibold uppercase tracking-normal text-[#5C6B8A]">
                   Tổng giao dịch
                 </p>
-                <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
+                <p className="mt-2 break-words text-xl font-bold tracking-normal text-[#0F2148]">
                   {summary?.totalTransactions?.toLocaleString("vi-VN") ?? 0}
                 </p>
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-1 text-xs text-[#5C6B8A]">
                   Tất cả đơn hàng theo bộ lọc
                 </p>
               </div>
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-50 text-[#1d3e82]">
+              <div className="hidden rounded-[12px] bg-blue-50 text-[#1d3e82]">
                 <span className="material-symbols-outlined text-[24px]">receipt_long</span>
               </div>
             </div>
@@ -379,7 +379,7 @@ export default function AdminTransactionsPage() {
         </div>
 
         {/* Card 3: Paid Count */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,.03)]">
+        <div className="rounded-[12px] border border-[#DCE2EE] bg-white p-5 ">
           {summaryLoading ? (
             <div className="animate-pulse space-y-3">
               <div className="h-4 w-28 rounded bg-slate-100" />
@@ -387,15 +387,15 @@ export default function AdminTransactionsPage() {
               <div className="h-3 w-40 rounded bg-slate-100" />
             </div>
           ) : (
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 flex-col items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-xs font-semibold uppercase tracking-normal text-[#5C6B8A]">
                   Đã thanh toán
                 </p>
-                <p className="mt-2 text-2xl font-bold tracking-tight text-emerald-700">
+                <p className="mt-2 break-words text-xl font-bold tracking-normal text-emerald-700">
                   {summary?.paidCount?.toLocaleString("vi-VN") ?? 0}
                 </p>
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-1 text-xs text-[#5C6B8A]">
                   {summary?.totalTransactions > 0
                     ? `${Math.round(
                         (summary.paidCount / summary.totalTransactions) * 100
@@ -403,7 +403,7 @@ export default function AdminTransactionsPage() {
                     : "Giao dịch hoàn tất thành công"}
                 </p>
               </div>
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
+              <div className="hidden rounded-[12px] bg-emerald-50 text-emerald-700">
                 <span className="material-symbols-outlined text-[24px]">check_circle</span>
               </div>
             </div>
@@ -411,7 +411,7 @@ export default function AdminTransactionsPage() {
         </div>
 
         {/* Card 4: Pending Count with Failed & Expired indicators */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,.03)]">
+        <div className="rounded-[12px] border border-[#DCE2EE] bg-white p-5 ">
           {summaryLoading ? (
             <div className="animate-pulse space-y-3">
               <div className="h-4 w-28 rounded bg-slate-100" />
@@ -419,27 +419,27 @@ export default function AdminTransactionsPage() {
               <div className="h-3 w-40 rounded bg-slate-100" />
             </div>
           ) : (
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 flex-col items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-xs font-semibold uppercase tracking-normal text-[#5C6B8A]">
                   Đang chờ xử lý
                 </p>
-                <p className="mt-2 text-2xl font-bold tracking-tight text-amber-700">
+                <p className="mt-2 break-words text-xl font-bold tracking-normal text-amber-700">
                   {summary?.pendingCount?.toLocaleString("vi-VN") ?? 0}
                 </p>
-                <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#5C6B8A]">
                   <span>Thất bại: <strong className="text-rose-600">{summary?.failedCount ?? 0}</strong></span>
                   <span>·</span>
                   <span>Hết hạn: <strong className="text-slate-600">{summary?.expiredCount ?? 0}</strong></span>
                 </div>
               </div>
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700">
+              <div className="hidden rounded-[12px] bg-amber-50 text-amber-700">
                 <span className="material-symbols-outlined text-[24px]">pending_actions</span>
               </div>
             </div>
           )}
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-5">
+        <div className="rounded-[8px] border border-[#DCE2EE] bg-white p-5">
           {summaryLoading ? (
             <div className="animate-pulse space-y-3">
               <div className="h-4 w-28 rounded bg-slate-100" />
@@ -448,8 +448,8 @@ export default function AdminTransactionsPage() {
           ) : (
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-500">Cần kiểm tra</p>
-                <p className="mt-2 break-words text-2xl font-bold text-blue-700">
+                <p className="text-xs font-semibold text-[#5C6B8A]">Cần kiểm tra</p>
+                <p className="mt-2 break-words break-words text-xl font-bold text-blue-700">
                   {summary?.reviewRequiredCount?.toLocaleString("vi-VN") ?? "—"}
                 </p>
               </div>
@@ -462,7 +462,7 @@ export default function AdminTransactionsPage() {
       </div>
 
       {summaryError && (
-        <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+        <div className="flex items-center justify-between rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
           <span>Không thể tải dữ liệu thống kê: {summaryError}</span>
           <button
             type="button"
@@ -492,7 +492,7 @@ export default function AdminTransactionsPage() {
             setPage(1);
           }}
           aria-label="Lọc theo trạng thái"
-          className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100/60"
+          className="h-11 rounded-[12px] border border-[#DCE2EE] bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100/60"
         >
           {STATUS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -510,7 +510,7 @@ export default function AdminTransactionsPage() {
             setPage(1);
           }}
           aria-label="Lọc theo loại giao dịch"
-          className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100/60"
+          className="h-11 rounded-[12px] border border-[#DCE2EE] bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100/60"
         >
           {OPERATION_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -520,8 +520,8 @@ export default function AdminTransactionsPage() {
         </select>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 focus-within:border-blue-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100/60">
-            <span className="text-xs font-semibold text-slate-400">Từ</span>
+          <div className="flex items-center gap-1.5 rounded-[12px] border border-[#DCE2EE] bg-slate-50 px-3 py-1.5 focus-within:border-blue-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100/60">
+            <span className="text-xs font-semibold text-[#5C6B8A]">Từ</span>
             <input
               type="date"
               value={fromDate}
@@ -536,8 +536,8 @@ export default function AdminTransactionsPage() {
             />
           </div>
 
-          <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 focus-within:border-blue-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100/60">
-            <span className="text-xs font-semibold text-slate-400">Đến</span>
+          <div className="flex items-center gap-1.5 rounded-[12px] border border-[#DCE2EE] bg-slate-50 px-3 py-1.5 focus-within:border-blue-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100/60">
+            <span className="text-xs font-semibold text-[#5C6B8A]">Đến</span>
             <input
               type="date"
               value={toDate}
@@ -556,45 +556,23 @@ export default function AdminTransactionsPage() {
 
       {/* Date Validation Alert */}
       {dateError && (
-        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div role="alert" className="flex items-center gap-2 rounded-[12px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           <span className="material-symbols-outlined text-[20px]">warning</span>
           <span>{dateError}</span>
         </div>
       )}
 
-      {/* Table Error state */}
-      {error && (
-        <div className="flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          <div className="flex items-center gap-2.5">
-            <span className="material-symbols-outlined text-[22px]">error</span>
-            <span>{error}</span>
-          </div>
-          <button
-            type="button"
-            onClick={reloadData}
-            className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700"
-          >
-            Thử lại
-          </button>
-        </div>
-      )}
+      {error && <AdminErrorState message={error} onRetry={reloadData} />}
+      <p className="text-sm text-[#5C6B8A]" role="status">{totalCount} giao dịch · Trang {page} / {totalPages || 1}</p>
 
       {/* Transactions DataTable (FE-130) */}
-      <DataTable
+      {!error && <>
+      <div className="hidden md:block"><DataTable
         columns={columns}
         rows={transactions}
         loading={loading}
         sort={sort}
         onSort={handleSort}
-        pagination={{
-          page,
-          totalPages,
-          totalCount,
-        }}
-        onPageChange={(newPage) => {
-          setLoading(true);
-          setPage(newPage);
-        }}
         emptyState={{
           icon: "receipt_long",
           title: "Chưa có giao dịch nào phù hợp",
@@ -604,7 +582,19 @@ export default function AdminTransactionsPage() {
           actionLabel: hasActiveFilters ? "Xóa bộ lọc" : undefined,
           onAction: hasActiveFilters ? handleClearFilters : undefined,
         }}
-      />
+      /></div>
+      <div className="space-y-4 md:hidden" aria-label="Danh sách giao dịch trên di động">
+        {loading ? <LoadingState /> : transactions.length === 0 ? <EmptyState icon="receipt_long" title="Chưa có giao dịch nào phù hợp" description={hasActiveFilters ? "Hãy thử thay đổi từ khóa tìm kiếm hoặc điều chỉnh khoảng thời gian lọc." : "Chưa có dữ liệu giao dịch nào được ghi nhận trên hệ thống."} actionLabel={hasActiveFilters ? "Xóa bộ lọc" : undefined} onAction={hasActiveFilters ? handleClearFilters : undefined} /> : transactions.map(row => (
+          <AdminRecordCard key={row.id} title={`#${row.providerOrderCode || row.id}`} subtitle={row.userEmail || row.userFullName || "—"} status={columns.find(c => c.key === "status").render(row)}
+            primaryAction={<button type="button" className={ADMIN_SECONDARY_BUTTON} aria-label={`Chi tiết giao dịch #${row.providerOrderCode || row.id}`} onClick={() => handleOpenDetail(row.id)}><span className="material-symbols-outlined" aria-hidden="true">visibility</span>Xem chi tiết</button>}>
+            <div className="text-lg font-semibold text-[#0F2148]">{columns.find(c => c.key === "amount").render(row)}</div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">{columns.find(c => c.key === "planCode").render(row)}{columns.find(c => c.key === "operationType").render(row)}</div>
+            <div className="mt-3 text-xs">{columns.find(c => c.key === "createdAt").render(row)}</div>
+          </AdminRecordCard>
+        ))}
+      </div>
+      <AdminPagination page={page} totalPages={totalPages} totalCount={totalCount} disabled={loading} onPageChange={(newPage) => { setLoading(true); setPage(newPage); }} />
+      </>}
 
       {/* Transaction Detail Drawer (FE-133, FE-134) */}
       <TransactionDetailDrawer

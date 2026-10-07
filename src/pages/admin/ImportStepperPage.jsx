@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileSpreadsheet, CheckCircle2, FileText, BarChart3 } from "lucide-react";
+import { ADMIN_TERTIARY_BUTTON } from "../../components/admin/adminStyles";
 
 import AdminPageHeader from "../../components/admin/AdminPageHeader";
 import FileUploadStep from "../../components/admin/import/FileUploadStep";
@@ -9,9 +9,9 @@ import ImportResultSummary from "../../components/admin/import/ImportResultSumma
 import { adminPlaceService } from "../../services/adminPlaceService";
 
 const STEPS = [
-  { id: 1, label: "Tải file địa điểm", icon: FileSpreadsheet },
-  { id: 2, label: "Xem trước & Thẩm định", icon: FileText },
-  { id: 3, label: "Kết quả Import", icon: BarChart3 },
+  { id: 1, label: "Tải file địa điểm", icon: "upload_file" },
+  { id: 2, label: "Xem trước & Thẩm định", icon: "fact_check" },
+  { id: 3, label: "Kết quả Import", icon: "task_alt" },
 ];
 
 export default function ImportStepperPage() {
@@ -43,88 +43,35 @@ export default function ImportStepperPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <AdminPageHeader
-        eyebrow="Dữ liệu Metro"
-        title="Nhập địa điểm từ CSV / Excel"
-        description="Quy trình 3 bước thẩm định dữ liệu, kiểm tra nghi trùng và commit an toàn vào hệ thống"
-      />
-
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
-        {/* Stepper Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-          {STEPS.map((step, index) => {
-            const Icon = step.icon;
-            const isDone = currentStep > step.id;
-            const isCurrent = currentStep === step.id;
-
-            return (
-              <div key={step.id} className="flex items-center gap-3 flex-1">
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition ${isDone
-                      ? "bg-emerald-600 text-white"
-                      : isCurrent
-                        ? "bg-primary text-white shadow-md ring-4 ring-blue-50"
-                        : "bg-gray-100 text-gray-400"
-                    }`}
-                >
-                  {isDone ? <CheckCircle2 className="w-5 h-5" /> : <Icon className="w-4 h-4" />}
-                </div>
-
-                <div className="hidden sm:block">
-                  <p className={`text-xs font-bold ${isCurrent ? "text-primary" : isDone ? "text-gray-900" : "text-gray-400"}`}>
-                    Bước {step.id}: {step.label}
-                  </p>
-                </div>
-
-                {index < STEPS.length - 1 && (
-                  <div className={`h-0.5 flex-1 mx-2 hidden sm:block ${isDone ? "bg-emerald-500" : "bg-gray-200"}`} />
-                )}
-              </div>
-            );
-          })}
+    <div className="space-y-8">
+      <AdminPageHeader eyebrow="Dữ liệu Metro" title="Nhập địa điểm từ CSV / Excel" description="Thẩm định dữ liệu trước khi nhập địa điểm vào hệ thống." />
+      <ol aria-label="Tiến trình nhập địa điểm" className="grid grid-cols-3 gap-2 border-b border-[#DCE2EE] pb-6 sm:gap-4">
+        {STEPS.map((step) => {
+          const done = currentStep > step.id;
+          const current = currentStep === step.id;
+          return <li key={step.id} aria-current={current ? "step" : undefined} className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <span aria-hidden="true" className={`grid h-10 w-10 shrink-0 place-items-center rounded-[12px] ${done ? "bg-emerald-50 text-emerald-700" : current ? "bg-[#1D3E82] text-white" : "bg-white text-[#8993AC]"}`}>
+              <span className="material-symbols-outlined text-[20px]">{done ? "check" : step.icon}</span>
+            </span>
+            <span className="min-w-0">
+              <span className="block text-xs leading-[18px] text-[#5C6B8A]">Bước {step.id}{done ? " · Hoàn tất" : current ? " · Hiện tại" : ""}</span>
+              <span className={`block break-words text-[13px] font-semibold leading-[18px] ${current ? "text-[#1D3E82]" : "text-[#5C6B8A]"}`}>{step.label}</span>
+            </span>
+          </li>;
+        })}
+      </ol>
+      {currentStep === 1 && <FileUploadStep onPreviewLoaded={handlePreviewLoaded} />}
+      {currentStep === 2 && preview && <div className="space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-bold leading-[26px] text-[#0F2148]">Thẩm định dữ liệu</h2>
+          <button type="button" disabled={commitLoading} onClick={() => { setPreview(null); setCurrentStep(1); }} className={ADMIN_TERTIARY_BUTTON}>
+            <span aria-hidden="true" className="material-symbols-outlined text-[20px]">upload_file</span>Tải lại file khác
+          </button>
         </div>
-
-        {/* Step 1: File Upload */}
-        {currentStep === 1 && (
-          <FileUploadStep onPreviewLoaded={handlePreviewLoaded} />
-        )}
-
-        {/* Step 2: Preview & Commit Mode */}
-        {currentStep === 2 && preview && (
-          <div className="space-y-6 animate-fadeIn">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-gray-800">Báo cáo thẩm định dữ liệu preview</h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setPreview(null);
-                  setCurrentStep(1);
-                }}
-                className="text-xs text-gray-500 hover:text-gray-800 underline"
-              >
-                Tải lại file khác
-              </button>
-            </div>
-
-            <ImportPreviewTable preview={preview} />
-
-            <ImportModeSelector
-              preview={preview}
-              onCommit={handleCommit}
-              loading={commitLoading}
-            />
-          </div>
-        )}
-
-        {/* Step 3: Result Summary */}
-        {currentStep === 3 && (
-          <ImportResultSummary
-            commitResult={commitResult}
-            preview={preview}
-          />
-        )}
-      </div>
+        <ImportPreviewTable preview={preview} />
+        <ImportModeSelector preview={preview} onCommit={handleCommit} loading={commitLoading} />
+      </div>}
+      {currentStep === 3 && <ImportResultSummary commitResult={commitResult} preview={preview} />}
     </div>
   );
 }

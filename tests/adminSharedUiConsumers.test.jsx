@@ -40,10 +40,10 @@ afterEach(() => { vi.useRealTimers(); });
 describe("A2 existing consumer compatibility", () => {
   it("Plans preserve price, old Generate/Saved semantics, sort and pagination", async () => {
     mount(<AdminPlansPage />);
-    await screen.findByText("Trip Pass");
+    await within(screen.getByRole("table")).findByText("Trip Pass");
     expect(screen.getByRole("table")).toHaveTextContent("19.000đ");
-    expect(screen.getByTitle("Lượt tạo AI")).toHaveTextContent("AI: ∞");
-    expect(screen.getByTitle("Lượt lưu chuyến")).toHaveTextContent("Lưu: 3 chuyến");
+    expect(within(screen.getByRole("table")).getByTitle("Lượt tạo AI")).toHaveTextContent("AI: ∞");
+    expect(within(screen.getByRole("table")).getByTitle("Lượt lưu chuyến")).toHaveTextContent("Lưu: 3 chuyến");
     fireEvent.click(screen.getByRole("button", { name: "Sắp xếp theo Tên gói" }));
     await waitFor(() => expect(mocks.plans.getPlans.mock.lastCall[0]).toMatchObject({ sortBy: "name", sortDirection: "asc", page: 1, pageSize: 10 }));
     fireEvent.click(screen.getByRole("button", { name: "Sau" }));
@@ -51,8 +51,8 @@ describe("A2 existing consumer compatibility", () => {
   });
   it("Plan confirmation opens and cancels without a mutation", async () => {
     mount(<AdminPlansPage />);
-    await screen.findByText("Trip Pass");
-    fireEvent.click(screen.getByRole("button", { name: "Tạm dừng gói", exact: true }));
+    await within(screen.getByRole("table")).findByText("Trip Pass");
+    fireEvent.click(within(screen.getByRole("table")).getByRole("button", { name: "Tạm dừng gói", exact: true }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("button", { name: "Hủy bỏ" })).toHaveFocus();
     fireEvent.keyDown(dialog, { key: "Escape" });

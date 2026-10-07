@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Tag as TagIcon, Plus, X } from "lucide-react";
+import { LoadingState } from "./ui";
 import { tagService } from "../../services/tagService";
 
 export default function MultiTagSelector({ selectedTagIds = [], onChange }) {
@@ -30,36 +30,13 @@ export default function MultiTagSelector({ selectedTagIds = [], onChange }) {
   };
 
   return (
-    <div className="space-y-2">
-      <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-        <TagIcon className="w-3.5 h-3.5 text-primary" />
-        <span>Thẻ phân loại (Tags)</span>
-      </label>
-
-      <div className="flex flex-wrap items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-xl min-h-[48px]">
-        {allTags.map((tag) => {
-          const isSelected = selectedTagIds.includes(tag.id);
-          return (
-            <button
-              key={tag.id}
-              type="button"
-              onClick={() => handleToggleTag(tag.id)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full transition ${
-                isSelected
-                  ? "bg-primary text-white shadow-sm"
-                  : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
-              }`}
-            >
-              <span>{tag.name}</span>
-              {isSelected ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3 text-gray-400" />}
-            </button>
-          );
-        })}
-
-        {allTags.length === 0 && !loading && (
-          <span className="text-xs text-gray-400">Không có tag sẵn có</span>
-        )}
-      </div>
+    <div role="group" aria-label="Thẻ phân loại" className="flex flex-wrap gap-2">
+      {allTags.map((tag) => {
+        const selected = selectedTagIds.includes(tag.id);
+        return <button key={tag.id} type="button" aria-pressed={selected} onClick={() => handleToggleTag(tag.id)} className={`inline-flex min-h-11 items-center gap-2 rounded-[10px] border px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2C56A8] ${selected ? "border-[#2C56A8] bg-blue-50 text-[#1D3E82]" : "border-[#DCE2EE] bg-white text-[#5C6B8A] hover:bg-[#F8FAFC]"}`}><span>{tag.name}</span><span aria-hidden="true" className="material-symbols-outlined text-[18px]">{selected ? "check" : "add"}</span></button>;
+      })}
+      {loading && <LoadingState variant="inline" label="Đang tải thẻ..." />}
+      {allTags.length === 0 && !loading && <span className="text-sm text-[#5C6B8A]">Không có tag sẵn có</span>}
     </div>
   );
 }

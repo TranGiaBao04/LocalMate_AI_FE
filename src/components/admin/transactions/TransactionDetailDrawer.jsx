@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { AdminOverlayFrame } from "../ui";
+import { ADMIN_PRIMARY_BUTTON, ADMIN_SECONDARY_BUTTON, ADMIN_ICON_BUTTON } from "../adminStyles";
 import StatusBadge from "../ui/StatusBadge";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import EntitlementRepairPanel from "./EntitlementRepairPanel";
@@ -37,7 +39,7 @@ const OPERATION_LABELS = {
 };
 
 function renderStatusPill(status) {
-  if (!status) return <span className="text-slate-400">Khởi tạo</span>;
+  if (!status) return <span className="text-[#5C6B8A]">Khởi tạo</span>;
   const config = STATUS_BADGE_CONFIG[status] || { status: "inactive", label: status };
   return <StatusBadge status={config.status} label={config.label} />;
 }
@@ -89,23 +91,6 @@ function TransactionDetailContent({
       isCancelled = true;
     };
   }, [transactionId, refreshKey]);
-
-  // Handle ESC key to close drawer
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (
-        event.key === "Escape" &&
-        !reconciling &&
-        !repairing &&
-        !confirmOpen &&
-        !repairDialogOpen
-      ) {
-        onClose?.();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [reconciling, repairing, confirmOpen, repairDialogOpen, onClose]);
 
   const handleRetry = () => {
     setLoading(true);
@@ -269,50 +254,33 @@ function TransactionDetailContent({
   const webhookReceipts = Array.isArray(detail?.webhookReceipts) ? detail.webhookReceipts : [];
 
   return (
-    <div
-      role="presentation"
-      className="fixed inset-0 z-[85] flex justify-end bg-slate-950/45 backdrop-blur-sm transition-opacity"
-      onClick={(e) => {
-        if (
-          e.target === e.currentTarget &&
-          !reconciling &&
-          !repairing &&
-          !confirmOpen &&
-          !repairDialogOpen
-        ) {
-          onClose?.();
-        }
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="transaction-detail-title"
-        className="flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl transition-transform"
-      >
+    <>
+    <AdminOverlayFrame open variant="drawer" title={`Giao dịch #${transaction?.providerOrderCode || transactionId}`} onClose={onClose} loading={reconciling || repairing || confirmOpen || repairDialogOpen}
+      footer={<button type="button" className={ADMIN_SECONDARY_BUTTON} onClick={onClose} disabled={reconciling || repairing}>Đóng</button>}>
         {/* Drawer Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+        <div className="flex min-w-0 items-start justify-between gap-3 border-b border-[#DCE2EE] pb-4 [overflow-wrap:anywhere]">
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-[#1d3e82]">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-blue-50 text-[#1d3e82]">
               <span className="material-symbols-outlined text-[22px]">receipt_long</span>
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h2
                   id="transaction-detail-title"
-                  className="font-mono text-base font-bold text-slate-950"
+                  className="font-mono text-base font-bold text-[#0F2148]"
                 >
                   #{transaction?.providerOrderCode || transactionId}
                 </h2>
                 {transaction?.status && renderStatusPill(transaction.status)}
               </div>
-              <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
+              <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[#5C6B8A]">
                 <span className="truncate font-mono">{transactionId}</span>
                 <button
                   type="button"
                   onClick={() => handleCopyId(transactionId)}
-                  className="inline-flex items-center hover:text-slate-600"
+                  className={ADMIN_ICON_BUTTON}
                   title="Sao chép ID giao dịch"
+                  aria-label="Sao chép ID giao dịch"
                 >
                   <span className="material-symbols-outlined text-[14px]">
                     {copiedId ? "done" : "content_copy"}
@@ -326,7 +294,7 @@ function TransactionDetailContent({
             type="button"
             onClick={onClose}
             disabled={reconciling || repairing}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
+            className={ADMIN_ICON_BUTTON}
             aria-label="Đóng chi tiết"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -335,10 +303,10 @@ function TransactionDetailContent({
 
         {/* Action Bar (Đối soát PayOS) */}
         {transaction && !loading && !error && canManagePlans && (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-6 py-3">
+          <div className="flex flex-wrap items-start gap-3 border-b border-[#DCE2EE] py-4">
             <div>
               <p className="text-xs font-semibold text-slate-700">Thao tác quản trị</p>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-xs text-[#5C6B8A]">
                 {transaction.status === "Paid"
                   ? "Giao dịch đã thanh toán · PayOS có thể trả về AlreadyPaid"
                   : "Tra cứu trạng thái mới nhất từ PayOS và cập nhật hệ thống"}
@@ -349,7 +317,7 @@ function TransactionDetailContent({
               type="button"
               disabled={reconciling}
               onClick={() => setConfirmOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#1d3e82] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#17366f] focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-wait disabled:opacity-60"
+              className={ADMIN_PRIMARY_BUTTON}
             >
               <span className={`material-symbols-outlined text-[16px] ${reconciling ? "animate-spin" : ""}`}>
                 {reconciling ? "sync" : "published_with_changes"}
@@ -360,11 +328,11 @@ function TransactionDetailContent({
         )}
 
         {/* Drawer Body */}
-        <div className="flex-1 space-y-6 overflow-y-auto p-6">
+        <div className="min-w-0 space-y-6 py-5 [overflow-wrap:anywhere]">
           {/* Loading Skeleton */}
           {loading && (
             <div className="space-y-6 animate-pulse">
-              <div className="space-y-3 rounded-2xl border border-slate-200 p-5">
+              <div className="space-y-3 rounded-[12px] border border-[#DCE2EE] p-5">
                 <div className="h-4 w-32 rounded bg-slate-200" />
                 <div className="grid grid-cols-2 gap-4">
                   <div className="h-10 rounded bg-slate-100" />
@@ -373,7 +341,7 @@ function TransactionDetailContent({
                   <div className="h-10 rounded bg-slate-100" />
                 </div>
               </div>
-              <div className="space-y-3 rounded-2xl border border-slate-200 p-5">
+              <div className="space-y-3 rounded-[12px] border border-[#DCE2EE] p-5">
                 <div className="h-4 w-40 rounded bg-slate-200" />
                 <div className="h-24 rounded bg-slate-100" />
               </div>
@@ -382,8 +350,8 @@ function TransactionDetailContent({
 
           {/* Error State */}
           {error && !loading && (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center">
-              <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-rose-100 text-rose-600">
+            <div className="rounded-[12px] border border-rose-200 bg-rose-50 p-6 text-center">
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-[12px] bg-rose-100 text-rose-600">
                 <span className="material-symbols-outlined text-[26px]">error</span>
               </div>
               <h3 className="mt-3 font-bold text-rose-950">Lỗi tải dữ liệu</h3>
@@ -391,7 +359,7 @@ function TransactionDetailContent({
               <button
                 type="button"
                 onClick={handleRetry}
-                className="mt-4 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-rose-700"
+                className="mt-4 rounded-[12px] bg-rose-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-rose-700"
               >
                 Thử lại
               </button>
@@ -403,82 +371,82 @@ function TransactionDetailContent({
             <>
               {/* Section 1: Thông tin thanh toán & đơn hàng */}
               <section aria-labelledby="order-info-heading" className="space-y-3">
-                <h3 id="order-info-heading" className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                <h3 id="order-info-heading" className="text-base font-semibold text-[#0F2148]">
                   Thông tin đơn hàng & Thanh toán
                 </h3>
-                <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-sm sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 border-b border-[#DCE2EE] pb-5 text-sm sm:grid-cols-2">
                   <div>
-                    <span className="text-xs text-slate-400">Khách hàng:</span>
-                    <p className="font-semibold text-slate-900">{transaction.userFullName || "—"}</p>
+                    <span className="text-xs text-[#5C6B8A]">Khách hàng:</span>
+                    <p className="font-semibold text-[#0F2148]">{transaction.userFullName || "—"}</p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Email:</span>
+                    <span className="text-xs text-[#5C6B8A]">Email:</span>
                     <p className="font-mono text-xs font-medium text-slate-800">{transaction.userEmail || "—"}</p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Sản phẩm:</span>
-                    <p className="font-semibold text-slate-900">
+                    <span className="text-xs text-[#5C6B8A]">Sản phẩm:</span>
+                    <p className="font-semibold text-[#0F2148]">
                       {transaction.productKind === "SingleItinerary"
                         ? "Lịch trình đơn lẻ"
                         : transaction.planName || transaction.planCode || "Gói đăng ký"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Loại thao tác:</span>
-                    <p className="font-semibold text-slate-900">
+                    <span className="text-xs text-[#5C6B8A]">Loại thao tác:</span>
+                    <p className="font-semibold text-[#0F2148]">
                       {OPERATION_LABELS[transaction.operationType] || transaction.operationType || "—"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Thực trả:</span>
-                    <p className="text-base font-bold text-slate-950">
+                    <span className="text-xs text-[#5C6B8A]">Thực trả:</span>
+                    <p className="text-base font-bold text-[#0F2148]">
                       {transaction.amount != null ? formatPlanPrice(transaction.amount) : "—"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Credit đã áp dụng:</span>
-                    <p className="text-base font-semibold text-slate-900">
+                    <span className="text-xs text-[#5C6B8A]">Credit đã áp dụng:</span>
+                    <p className="text-base font-semibold text-[#0F2148]">
                       {transaction.creditAmount != null ? formatPlanPrice(transaction.creditAmount) : "—"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Giá gốc:</span>
-                    <p className="text-base font-semibold text-slate-900">
+                    <span className="text-xs text-[#5C6B8A]">Giá gốc:</span>
+                    <p className="text-base font-semibold text-[#0F2148]">
                       {transaction.listPrice != null ? formatPlanPrice(transaction.listPrice) : "—"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Đơn vị tiền tệ:</span>
-                    <p className="font-semibold text-slate-900">{transaction.currency || "VND"}</p>
+                    <span className="text-xs text-[#5C6B8A]">Đơn vị tiền tệ:</span>
+                    <p className="font-semibold text-[#0F2148]">{transaction.currency || "VND"}</p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Thời gian tạo:</span>
+                    <span className="text-xs text-[#5C6B8A]">Thời gian tạo:</span>
                     <p className="font-medium text-slate-800">{formatVnDateTime(transaction.createdAt) || "—"}</p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Hạn thanh toán:</span>
+                    <span className="text-xs text-[#5C6B8A]">Hạn thanh toán:</span>
                     <p className="font-medium text-slate-800">{formatVnDateTime(transaction.expiresAt) || "—"}</p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Thời gian thanh toán:</span>
+                    <span className="text-xs text-[#5C6B8A]">Thời gian thanh toán:</span>
                     <p className="font-medium text-emerald-700">
                       {transaction.paidAt ? formatVnDateTime(transaction.paidAt) : "—"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-400">Liên kết phiên bản gói:</span>
+                    <span className="text-xs text-[#5C6B8A]">Liên kết phiên bản gói:</span>
                     <p className="font-medium text-slate-800">{transaction.planVersionBinding || "—"}</p>
                   </div>
 
                   {transaction.updatedAt && (
                     <div className="sm:col-span-2">
-                      <span className="text-xs text-slate-400">Cập nhật lần cuối:</span>
+                      <span className="text-xs text-[#5C6B8A]">Cập nhật lần cuối:</span>
                       <p className="font-medium text-slate-800">{formatVnDateTime(transaction.updatedAt)}</p>
                     </div>
                   )}
 
                   {(transaction.planId || transaction.planVersionId) && (
-                    <div className="border-t border-slate-100 pt-2 text-xs text-slate-400 sm:col-span-2">
+                    <div className="border-t border-slate-100 pt-2 text-xs text-[#5C6B8A] sm:col-span-2">
                       {transaction.planId && (
                         <p>
                           Plan ID: <span className="font-mono text-slate-600">{transaction.planId}</span>
@@ -507,43 +475,43 @@ function TransactionDetailContent({
               {/* Section 4: Lịch sử chuyển trạng thái (Status History Timeline) */}
               <section aria-labelledby="status-history-heading" className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 id="status-history-heading" className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <h3 id="status-history-heading" className="text-base font-semibold text-[#0F2148]">
                     Lịch sử trạng thái ({statusHistory.length})
                   </h3>
                 </div>
 
                 {statusHistory.length === 0 ? (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-6 text-center text-sm text-slate-500">
+                  <div className="rounded-[12px] border border-[#DCE2EE] bg-slate-50/50 p-6 text-center text-sm text-[#5C6B8A]">
                     Không có lịch sử trạng thái được ghi nhận cho giao dịch này.
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <ol className="space-y-3" aria-label="Lịch sử trạng thái">
                     {statusHistory.map((item, index) => {
                       const sourceLabel = STATUS_SOURCE_LABELS[item.source] || item.source || "—";
                       return (
-                        <div
+                        <li
                           key={item.id || `hist-${index}`}
-                          className="relative rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                          className="relative rounded-[12px] border border-[#DCE2EE] bg-white p-4 "
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                             <div className="flex items-center gap-2">
                               {renderStatusPill(item.fromStatus)}
-                              <span className="material-symbols-outlined text-[16px] text-slate-400">arrow_forward</span>
+                              <span className="material-symbols-outlined text-[16px] text-[#5C6B8A]">arrow_forward</span>
                               {renderStatusPill(item.toStatus)}
                             </div>
-                            <span className="text-xs font-medium text-slate-400">
+                            <span className="text-xs font-medium text-[#5C6B8A]">
                               {formatVnDateTime(item.occurredAt)}
                             </span>
                           </div>
 
                           <div className="mt-2.5 grid grid-cols-1 gap-2 text-xs text-slate-600 sm:grid-cols-2">
                             <div>
-                              <span className="text-slate-400">Nguồn cập nhật: </span>
+                              <span className="text-[#5C6B8A]">Nguồn cập nhật: </span>
                               <span className="font-semibold text-slate-800">{sourceLabel}</span>
                             </div>
                             {item.reasonCode && (
                               <div>
-                                <span className="text-slate-400">Mã lý do: </span>
+                                <span className="text-[#5C6B8A]">Mã lý do: </span>
                                 <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-700">
                                   {item.reasonCode}
                                 </code>
@@ -551,34 +519,34 @@ function TransactionDetailContent({
                             )}
                             {item.actorUserId && (
                               <div>
-                                <span className="text-slate-400">Người thực hiện: </span>
+                                <span className="text-[#5C6B8A]">Người thực hiện: </span>
                                 <span className="font-mono text-slate-700">{item.actorUserId}</span>
                               </div>
                             )}
                             {item.webhookReceiptId && (
                               <div>
-                                <span className="text-slate-400">Mã biên nhận: </span>
+                                <span className="text-[#5C6B8A]">Mã biên nhận: </span>
                                 <span className="font-mono text-slate-700">{item.webhookReceiptId}</span>
                               </div>
                             )}
                           </div>
-                        </div>
+                        </li>
                       );
                     })}
-                  </div>
+                  </ol>
                 )}
               </section>
 
               {/* Section 3: Bằng chứng biên nhận Webhook (Webhook Evidence) */}
               <section aria-labelledby="webhook-evidence-heading" className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 id="webhook-evidence-heading" className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <h3 id="webhook-evidence-heading" className="text-base font-semibold text-[#0F2148]">
                     Bằng chứng Webhook PayOS ({webhookReceipts.length})
                   </h3>
                 </div>
 
                 {webhookReceipts.length === 0 ? (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-6 text-center text-sm text-slate-500">
+                  <div className="rounded-[12px] border border-[#DCE2EE] bg-slate-50/50 p-6 text-center text-sm text-[#5C6B8A]">
                     Không có biên nhận webhook nào cho giao dịch này.
                   </div>
                 ) : (
@@ -586,15 +554,15 @@ function TransactionDetailContent({
                     {webhookReceipts.map((receipt, index) => (
                       <div
                         key={receipt.id || `receipt-${index}`}
-                        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                        className="rounded-[12px] border border-[#DCE2EE] bg-white p-4 "
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-bold text-slate-900">
+                            <span className="font-mono text-xs font-bold text-[#0F2148]">
                               #{receipt.providerOrderCode}
                             </span>
                             <span
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
                                 receipt.isSuccessful
                                   ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/15"
                                   : "bg-rose-50 text-rose-700 ring-1 ring-rose-600/15"
@@ -603,27 +571,27 @@ function TransactionDetailContent({
                               {receipt.isSuccessful ? "Thành công" : "Không thành công"}
                             </span>
                           </div>
-                          <span className="text-xs font-medium text-slate-400">
+                          <span className="text-xs font-medium text-[#5C6B8A]">
                             {formatVnDateTime(receipt.receivedAt)}
                           </span>
                         </div>
 
                         <div className="mt-2.5 space-y-2 text-xs">
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Số tiền biên nhận:</span>
-                            <span className="font-bold text-slate-900">
+                            <span className="text-[#5C6B8A]">Số tiền biên nhận:</span>
+                            <span className="font-bold text-[#0F2148]">
                               {receipt.amount != null ? formatPlanPrice(receipt.amount) : "—"}
                             </span>
                           </div>
 
                           <div>
-                            <span className="text-slate-400">Mã băm SHA-256 (Payload):</span>
-                            <p className="mt-0.5 break-all rounded bg-slate-50 p-2 font-mono text-[11px] text-slate-700 ring-1 ring-slate-200">
+                            <span className="text-[#5C6B8A]">Mã băm SHA-256 (Payload):</span>
+                            <p className="mt-0.5 break-all rounded bg-slate-50 p-2 font-mono text-xs text-slate-700 ring-1 ring-slate-200">
                               {receipt.rawPayloadSha256 || "—"}
                             </p>
                           </div>
 
-                          <div className="flex flex-wrap items-center justify-between gap-2 text-slate-500">
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-[#5C6B8A]">
                             <span>
                               Trạng thái lưu trữ:{" "}
                               <strong className={receipt.hasRawPayload ? "text-blue-700" : "text-slate-600"}>
@@ -647,20 +615,7 @@ function TransactionDetailContent({
           )}
         </div>
 
-        {/* Drawer Footer */}
-        <div className="border-t border-slate-200 bg-slate-50 px-6 py-4">
-          <div className="flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={reconciling || repairing}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
-            >
-              Đóng
-            </button>
-          </div>
-        </div>
-      </div>
+    </AdminOverlayFrame>
 
       {/* Confirmation Dialog for Reconciliation */}
       <ConfirmDialog
@@ -690,7 +645,7 @@ function TransactionDetailContent({
         proposedEndsAt={detail?.repairEligibility?.proposedEndsAt}
         reconstructionMode={detail?.repairEligibility?.reconstructionMode}
       />
-    </div>
+    </>
   );
 }
 

@@ -3,7 +3,7 @@ import {
   DataTable,
   FilterBar,
   ConfirmDialog,
-  StatusBadge,
+  StatusBadge, AdminRecordCard, AdminPagination, AdminErrorState, LoadingState, EmptyState, NoticeBanner,
 } from "../../components/admin/ui";
 import AdminPageHeader from "../../components/admin/AdminPageHeader";
 import { ADMIN_PRIMARY_BUTTON } from "../../components/admin/adminStyles";
@@ -232,7 +232,7 @@ export default function AdminPlansPage() {
               {row.code}
             </span>
             {row.isSystem && (
-              <span className="inline-flex w-fit items-center rounded bg-blue-100/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#17366f]">
+              <span className="inline-flex w-fit items-center rounded bg-blue-100/70 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-normal text-[#17366f]">
                 Hệ thống
               </span>
             )}
@@ -245,8 +245,8 @@ export default function AdminPlansPage() {
         sortable: true,
         render: (row) => (
           <div>
-            <p className="font-bold text-slate-900">{row.name}</p>
-            <p className="mt-0.5 text-xs text-slate-400">
+            <p className="font-bold text-[#0F2148]">{row.name}</p>
+            <p className="mt-0.5 text-xs text-[#5C6B8A]">
               Ưu tiên: <span className="font-semibold text-slate-600">{row.entitlementPriority}</span> · v{row.currentVersion?.versionNumber ?? 1}
             </p>
           </div>
@@ -258,7 +258,7 @@ export default function AdminPlansPage() {
         render: (row) => {
           const price = row.currentVersion?.price;
           return (
-            <span className="font-semibold text-slate-900">
+            <span className="font-semibold text-[#0F2148]">
               {formatPlanPrice(price ?? 0)}
             </span>
           );
@@ -269,13 +269,13 @@ export default function AdminPlansPage() {
         header: "Thời hạn",
         render: (row) => {
           if (row.code === "FREE") {
-            return <span className="text-slate-400">Không áp dụng</span>;
+            return <span className="text-[#5C6B8A]">Không áp dụng</span>;
           }
           const days = row.currentVersion?.durationDays;
           return days != null ? (
             <span>{days} ngày</span>
           ) : (
-            <span className="text-slate-400">Không có thời hạn mua</span>
+            <span className="text-[#5C6B8A]">Không có thời hạn mua</span>
           );
         },
       },
@@ -304,7 +304,7 @@ export default function AdminPlansPage() {
         header: "Đang dùng",
         render: (row) => (
           <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600">
-            <span className="material-symbols-outlined text-[16px] text-slate-400">person</span>
+            <span className="material-symbols-outlined text-[16px] text-[#5C6B8A]">person</span>
             <span>{row.activeSubscriberCount ?? 0}</span>
           </div>
         ),
@@ -333,7 +333,7 @@ export default function AdminPlansPage() {
               <button
                 type="button"
                 onClick={() => setFormModal({ open: true, mode: "edit", plan: row })}
-                className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-[8px] text-[#5C6B8A] transition hover:bg-slate-100 hover:text-[#0F2148]"
                 title="Chỉnh sửa gói"
                 aria-label="Chỉnh sửa gói"
               >
@@ -345,10 +345,10 @@ export default function AdminPlansPage() {
                 type="button"
                 onClick={() => handleToggleStatusClick(row)}
                 disabled={isFree && row.isActive}
-                className={`grid h-8 w-8 place-items-center rounded-lg transition ${
+                className={`grid h-11 w-11 shrink-0 place-items-center rounded-[8px] transition ${
                   row.isActive
                     ? "text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-                    : "text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                    : "text-[#5C6B8A] hover:bg-slate-100 hover:text-slate-700"
                 } ${isFree && row.isActive ? "cursor-not-allowed opacity-40" : ""}`}
                 title={
                   isFree && row.isActive
@@ -368,7 +368,7 @@ export default function AdminPlansPage() {
               <button
                 type="button"
                 onClick={() => setHistoryModal({ open: true, plan: row })}
-                className="grid h-8 w-8 place-items-center rounded-lg text-purple-600 transition hover:bg-purple-50 hover:text-purple-700"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-[8px] text-blue-600 transition hover:bg-blue-50 hover:text-blue-700"
                 title="Xem lịch sử phiên bản"
                 aria-label="Xem lịch sử phiên bản"
               >
@@ -380,7 +380,7 @@ export default function AdminPlansPage() {
                 <button
                   type="button"
                   onClick={() => handleDeleteClick(row)}
-                  className="grid h-8 w-8 place-items-center rounded-lg text-rose-500 transition hover:bg-rose-50 hover:text-rose-700"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-[8px] text-rose-500 transition hover:bg-rose-50 hover:text-rose-700"
                   title="Xóa gói tùy chỉnh chưa phát hành"
                   aria-label="Xóa gói"
                 >
@@ -397,36 +397,7 @@ export default function AdminPlansPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast Notification */}
-      {notice && (
-        <div
-          role="alert"
-          className={`fixed right-5 top-5 z-[80] flex max-w-md items-start gap-3 rounded-2xl border p-4 shadow-xl backdrop-blur-md transition ${
-            notice.type === "success"
-              ? "border-emerald-200 bg-white text-emerald-900"
-              : "border-rose-200 bg-white text-rose-900"
-          }`}
-        >
-          <span
-            className={`material-symbols-outlined text-[22px] ${
-              notice.type === "success" ? "text-emerald-600" : "text-rose-600"
-            }`}
-          >
-            {notice.type === "success" ? "check_circle" : "error"}
-          </span>
-          <div className="flex-1 text-sm font-medium leading-relaxed">
-            {notice.message}
-          </div>
-          <button
-            type="button"
-            onClick={() => setNotice(null)}
-            className="text-slate-400 hover:text-slate-600"
-            aria-label="Đóng thông báo"
-          >
-            <span className="material-symbols-outlined text-[18px]">close</span>
-          </button>
-        </div>
-      )}
+      <NoticeBanner notice={notice} onClose={() => setNotice(null)} />
 
       {/* Page Header (FE-122) */}
       <AdminPageHeader
@@ -459,7 +430,7 @@ export default function AdminPlansPage() {
             setPage(1);
           }}
           aria-label="Lọc theo trạng thái"
-          className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100/60"
+          className="h-11 rounded-[12px] border border-[#DCE2EE] bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100/60"
         >
           <option value="">Tất cả trạng thái</option>
           <option value="true">Đang hoạt động</option>
@@ -474,7 +445,7 @@ export default function AdminPlansPage() {
             setPage(1);
           }}
           aria-label="Lọc theo loại gói"
-          className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100/60"
+          className="h-11 rounded-[12px] border border-[#DCE2EE] bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100/60"
         >
           <option value="">Tất cả loại gói</option>
           <option value="true">Gói hệ thống</option>
@@ -482,39 +453,17 @@ export default function AdminPlansPage() {
         </select>
       </FilterBar>
 
-      {/* Error state */}
-      {error && (
-        <div className="flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          <div className="flex items-center gap-2.5">
-            <span className="material-symbols-outlined text-[22px]">error</span>
-            <span>{error}</span>
-          </div>
-          <button
-            type="button"
-            onClick={reloadPlans}
-            className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700"
-          >
-            Thử lại
-          </button>
-        </div>
-      )}
+      {error && <AdminErrorState message={error} onRetry={reloadPlans} />}
+      <p className="text-sm text-[#5C6B8A]" role="status">{totalCount} gói dịch vụ · Trang {page} / {totalPages || 1}</p>
 
       {/* Plans DataTable (FE-123) */}
-      <DataTable
+      {!error && <>
+      <div className="hidden md:block"><DataTable
         columns={columns}
         rows={plans}
         loading={loading}
         sort={sort}
         onSort={handleSort}
-        pagination={{
-          page,
-          totalPages,
-          totalCount,
-        }}
-        onPageChange={(newPage) => {
-          setLoading(true);
-          setPage(newPage);
-        }}
         emptyState={{
           icon: "workspace_premium",
           title: "Chưa có gói dịch vụ nào phù hợp",
@@ -528,7 +477,21 @@ export default function AdminPlansPage() {
               ? handleClearFilters
               : () => setFormModal({ open: true, mode: "create", plan: null }),
         }}
-      />
+      /></div>
+      <div className="space-y-4 md:hidden" aria-label="Danh sách gói trên di động">
+        {loading ? <LoadingState /> : plans.length === 0 ? <EmptyState icon="workspace_premium" title="Chưa có gói dịch vụ nào phù hợp" description={search || statusFilter || typeFilter ? "Hãy thử thay đổi từ khóa tìm kiếm hoặc bỏ bớt các bộ lọc đang chọn." : "Bắt đầu bằng cách tạo gói dịch vụ mới đầu tiên cho hệ thống."} actionLabel={search || statusFilter || typeFilter ? "Xóa bộ lọc" : "Tạo gói mới"} onAction={search || statusFilter || typeFilter ? handleClearFilters : () => setFormModal({ open: true, mode: "create", plan: null })} /> : plans.map((row) => (
+          <AdminRecordCard key={row.id} title={row.name} subtitle={<span className="font-mono">{row.code} · v{row.currentVersion?.versionNumber ?? 1}</span>} status={columns.find(c => c.key === "isActive").render(row)}
+            primaryAction={columns.find(c => c.key === "actions").render(row)}>
+            <dl className="grid grid-cols-2 gap-4">
+              <div><dt className="text-xs">Giá bán</dt><dd className="mt-1 font-semibold text-[#0F2148]">{columns.find(c => c.key === "price").render(row)}</dd></div>
+              <div><dt className="text-xs">Thời hạn</dt><dd className="mt-1">{columns.find(c => c.key === "durationDays").render(row)}</dd></div>
+            </dl>
+            <div className="mt-3">{columns.find(c => c.key === "limits").render(row)}</div>
+          </AdminRecordCard>
+        ))}
+      </div>
+      <AdminPagination page={page} totalPages={totalPages} totalCount={totalCount} disabled={loading} onPageChange={(newPage) => { setLoading(true); setPage(newPage); }} />
+      </>}
 
       {/* Plan Create/Edit Form Modal (FE-122, FE-124, FE-125) */}
       <PlanFormModal

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, FileSpreadsheet, Loader2 } from "lucide-react";
+import { ADMIN_SECONDARY_BUTTON } from "../adminStyles";
 import { adminPlaceService } from "../../../services/adminPlaceService";
 
 export default function DownloadTemplateButton() {
@@ -24,35 +24,10 @@ export default function DownloadTemplateButton() {
     }
   };
 
-  return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        disabled={Boolean(downloadingFormat)}
-        onClick={() => handleDownload("xlsx")}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-lg transition disabled:opacity-50"
-      >
-        {downloadingFormat === "xlsx" ? (
-          <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
-        ) : (
-          <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-        )}
-        Tải file mẫu Excel (.xlsx)
-      </button>
-
-      <button
-        type="button"
-        disabled={Boolean(downloadingFormat)}
-        onClick={() => handleDownload("csv")}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-lg transition disabled:opacity-50"
-      >
-        {downloadingFormat === "csv" ? (
-          <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-        ) : (
-          <Download className="w-4 h-4 text-blue-600" />
-        )}
-        Tải file mẫu CSV (.csv)
-      </button>
-    </div>
-  );
+  return <div className="flex flex-wrap gap-2">
+    {["xlsx", "csv"].map((format) => <button key={format} type="button" disabled={Boolean(downloadingFormat)} onClick={() => handleDownload(format)} className={ADMIN_SECONDARY_BUTTON}>
+      <span aria-hidden="true" className={`material-symbols-outlined text-[20px] ${downloadingFormat === format ? "animate-spin motion-reduce:animate-none" : ""}`}>{downloadingFormat === format ? "progress_activity" : "download"}</span>
+      Tải mẫu {format === "xlsx" ? "Excel (.xlsx)" : "CSV (.csv)"}
+    </button>)}
+  </div>;
 }

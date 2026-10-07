@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Search, X, Filter } from "lucide-react";
+import { FilterBar } from "./ui";
+import { ADMIN_SELECT, ADMIN_ICON_BUTTON } from "./adminStyles";
 
 const CATEGORIES = [
   { value: "Food", label: "Ăn uống (Food)" },
@@ -40,90 +41,19 @@ export default function PlaceFilterBar({
     filters.stationId;
 
   return (
-    <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-3 mb-6">
-      <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-        {/* Search input */}
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm theo tên địa điểm, địa chỉ..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => {
-                setSearchTerm("");
-                onChange({ search: "", page: 1 });
-              }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        {/* Filter dropdowns */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Category Dropdown */}
-          <select
-            value={filters.category || ""}
-            onChange={(e) => onChange({ category: e.target.value, page: 1 })}
-            className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 text-gray-700"
-          >
-            <option value="">Tất cả danh mục</option>
-            {CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Status Dropdown */}
-          <select
-            value={filters.status || ""}
-            onChange={(e) => onChange({ status: e.target.value, page: 1 })}
-            className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 text-gray-700"
-          >
-            <option value="">Tất cả trạng thái</option>
-            {STATUSES.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Metro Station Dropdown */}
-          <select
-            value={filters.stationId || ""}
-            onChange={(e) => onChange({ stationId: e.target.value, page: 1 })}
-            className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 text-gray-700 max-w-[180px]"
-          >
-            <option value="">Tất cả ga Metro</option>
-            {stations.map((st) => (
-              <option key={st.id} value={st.id}>
-                {st.name}
-              </option>
-            ))}
-          </select>
-
-          {/* Reset Filters button */}
-          {hasActiveFilters && (
-            <button
-              onClick={() => {
-                setSearchTerm("");
-                onReset();
-              }}
-              className="inline-flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition"
-            >
-              <X className="w-3.5 h-3.5" />
-              Xóa bộ lọc
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <FilterBar searchValue={searchTerm} searchLabel="Tìm địa điểm" searchPlaceholder="Tìm kiếm theo tên địa điểm, địa chỉ..."
+      onSearchChange={setSearchTerm} activeFilterCount={[filters.category,filters.status,filters.stationId].filter(Boolean).length}
+      onClear={hasActiveFilters ? () => { setSearchTerm(""); onReset(); } : undefined}>
+      {searchTerm && <button type="button" aria-label="Xóa từ khóa" className={ADMIN_ICON_BUTTON} onClick={() => { setSearchTerm(""); onChange({search:"",page:1}); }}><span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span></button>}
+      <select aria-label="Danh mục" value={filters.category || ""} onChange={(e) => onChange({category:e.target.value,page:1})} className={`${ADMIN_SELECT} !w-full sm:!w-auto`}>
+        <option value="">Tất cả danh mục</option>{CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+      </select>
+      <select aria-label="Trạng thái" value={filters.status || ""} onChange={(e) => onChange({status:e.target.value,page:1})} className={`${ADMIN_SELECT} !w-full sm:!w-auto`}>
+        <option value="">Tất cả trạng thái</option>{STATUSES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+      </select>
+      <select aria-label="Ga Metro" value={filters.stationId || ""} onChange={(e) => onChange({stationId:e.target.value,page:1})} className={`${ADMIN_SELECT} !w-full sm:!w-auto sm:max-w-52`}>
+        <option value="">Tất cả ga Metro</option>{stations.map((station) => <option key={station.id} value={station.id}>{station.name}</option>)}
+      </select>
+    </FilterBar>
   );
 }

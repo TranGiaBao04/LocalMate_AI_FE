@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { MapPin, Navigation, AlertCircle } from "lucide-react";
+import { AdminField } from "./ui";
+import { ADMIN_INPUT, ADMIN_SECONDARY_BUTTON } from "./adminStyles";
 
 const HCMC_BOUNDS = {
   minLat: 10.37,
@@ -49,69 +50,12 @@ export default function MapCoordinatePicker({ latitude, longitude, onChange }) {
   };
 
   return (
-    <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-          <MapPin className="w-4 h-4 text-primary" />
-          <span>Tọa độ địa lý TP.HCM (Latitude / Longitude) <span className="text-red-500">*</span></span>
-        </label>
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <AdminField id="place-latitude" label="Vĩ độ (Latitude)" error={coordError}><input id="place-latitude" type="number" step="any" placeholder="10.7769" value={latInput} onChange={(e) => handleInputChange(e.target.value,lngInput)} aria-invalid={Boolean(coordError)} aria-describedby={coordError ? "place-latitude-error" : undefined} className={ADMIN_INPUT} /></AdminField>
+        <AdminField id="place-longitude" label="Kinh độ (Longitude)"><input id="place-longitude" type="number" step="any" placeholder="106.7009" value={lngInput} onChange={(e) => handleInputChange(latInput,e.target.value)} aria-invalid={Boolean(coordError)} aria-describedby={coordError ? "place-latitude-error" : undefined} className={ADMIN_INPUT} /></AdminField>
       </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-[11px] font-medium text-gray-500 mb-1">
-            Vĩ độ (Latitude)
-          </label>
-          <input
-            type="number"
-            step="any"
-            placeholder="10.7769"
-            value={latInput}
-            onChange={(e) => handleInputChange(e.target.value, lngInput)}
-            className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
-          />
-        </div>
-
-        <div>
-          <label className="block text-[11px] font-medium text-gray-500 mb-1">
-            Kinh độ (Longitude)
-          </label>
-          <input
-            type="number"
-            step="any"
-            placeholder="106.7009"
-            value={lngInput}
-            onChange={(e) => handleInputChange(latInput, e.target.value)}
-            className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
-          />
-        </div>
-      </div>
-
-      {coordError && (
-        <div className="flex items-center gap-1.5 text-xs text-red-500 font-medium">
-          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>{coordError}</span>
-        </div>
-      )}
-
-      {/* Quick presets for admin testing */}
-      <div className="flex items-center gap-2 pt-1">
-        <span className="text-[11px] text-gray-400">Gợi ý tọa độ trung tâm:</span>
-        <button
-          type="button"
-          onClick={() => handleQuickPreset(10.7769, 106.7009)}
-          className="px-2 py-0.5 text-[11px] bg-white border border-gray-200 rounded hover:bg-gray-100 text-gray-600"
-        >
-          Chợ Bến Thành
-        </button>
-        <button
-          type="button"
-          onClick={() => handleQuickPreset(10.7885, 106.7025)}
-          className="px-2 py-0.5 text-[11px] bg-white border border-gray-200 rounded hover:bg-gray-100 text-gray-600"
-        >
-          Ga Ba Son
-        </button>
-      </div>
+      <div className="flex flex-wrap items-center gap-3"><span className="text-xs text-[#5C6B8A]">Gợi ý tọa độ trung tâm:</span><button type="button" onClick={() => handleQuickPreset(10.7769,106.7009)} className={ADMIN_SECONDARY_BUTTON}>Chợ Bến Thành</button><button type="button" onClick={() => handleQuickPreset(10.7885,106.7025)} className={ADMIN_SECONDARY_BUTTON}>Ga Ba Son</button></div>
     </div>
   );
 }
