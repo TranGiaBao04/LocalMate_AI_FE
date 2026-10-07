@@ -1,3 +1,4 @@
+import DailyDataDisclosure from "./DailyDataDisclosure";
 import { countFormatter, formatDayLabel, percentFormatter } from "./dashboardUtils";
 
 // Lịch trình đã chốt theo ngày chốt (giờ VN). BE trả đủ mọi ngày, ngày không có = 0.
@@ -18,18 +19,18 @@ export default function TripsFinalizedChart({ days, total }) {
         />
       </dl>
 
-      <p className="mt-5 text-[11px] text-text-faint">{countFormatter.format(max)}</p>
+      <p className="mt-5 text-xs text-[#5C6B8A]">{countFormatter.format(max)}</p>
       <div
         role="img"
         aria-label={`Lịch trình đã chốt theo ngày từ ${formatDayLabel(days[0].date)} đến ${formatDayLabel(days.at(-1).date)}, tổng ${countFormatter.format(total)}`}
-        className={`mt-1 flex h-48 items-end border-y border-dashed border-[#e3e7f1] ${gap}`}
+        className={`mt-1 flex h-48 items-end border-y border-dashed border-[#DCE2EE] ${gap}`}
       >
         {days.map((day) => (
           <div
             key={day.date}
             title={`${formatDayLabel(day.date)}: ${countFormatter.format(day.tripsFinalized)} lịch trình`}
-            className={`min-w-0 flex-1 rounded-t-[3px] transition ${
-              day.tripsFinalized > 0 ? "bg-navy-mid/80 hover:bg-navy-darkest" : "bg-surface-container-low"
+            className={`min-w-0 flex-1 rounded-t-[4px] transition-colors motion-reduce:transition-none ${
+              day.tripsFinalized > 0 ? "bg-[#2C56A8] hover:bg-[#1D3E82]" : "bg-[#F4F6FA]"
             }`}
             style={{
               height: day.tripsFinalized > 0 ? `${Math.max(3, (day.tripsFinalized / max) * 100)}%` : "2px",
@@ -37,13 +38,15 @@ export default function TripsFinalizedChart({ days, total }) {
           />
         ))}
       </div>
-      <div className="mt-2 flex justify-between text-xs text-text-faint">
+      <div className="mt-2 flex justify-between text-xs text-[#5C6B8A]">
         <span>{formatDayLabel(days[0].date)}</span>
         {days.length > 2 && <span>{formatDayLabel(middle.date)}</span>}
         {days.length > 1 && <span>{formatDayLabel(days.at(-1).date)}</span>}
       </div>
 
-      <p className="mt-4 text-xs leading-5 text-text-muted">
+      <DailyDataDisclosure days={days} />
+
+      <p className="mt-4 text-xs leading-5 text-[#5C6B8A]">
         Tính theo ngày chốt, gồm cả lịch trình bị xoá sau khi chốt. Khác với &quot;Lịch trình đã tạo&quot; ở trên,
         vốn đếm mọi lịch trình theo ngày tạo.
       </p>
@@ -54,8 +57,8 @@ export default function TripsFinalizedChart({ days, total }) {
 function Stat({ label, value }) {
   return (
     <div>
-      <dt className="text-xs text-text-muted">{label}</dt>
-      <dd className="mt-0.5 text-sm font-bold text-navy-darkest">{value}</dd>
+      <dt className="text-xs text-[#5C6B8A]">{label}</dt>
+      <dd className="mt-0.5 text-sm font-bold text-[#0F2148]">{value}</dd>
     </div>
   );
 }

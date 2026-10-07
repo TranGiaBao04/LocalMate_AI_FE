@@ -404,7 +404,7 @@ describe("FE-UP5 evidence edge cases", () => {
   });
   it("unknown or missing source state is not inferred from dates", () => {
     render(<CreditSourcesPanel sources={[source({ state: "FutureState" }), source({ state: null })]} />);
-    expect(screen.getByText("FutureState")).toHaveClass("bg-slate-100");
+    expect(screen.getByText("FutureState")).toHaveClass("bg-[#F4F6FA]");
     expect(screen.queryByText("Đã giải phóng")).not.toBeInTheDocument();
   });
   it("zero remains zero and missing source money remains unavailable", () => {
