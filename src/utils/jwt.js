@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from "../constants";
+import { getToken } from "./authStorage";
 
 function decodeBase64Url(value) {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
@@ -24,7 +24,7 @@ export function decodeJwtPayload(token) {
 }
 
 export function getStoredTokenPayload() {
-  return decodeJwtPayload(localStorage.getItem(STORAGE_KEYS.TOKEN));
+  return decodeJwtPayload(getToken());
 }
 
 export function isStoredTokenExpired() {

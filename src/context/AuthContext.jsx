@@ -2,12 +2,13 @@ import { createContext, useContext, useState, useEffect } from "react";
 import { STORAGE_KEYS } from "../constants";
 import { AUTH_EVENTS } from "../api/apiClient";
 import { authService } from "../services/authService";
+import { getToken, setToken, removeToken } from "../utils/authStorage";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    const token = getToken();
     const isDemoStored = localStorage.getItem(STORAGE_KEYS.IS_DEMO) === "true";
     if (token && isDemoStored) {
       return {
@@ -21,19 +22,19 @@ export function AuthProvider({ children }) {
   });
 
   const [isDemo, setIsDemo] = useState(() => {
-    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    const token = getToken();
     const isDemoStored = localStorage.getItem(STORAGE_KEYS.IS_DEMO) === "true";
     return !!token && isDemoStored;
   });
 
   const [initializing, setInitializing] = useState(() => {
-    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    const token = getToken();
     const isDemoStored = localStorage.getItem(STORAGE_KEYS.IS_DEMO) === "true";
     return !!token && !isDemoStored;
   });
 
   useEffect(() => {
-    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    const token = getToken();
     const isDemoStored = localStorage.getItem(STORAGE_KEYS.IS_DEMO) === "true";
     if (!token || isDemoStored) {
       return;
@@ -46,7 +47,7 @@ export function AuthProvider({ children }) {
         setIsDemo(false);
       })
       .catch(() => {
-        localStorage.removeItem(STORAGE_KEYS.TOKEN);
+        removeToken();
         localStorage.removeItem(STORAGE_KEYS.IS_DEMO);
         setUser(null);
         setIsDemo(false);
@@ -59,7 +60,7 @@ export function AuthProvider({ children }) {
   // BE-83: tài khoản bị khoá/không còn tồn tại ⇒ đăng xuất, giữ lời nhắn cho trang đăng nhập.
   useEffect(() => {
     const handleSessionEnded = (event) => {
-      localStorage.removeItem(STORAGE_KEYS.TOKEN);
+      removeToken();
       localStorage.removeItem(STORAGE_KEYS.IS_DEMO);
       setUser(null);
       setIsDemo(false);
@@ -69,12 +70,12 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener(AUTH_EVENTS.SESSION_ENDED, handleSessionEnded);
   }, []);
 
-  const completePersistedLogin = async (session) => {
+  const completePersistedLogin = async (session, rememberMe = false) => {
     const token = session?.accessToken || session?.token;
     if (!token) {
       throw new Error("Không nhận được access token từ máy chủ.");
     }
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+    setToken(token, rememberMe);
     localStorage.removeItem(STORAGE_KEYS.IS_DEMO);
     setIsDemo(false);
 
@@ -83,17 +84,17 @@ export function AuthProvider({ children }) {
       setUser(profile);
       return { session, user: profile };
     } catch (profileErr) {
-      localStorage.removeItem(STORAGE_KEYS.TOKEN);
+      removeToken();
       setUser(null);
       throw profileErr;
     }
   };
 
-  const login = async (email, password) =>
-    completePersistedLogin(await authService.login(email, password));
+  const login = async (email, password, rememberMe = false) =>
+    completePersistedLogin(await authService.login(email, password), rememberMe);
 
-  const loginWithGoogle = async (idToken) =>
-    completePersistedLogin(await authService.googleLogin(idToken));
+  const loginWithGoogle = async (idToken, rememberMe = false) =>
+    completePersistedLogin(await authService.googleLogin(idToken), rememberMe);
 
   const loginDemo = async () => {
     const session = await authService.demo();
@@ -101,7 +102,7 @@ export function AuthProvider({ children }) {
     if (!token) {
       throw new Error("Không nhận được token demo từ máy chủ.");
     }
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+    setToken(token, true);
     localStorage.setItem(STORAGE_KEYS.IS_DEMO, "true");
     const demoUser = {
       id: "demo",
@@ -121,7 +122,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     setUser(null);
     setIsDemo(false);
-    localStorage.removeItem(STORAGE_KEYS.TOKEN);
+    removeToken();
     localStorage.removeItem(STORAGE_KEYS.IS_DEMO);
   };
 
