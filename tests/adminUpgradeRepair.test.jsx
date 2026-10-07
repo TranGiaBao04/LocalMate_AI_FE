@@ -511,13 +511,13 @@ describe("FE-UP6 permission refresh and separate read/mutation boundaries", () =
   });
   it("403 refresh cannot restore revoked permissions through Admin role", async () => {
     const view = render(<MemoryRouter initialEntries={["/admin"]}><AdminLayout /></MemoryRouter>);
-    expect(screen.getAllByText("Giao dịch PayOS").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Giao dịch").length).toBeGreaterThan(0);
     auth.refreshProfile.mockImplementation(async () => { setPermissions(undefined); });
     await act(async () => window.dispatchEvent(new CustomEvent(ADMIN_API_EVENTS.FORBIDDEN)));
     view.rerender(<MemoryRouter initialEntries={["/admin"]}><AdminLayout /></MemoryRouter>);
     expect(auth.refreshProfile).toHaveBeenCalledTimes(1);
     expect(auth.logout).not.toHaveBeenCalled();
-    expect(screen.queryByText("Giao dịch PayOS")).not.toBeInTheDocument();
+    expect(screen.queryByText("Giao dịch")).not.toBeInTheDocument();
     expect(canAccessAdmin(auth.user)).toBe(false);
   });
   it.each([undefined, "true", 1])("missing or non-boolean eligibility %j never enables repair", async (eligible) => {
