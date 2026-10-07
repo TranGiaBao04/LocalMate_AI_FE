@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminPageHeader from "../../components/admin/AdminPageHeader";
 import { ADMIN_SECONDARY_BUTTON } from "../../components/admin/adminStyles";
+import { AdminSurface, AdminErrorState, EmptyState, LoadingState, StatusBadge } from "../../components/admin/ui";
 import { useAuth } from "../../context/AuthContext";
 import { ADMIN_PERMISSIONS, PLACE_CATEGORY_LABELS } from "../../constants";
 import { adminStationService } from "../../services/adminStationService";
@@ -14,34 +15,28 @@ const stationCode = (order) => String(order).padStart(2, "0");
 const STATUS_COLUMNS = [
   { key: "active", label: "Hoạt động", tone: "bg-emerald-50 text-emerald-700" },
   { key: "pending", label: "Chờ duyệt", tone: "bg-amber-50 text-amber-700" },
-  { key: "inactive", label: "Ngừng", tone: "bg-slate-100 text-slate-600" },
+  { key: "inactive", label: "Ngừng", tone: "bg-[#F4F6FA] text-[#5C6B8A]" },
 ];
 
-function SummaryCard({ label, icon, iconTone, value, valueTone = "text-[#0f2042]", caption, loading }) {
+function SummaryCard({ label, icon, iconTone, value, valueTone = "text-[#0F2148]", caption, loading }) {
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <AdminSurface as="article" density="compact">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
-        <span className={`material-symbols-outlined ${iconTone}`}>{icon}</span>
+        <p className="text-[13px] font-semibold leading-[18px] text-[#5C6B8A]">{label}</p>
+        <span aria-hidden="true" className={`material-symbols-outlined ${iconTone}`}>{icon}</span>
       </div>
       {loading ? (
-        <div className="mt-4 h-9 w-20 animate-pulse rounded-md bg-slate-100" />
+        <div className="mt-4 h-9 w-20 animate-pulse motion-reduce:animate-none rounded-[8px] bg-[#F4F6FA]" />
       ) : (
-        <p className={`mt-4 text-3xl font-extrabold ${valueTone}`}>{value}</p>
+        <p className={`mt-3 text-2xl font-bold ${valueTone}`}>{value}</p>
       )}
-      {caption && !loading && <p className="mt-2 text-xs leading-5 text-slate-500">{caption}</p>}
-    </article>
+      {caption && !loading && <p className="mt-2 text-xs leading-5 text-[#5C6B8A]">{caption}</p>}
+    </AdminSurface>
   );
 }
 
 function StockBadge({ station }) {
-  return station.isUnderstocked ? (
-    <span className="shrink-0 rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700">
-      Thiếu {station.shortfall} địa điểm
-    </span>
-  ) : (
-    <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">Đủ dữ liệu</span>
-  );
+  return <StatusBadge variant={station.isUnderstocked ? "warning" : "success"} label={station.isUnderstocked ? `Thiếu ${station.shortfall} địa điểm` : "Đủ dữ liệu"} />;
 }
 
 function MissingCategories({ categories }) {
@@ -51,19 +46,15 @@ function MissingCategories({ categories }) {
 
 function StationCard({ station }) {
   return (
-    <article
-      className={`rounded-xl border p-5 transition hover:shadow-lg ${
-        station.isUnderstocked ? "border-rose-200 bg-rose-50/40" : "border-slate-200 hover:border-blue-200"
-      }`}
-    >
-      <div className="flex items-start justify-between gap-3">
+    <AdminSurface as="article" variant="interactive" className={station.isUnderstocked ? "border-amber-200" : ""}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#0f2042] text-sm font-extrabold text-white">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] bg-[#1D3E82] text-sm font-extrabold text-white">
             {stationCode(station.order)}
           </span>
           <div className="min-w-0">
-            <h2 className="truncate font-extrabold text-[#0f2042]">Ga {station.name}</h2>
-            <p className="mt-0.5 text-xs text-slate-500">{countFormatter.format(station.totals.total)} địa điểm quanh ga</p>
+            <h2 className="break-words text-base font-semibold leading-6 text-[#0F2148]">Ga {station.name}</h2>
+            <p className="mt-0.5 text-xs text-[#5C6B8A]">{countFormatter.format(station.totals.total)} địa điểm quanh ga</p>
           </div>
         </div>
         <StockBadge station={station} />
@@ -71,8 +62,8 @@ function StationCard({ station }) {
 
       <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
         {STATUS_COLUMNS.map((column) => (
-          <div key={column.key} className={`rounded-lg px-2 py-2 ${column.tone}`}>
-            <dt className="text-[10px] font-bold uppercase tracking-wide">{column.label}</dt>
+          <div key={column.key} className={`rounded-[8px] px-2 py-2 ${column.tone}`}>
+            <dt className="text-xs font-semibold leading-[18px]">{column.label}</dt>
             <dd className="mt-0.5 text-lg font-extrabold">{station.totals[column.key]}</dd>
           </div>
         ))}
@@ -81,10 +72,10 @@ function StationCard({ station }) {
       <ul className="mt-4 space-y-1.5">
         {station.categories.map((item) => (
           <li key={item.category} className="flex items-center justify-between gap-2 text-sm">
-            <span className="text-slate-600">{categoryLabel(item.category)}</span>
-            <span className={`font-bold ${item.active === 0 ? "text-amber-700" : "text-slate-800"}`}>
+            <span className="text-[#5C6B8A]">{categoryLabel(item.category)}</span>
+            <span className={`font-bold ${item.active === 0 ? "text-amber-700" : "text-[#0F2148]"}`}>
               {item.active}
-              {item.pending > 0 && <span className="ml-1 text-xs font-medium text-slate-400">+{item.pending} chờ duyệt</span>}
+              {item.pending > 0 && <span className="ml-1 text-xs font-medium text-[#8993AC]">+{item.pending} chờ duyệt</span>}
             </span>
           </li>
         ))}
@@ -93,36 +84,36 @@ function StationCard({ station }) {
       <div className="mt-3">
         <MissingCategories categories={station.missingCategories} />
       </div>
-    </article>
+    </AdminSurface>
   );
 }
 
 function StationTable({ stations, categories }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[880px] text-left">
-        <thead className="bg-slate-50 text-[10px] font-extrabold uppercase tracking-wide text-slate-500">
+      <table aria-label="Độ phủ địa điểm theo nhà ga" className="w-full min-w-[880px] text-left">
+        <thead className="bg-[#F8FAFC] text-xs font-semibold leading-4 text-[#5C6B8A]">
           <tr>
-            <th className="px-5 py-3">Ga</th>
-            {STATUS_COLUMNS.map((column) => <th key={column.key} className="px-3 py-3 text-right">{column.label}</th>)}
-            {categories.map((category) => <th key={category} className="px-3 py-3 text-right">{categoryLabel(category)}</th>)}
-            <th className="px-5 py-3">Tình trạng</th>
+            <th scope="col" className="px-5 py-3">Ga</th>
+            {STATUS_COLUMNS.map((column) => <th scope="col" key={column.key} className="px-3 py-3 text-right">{column.label}</th>)}
+            {categories.map((category) => <th scope="col" key={category} className="px-3 py-3 text-right">{categoryLabel(category)}</th>)}
+            <th scope="col" className="px-5 py-3">Tình trạng</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-[#DCE2EE]">
           {stations.map((station) => (
-            <tr key={station.id} className={`text-sm ${station.isUnderstocked ? "bg-rose-50/40" : "hover:bg-slate-50"}`}>
+            <tr key={station.id} className={`text-sm ${station.isUnderstocked ? "bg-rose-50/40" : "hover:bg-[#F8FAFC]"}`}>
               <td className="px-5 py-4">
                 <span className="mr-2 font-extrabold text-blue-700">{stationCode(station.order)}</span>
-                <span className="font-bold text-slate-800">Ga {station.name}</span>
+                <span className="font-bold text-[#0F2148]">Ga {station.name}</span>
               </td>
               {STATUS_COLUMNS.map((column) => (
-                <td key={column.key} className="px-3 py-4 text-right font-semibold text-slate-700">{station.totals[column.key]}</td>
+                <td key={column.key} className="px-3 py-4 text-right font-semibold text-[#0F2148]">{station.totals[column.key]}</td>
               ))}
               {categories.map((category) => {
                 const active = station.categories.find((item) => item.category === category)?.active ?? 0;
                 return (
-                  <td key={category} className={`px-3 py-4 text-right font-semibold ${active === 0 ? "text-amber-700" : "text-slate-700"}`}>
+                  <td key={category} className={`px-3 py-4 text-right font-semibold ${active === 0 ? "text-amber-700" : "text-[#0F2148]"}`}>
                     {active}
                   </td>
                 );
@@ -201,18 +192,18 @@ export default function AdminStationsPage() {
         }
       >
         <button type="button" onClick={reload} disabled={loading} className={ADMIN_SECONDARY_BUTTON}>
-          <span className={`material-symbols-outlined text-[18px] ${loading ? "animate-spin" : ""}`}>sync</span>
+          <span aria-hidden="true" className={`material-symbols-outlined text-[18px] ${loading ? "animate-spin motion-reduce:animate-none" : ""}`}>sync</span>
           Tải lại
         </button>
       </AdminPageHeader>
 
-      <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <SummaryCard label="Tổng số ga" icon="subway" iconTone="text-blue-600" loading={!data && loading} value={data ? stations.length : "—"} />
         <SummaryCard
           label="Ga thiếu dữ liệu"
           icon="report"
           iconTone="text-rose-600"
-          valueTone={data?.understockedStationCount ? "text-rose-700" : "text-[#0f2042]"}
+          valueTone={data?.understockedStationCount ? "text-rose-700" : "text-[#0F2148]"}
           loading={!data && loading}
           value={data ? data.understockedStationCount : "—"}
           caption={data ? `Dưới ${data.minActivePlacesPerStation} địa điểm đang hoạt động` : null}
@@ -239,68 +230,55 @@ export default function AdminStationsPage() {
         />
       </section>
 
-      <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center">
-          <div className="flex h-10 flex-1 items-center rounded-lg border border-slate-200 bg-slate-50 px-3">
-            <span className="material-symbols-outlined text-[19px] text-slate-400">search</span>
+      <section className="mt-8 min-w-0">
+        <div className="flex flex-col gap-3 border-b border-[#DCE2EE] p-4 lg:flex-row lg:items-center">
+          <div className="flex h-11 min-w-0 flex-1 items-center rounded-[12px] border border-[#DCE2EE] bg-white px-3 focus-within:ring-2 focus-within:ring-[#2C56A8]/20">
+            <span aria-hidden="true" className="material-symbols-outlined text-[19px] text-[#8993AC]">search</span>
             <input
+              aria-label="Tìm nhà ga"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Tìm theo tên hoặc số thứ tự nhà ga..."
-              className="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-slate-400"
+              className="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-[#8993AC]"
             />
           </div>
           <button
             type="button"
             aria-pressed={onlyUnderstocked}
             onClick={() => setOnlyUnderstocked((value) => !value)}
-            className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition ${
-              onlyUnderstocked ? "border-rose-200 bg-rose-50 text-rose-700" : "border-slate-200 bg-white text-slate-600 hover:border-rose-200"
+            className={`inline-flex min-h-11 items-center gap-2 rounded-[12px] border px-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2C56A8] ${
+              onlyUnderstocked ? "border-rose-200 bg-rose-50 text-rose-700" : "border-[#DCE2EE] bg-white text-[#5C6B8A] hover:border-rose-200"
             }`}
           >
-            <span className="material-symbols-outlined text-[18px]">filter_alt</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">filter_alt</span>
             Chỉ ga thiếu
           </button>
-          <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-1">
-            <button type="button" onClick={() => setView("grid")} aria-label="Dạng lưới" className={`grid h-8 w-9 place-items-center rounded-md ${view === "grid" ? "bg-white text-blue-700 shadow-sm" : "text-slate-400"}`}>
-              <span className="material-symbols-outlined text-[19px]">grid_view</span>
+          <div className="hidden self-start items-center rounded-[12px] border border-[#DCE2EE] bg-[#F8FAFC] p-1 md:flex lg:self-auto">
+            <button type="button" onClick={() => setView("grid")} aria-pressed={view === "grid"} aria-label="Dạng lưới" className={`grid h-11 w-11 place-items-center rounded-[8px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2C56A8] ${view === "grid" ? "bg-white text-blue-700" : "text-[#8993AC]"}`}>
+              <span aria-hidden="true" className="material-symbols-outlined text-[19px]">grid_view</span>
             </button>
-            <button type="button" onClick={() => setView("table")} aria-label="Dạng bảng" className={`grid h-8 w-9 place-items-center rounded-md ${view === "table" ? "bg-white text-blue-700 shadow-sm" : "text-slate-400"}`}>
-              <span className="material-symbols-outlined text-[19px]">view_list</span>
+            <button type="button" onClick={() => setView("table")} aria-pressed={view === "table"} aria-label="Dạng bảng" className={`grid h-11 w-11 place-items-center rounded-[8px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2C56A8] ${view === "table" ? "bg-white text-blue-700" : "text-[#8993AC]"}`}>
+              <span aria-hidden="true" className="material-symbols-outlined text-[19px]">view_list</span>
             </button>
           </div>
         </div>
 
         {result.error && !loading ? (
-          <div className="grid min-h-72 place-items-center p-8 text-center">
-            <div>
-              <span className="material-symbols-outlined text-4xl text-rose-500">cloud_off</span>
-              <p className="mt-3 font-bold text-slate-800">{result.error}</p>
-              <button type="button" onClick={reload} className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white">Thử lại</button>
-            </div>
-          </div>
+          <AdminErrorState message={result.error} onRetry={reload} />
         ) : !data ? (
-          <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-3">
-            {Array.from({ length: 6 }, (_, index) => <div key={index} className="h-64 animate-pulse rounded-xl bg-slate-100" />)}
-          </div>
+          <LoadingState label="Đang tải nhà ga..." />
         ) : filteredStations.length === 0 ? (
-          <div className="grid min-h-72 place-items-center p-8 text-center">
-            <div>
-              <span className="material-symbols-outlined text-4xl text-slate-300">search_off</span>
-              <p className="mt-3 font-bold text-slate-700">
-                {onlyUnderstocked && !query.trim() ? "Không có ga nào thiếu dữ liệu" : "Không tìm thấy nhà ga phù hợp"}
-              </p>
-            </div>
-          </div>
-        ) : view === "grid" ? (
-          <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-3">
+          <EmptyState icon="search_off" title={onlyUnderstocked && !query.trim() ? "Không có ga nào thiếu dữ liệu" : "Không tìm thấy nhà ga phù hợp"} />
+        ) : (
+          <>
+          <div className={`mt-5 grid gap-4 sm:grid-cols-2 2xl:grid-cols-3 ${view === "table" ? "md:hidden" : ""}`}>
             {filteredStations.map((station) => <StationCard key={station.id} station={station} />)}
           </div>
-        ) : (
-          <StationTable stations={filteredStations} categories={categories} />
+          {view === "table" && <div className="mt-5 hidden md:block"><AdminSurface density="none" className="overflow-hidden"><StationTable stations={filteredStations} categories={categories} /></AdminSurface></div>}
+          </>
         )}
 
-        <div className="border-t border-slate-100 px-5 py-3 text-xs text-slate-400">
+        <div className="mt-4 text-xs leading-[18px] text-[#5C6B8A]">
           Hiển thị {filteredStations.length} trên tổng số {stations.length} nhà ga
         </div>
       </section>

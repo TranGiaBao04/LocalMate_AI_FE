@@ -1,133 +1,45 @@
-import { CheckCircle2, AlertTriangle, XCircle, HelpCircle } from "lucide-react";
+import { AdminSurface, DataTable, AdminRecordCard, EmptyState, StatusBadge } from "../ui";
+
+function RowStatus({ row }) {
+  return <StatusBadge variant={!row.isValid ? "error" : row.warnings?.length ? "warning" : "success"} label={!row.isValid ? "Lỗi" : row.warnings?.length ? "Cảnh báo / Nghi trùng" : "Hợp lệ"} />;
+}
+function Diagnostics({ row }) {
+  return <div className="space-y-2 break-words">
+    {row.errors?.length > 0 && <div className="text-red-700"><strong className="text-xs">Lỗi</strong><ul className="list-inside list-disc">{row.errors.map((error, i) => <li key={i}>{error}</li>)}</ul></div>}
+    {row.warnings?.length > 0 && <div className="text-amber-800"><strong className="text-xs">Cảnh báo</strong><ul className="list-inside list-disc">{row.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul></div>}
+    {!row.errors?.length && !row.warnings?.length && <span className="text-[#8993AC]">—</span>}
+  </div>;
+}
+const coordinates = (row) => row.latitude && row.longitude ? `${row.latitude}, ${row.longitude}` : row.rawCoordinates || "—";
+const price = (row) => row.estimatedCostMin != null || row.estimatedCostMax != null ? `${row.estimatedCostMin?.toLocaleString()}đ - ${row.estimatedCostMax?.toLocaleString()}đ` : "Miễn phí / -";
+const stations = (row) => row.matchedStationNames?.length ? row.matchedStationNames.join(", ") : row.rawStations || "—";
 
 export default function ImportPreviewTable({ preview }) {
   if (!preview || !preview.rows) return null;
-
-  return (
-    <div className="space-y-4">
-      {/* Summary KPI Badges */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl">
-          <p className="text-[11px] text-gray-500 font-medium">Tổng số dòng</p>
-          <p className="text-xl font-bold text-gray-900">{preview.totalRows}</p>
-        </div>
-
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-          <p className="text-[11px] text-emerald-700 font-medium">Dòng hợp lệ</p>
-          <p className="text-xl font-bold text-emerald-800">{preview.validRowsCount}</p>
-        </div>
-
-        <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-          <p className="text-[11px] text-red-700 font-medium">Dòng có lỗi</p>
-          <p className="text-xl font-bold text-red-800">{preview.errorRowsCount}</p>
-        </div>
-
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
-          <p className="text-[11px] text-amber-700 font-medium">Dòng nghi trùng / Cảnh báo</p>
-          <p className="text-xl font-bold text-amber-800">{preview.warningRowsCount}</p>
-        </div>
-      </div>
-
-      {/* Preview Data Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto max-h-[420px]">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold sticky top-0">
-              <tr>
-                <th className="p-3">Dòng</th>
-                <th className="p-3">Trạng thái</th>
-                <th className="p-3">Tên địa điểm</th>
-                <th className="p-3">Địa chỉ</th>
-                <th className="p-3">Danh mục</th>
-                <th className="p-3">Tọa độ (Lat, Lng)</th>
-                <th className="p-3">Giá từ - Giá đến</th>
-                <th className="p-3">Ga Metro</th>
-                <th className="p-3">Chi tiết lỗi / Cảnh báo</th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-gray-100">
-              {preview.rows.map((row) => {
-                const isError = !row.isValid;
-                const isWarning = row.warnings && row.warnings.length > 0;
-
-                let rowBg = "hover:bg-gray-50/80";
-                if (isError) rowBg = "bg-red-50/40 hover:bg-red-50/70";
-                else if (isWarning) rowBg = "bg-amber-50/40 hover:bg-amber-50/70";
-
-                return (
-                  <tr key={row.rowNumber} className={`transition ${rowBg}`}>
-                    <td className="p-3 font-bold text-gray-500">{row.rowNumber}</td>
-
-                    <td className="p-3">
-                      {isError ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-red-100 text-red-700">
-                          <XCircle className="w-3.5 h-3.5" /> Lỗi
-                        </span>
-                      ) : isWarning ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-700">
-                          <AlertTriangle className="w-3.5 h-3.5" /> Nghi trùng
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-700">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Hợp lệ
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="p-3 font-semibold text-gray-900">{row.rawName || "-"}</td>
-                    <td className="p-3 max-w-xs truncate text-gray-600">{row.rawAddress || "-"}</td>
-                    <td className="p-3">{row.normalizedCategory || row.rawCategory || "-"}</td>
-                    <td className="p-3">
-                      {row.latitude && row.longitude ? (
-                        <span>{row.latitude}, {row.longitude}</span>
-                      ) : (
-                        <span className="text-red-500">{row.rawCoordinates || "-"}</span>
-                      )}
-                    </td>
-
-                    <td className="p-3">
-                      {row.estimatedCostMin != null || row.estimatedCostMax != null ? (
-                        <span>{row.estimatedCostMin?.toLocaleString()}đ - {row.estimatedCostMax?.toLocaleString()}đ</span>
-                      ) : (
-                        <span className="text-gray-400">Miễn phí / -</span>
-                      )}
-                    </td>
-
-                    <td className="p-3">
-                      {row.matchedStationNames && row.matchedStationNames.length > 0 ? (
-                        <span className="font-medium text-primary">{row.matchedStationNames.join(", ")}</span>
-                      ) : (
-                        <span className="text-gray-400">{row.rawStations || "-"}</span>
-                      )}
-                    </td>
-
-                    <td className="p-3">
-                      {row.errors && row.errors.length > 0 && (
-                        <ul className="list-disc list-inside text-red-600 space-y-0.5">
-                          {row.errors.map((err, i) => (
-                            <li key={i}>{err}</li>
-                          ))}
-                        </ul>
-                      )}
-
-                      {row.warnings && row.warnings.length > 0 && (
-                        <ul className="list-disc list-inside text-amber-700 space-y-0.5">
-                          {row.warnings.map((warn, i) => (
-                            <li key={i}>{warn}</li>
-                          ))}
-                        </ul>
-                      )}
-
-                      {!isError && !isWarning && <span className="text-gray-400">-</span>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+  const columns = [
+    { key: "rowNumber", header: "Dòng" },
+    { key: "status", header: "Trạng thái", render: (row) => <RowStatus row={row} /> },
+    { key: "rawName", header: "Tên địa điểm", cellClassName: "min-w-44 font-semibold text-[#0F2148]", render: (row) => row.rawName || "—" },
+    { key: "rawAddress", header: "Địa chỉ", cellClassName: "min-w-48 max-w-xs break-words", render: (row) => row.rawAddress || "—" },
+    { key: "category", header: "Danh mục", render: (row) => row.normalizedCategory || row.rawCategory || "—" },
+    { key: "coordinates", header: "Tọa độ (Lat, Lng)", render: coordinates },
+    { key: "price", header: "Giá từ - Giá đến", render: price },
+    { key: "stations", header: "Ga Metro", render: stations },
+    { key: "diagnostics", header: "Chi tiết lỗi / Cảnh báo", cellClassName: "min-w-64 max-w-sm", render: (row) => <Diagnostics row={row} /> },
+  ];
+  return <div className="space-y-5">
+    <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {[["Tổng số dòng", preview.totalRows, "text-[#0F2148]"], ["Dòng hợp lệ", preview.validRowsCount, "text-emerald-700"], ["Dòng có lỗi", preview.errorRowsCount, "text-red-700"], ["Dòng nghi trùng / Cảnh báo", preview.warningRowsCount, "text-amber-800"]].map(([label, value, color]) => <AdminSurface key={label} density="compact"><dt className="text-[13px] leading-[18px] text-[#5C6B8A]">{label}</dt><dd className={`mt-2 text-2xl font-bold ${color}`}>{value}</dd></AdminSurface>)}
+    </dl>
+    <div className="hidden md:block"><DataTable tableLabel="Thẩm định địa điểm nhập" rowKey="rowNumber" rows={preview.rows} columns={columns} emptyState={{ title: "File không có dòng dữ liệu" }} /></div>
+    <div className="space-y-3 md:hidden">
+      {preview.rows.length === 0 && <EmptyState title="File không có dòng dữ liệu" />}
+      {preview.rows.map((row) => <AdminRecordCard key={row.rowNumber} title={row.rawName || "Chưa có tên"} subtitle={`Dòng ${row.rowNumber}`} status={<RowStatus row={row} />}>
+        <dl className="space-y-3">
+          {[["Địa chỉ", row.rawAddress || "—"], ["Danh mục", row.normalizedCategory || row.rawCategory || "—"], ["Tọa độ", coordinates(row)], ["Khoảng giá", price(row)], ["Ga Metro", stations(row)]].map(([label, value]) => <div key={label}><dt className="text-xs text-[#8993AC]">{label}</dt><dd>{value}</dd></div>)}
+        </dl>
+        <div className="mt-4 border-t border-[#DCE2EE] pt-3"><Diagnostics row={row} /></div>
+      </AdminRecordCard>)}
     </div>
-  );
+  </div>;
 }

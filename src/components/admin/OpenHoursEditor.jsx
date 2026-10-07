@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Clock } from "lucide-react";
+import { ADMIN_INPUT } from "./adminStyles";
 
 const DAYS_OF_WEEK = [
   { key: "Monday", label: "Thứ Hai" },
@@ -31,53 +30,17 @@ export default function OpenHoursEditor({ value = [], onChange }) {
   };
 
   return (
-    <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
-      <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-        <Clock className="w-4 h-4 text-primary" />
-        <span>Giờ mở cửa 7 ngày trong tuần (OpenHours)</span>
-      </div>
-
-      <div className="space-y-2 divide-y divide-gray-100">
-        {DAYS_OF_WEEK.map((d) => {
-          const item = hoursMap[d.key] || { dayOfWeek: d.key, openTime: "08:00", closeTime: "22:00", isClosed: false };
-
-          return (
-            <div key={d.key} className="pt-2 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-medium text-gray-700 w-20">{d.label}</span>
-
-              <div className="flex items-center gap-3">
-                <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={item.isClosed}
-                    onChange={(e) => handleDayChange(d.key, "isClosed", e.target.checked)}
-                    className="rounded border-gray-300 text-primary focus:ring-blue-200 w-3.5 h-3.5"
-                  />
-                  <span className="text-xs text-gray-500">Đóng cửa</span>
-                </label>
-
-                {!item.isClosed && (
-                  <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                    <input
-                      type="time"
-                      value={item.openTime || "08:00"}
-                      onChange={(e) => handleDayChange(d.key, "openTime", e.target.value)}
-                      className="px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:ring-1 focus:ring-blue-200"
-                    />
-                    <span>-</span>
-                    <input
-                      type="time"
-                      value={item.closeTime || "22:00"}
-                      onChange={(e) => handleDayChange(d.key, "closeTime", e.target.value)}
-                      className="px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:ring-1 focus:ring-blue-200"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+    <div className="divide-y divide-[#DCE2EE]">
+      {DAYS_OF_WEEK.map((d) => {
+        const item = hoursMap[d.key] || {dayOfWeek:d.key,openTime:"08:00",closeTime:"22:00",isClosed:false};
+        return <fieldset key={d.key} className="grid min-w-0 gap-3 py-4 sm:grid-cols-[120px_minmax(0,1fr)]">
+          <legend className="float-left text-sm font-semibold text-[#0F2148]">{d.label}</legend>
+          <div className="min-w-0 space-y-3">
+            <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-[#5C6B8A]"><input type="checkbox" checked={item.isClosed} onChange={(e) => handleDayChange(d.key,"isClosed",e.target.checked)} aria-label={`Đóng cửa ${d.label}`} className="h-4 w-4 rounded border-[#DCE2EE] text-[#2C56A8]" />Đóng cửa</label>
+            {!item.isClosed && <div className="grid min-w-0 grid-cols-2 gap-3"><label className="min-w-0 text-xs text-[#5C6B8A]">Mở cửa<input aria-label={`Giờ mở cửa ${d.label}`} type="time" value={item.openTime || "08:00"} onChange={(e) => handleDayChange(d.key,"openTime",e.target.value)} className={`mt-2 ${ADMIN_INPUT}`} /></label><label className="min-w-0 text-xs text-[#5C6B8A]">Đóng cửa<input aria-label={`Giờ đóng cửa ${d.label}`} type="time" value={item.closeTime || "22:00"} onChange={(e) => handleDayChange(d.key,"closeTime",e.target.value)} className={`mt-2 ${ADMIN_INPUT}`} /></label></div>}
+          </div>
+        </fieldset>;
+      })}
     </div>
   );
 }

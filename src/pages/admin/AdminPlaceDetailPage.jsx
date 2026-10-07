@@ -1,22 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import {
-  ArrowLeft,
-  Edit2,
-  MapPin,
-  Clock,
-  DollarSign,
-  Building2,
-  Train,
-  CheckCircle2,
-  XCircle,
-  Star,
-  Tag,
-  Loader2,
-  ExternalLink,
-} from "lucide-react";
+import { AdminSurface, AdminErrorState, EmptyState, LoadingState, StatusBadge } from "../../components/admin/ui";
 import AdminPageHeader from "../../components/admin/AdminPageHeader";
-import { ADMIN_PRIMARY_BUTTON } from "../../components/admin/adminStyles";
+import { ADMIN_PRIMARY_BUTTON, ADMIN_SECONDARY_BUTTON } from "../../components/admin/adminStyles";
 import { adminPlaceService } from "../../services/adminPlaceService";
 import { buildMapsSearchUrl } from "../../utils/googleMaps";
 import { VerifiedBadge } from "../../components/admin/VerifiedBadge";
@@ -57,248 +43,43 @@ export default function AdminPlaceDetailPage() {
     }
   }, [id]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-gray-500">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <span className="text-sm font-medium">Đang tải chi tiết địa điểm...</span>
-      </div>
-    );
-  }
-
-  if (error || !place) {
-    return (
-      <div>
-        <div className="max-w-3xl mx-auto bg-white rounded-2xl p-8 border border-gray-100 shadow-sm text-center space-y-4">
-          <XCircle className="w-12 h-12 text-red-500 mx-auto" />
-          <h2 className="text-xl font-bold text-gray-900">Không tìm thấy địa điểm</h2>
-          <p className="text-sm text-gray-500">{error || "Địa điểm không tồn tại hoặc đã bị xóa."}</p>
-          <button
-            onClick={() => navigate("/admin/places")}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-[#17366f] rounded-xl transition"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Quay lại danh sách
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+  if (loading) return <LoadingState label="Đang tải chi tiết địa điểm..." />;
+  if (error || !place) return <div className="space-y-4"><AdminErrorState message={error || "Địa điểm không tồn tại hoặc đã bị xóa."} /><button type="button" className={ADMIN_SECONDARY_BUTTON} onClick={() => navigate("/admin/places")}>Quay lại danh sách</button></div>;
   const openingHours = place.openingHours || place.openingHoursList || [];
-
+  const fact = (label, value) => <div className="min-w-0 border-b border-[#DCE2EE] py-3"><dt className="text-[13px] leading-[18px] text-[#5C6B8A]">{label}</dt><dd className="mt-1 break-words text-sm font-medium text-[#0F2148]">{value ?? "Chưa cập nhật"}</dd></div>;
   return (
     <div className="space-y-6">
-      <AdminPageHeader
-        back={{ to: "/admin/places", label: "Danh sách địa điểm" }}
-        title={place.name}
-        badge={<VerifiedBadge isVerified={place.isVerified} />}
-        description={`ID: ${place.id}`}
-      >
-        <Link to={`/admin/places/edit/${place.id}`} className={ADMIN_PRIMARY_BUTTON}>
-          <Edit2 className="w-4 h-4" />
-          Chỉnh sửa địa điểm
-        </Link>
+      <AdminPageHeader back={{to:"/admin/places",label:"Danh sách địa điểm"}} eyebrow="Dữ liệu Metro" title={place.name} badge={<VerifiedBadge isVerified={place.isVerified} />} description={`ID: ${place.id}`}>
+        <Link to={`/admin/places/edit/${place.id}`} className={ADMIN_PRIMARY_BUTTON}><span aria-hidden="true" className="material-symbols-outlined text-[20px]">edit</span>Chỉnh sửa địa điểm</Link>
       </AdminPageHeader>
-
-      {/* Main Grid Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Key Info & Images (2 cols) */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Main Cover Image */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-4">
-            <div className="relative h-64 md:h-80 w-full rounded-xl overflow-hidden bg-gray-100">
-              <img
-                src={place.imageUrl || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&h=500&fit=crop"}
-                alt={place.name}
-                className="w-full h-full object-cover"
-              />
-              <span className="absolute top-3 left-3 px-3 py-1 bg-black/60 backdrop-blur-md text-white text-xs font-semibold rounded-full border border-white/20">
-                {place.category || "Địa điểm"}
-              </span>
-              <span
-                className={`absolute top-3 right-3 px-3 py-1 text-xs font-semibold rounded-full ${place.status === "Active"
-                    ? "bg-emerald-500/90 text-white"
-                    : "bg-gray-500/90 text-white"
-                  }`}
-              >
-                {place.status || "Active"}
-              </span>
-            </div>
-          </div>
-
-          {/* Place Details & Attributes */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 border-b pb-3 border-gray-100">
-              <Building2 className="w-5 h-5 text-primary" />
-              Thông Tin Tổng Quan
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="p-4 bg-gray-50/80 rounded-xl space-y-1">
-                <span className="text-xs font-medium text-gray-400 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-primary" /> Địa chỉ
-                </span>
-                <p className="font-semibold text-gray-800">{place.address || "Chưa cập nhật"}</p>
-              </div>
-
-              <div className="p-4 bg-gray-50/80 rounded-xl space-y-1">
-                <span className="text-xs font-medium text-gray-400 flex items-center gap-1">
-                  <DollarSign className="w-3.5 h-3.5 text-primary" /> Chi phí ước tính
-                </span>
-                <p className="font-semibold text-gray-800">
-                  {place.estimatedCostMin || place.estimatedCostMax ? (
-                    `${place.estimatedCostMin?.toLocaleString()}đ - ${place.estimatedCostMax?.toLocaleString()}đ`
-                  ) : (
-                    "Miễn phí / Tùy chọn"
-                  )}
-                </p>
-              </div>
-
-              <div className="p-4 bg-gray-50/80 rounded-xl space-y-1">
-                <span className="text-xs font-medium text-gray-400 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-primary" /> Thời gian trải nghiệm
-                </span>
-                <p className="font-semibold text-gray-800">
-                  {place.estimatedDurationMinutes
-                    ? `${place.estimatedDurationMinutes} phút`
-                    : "Chưa quy định"}
-                </p>
-              </div>
-
-              <div className="p-4 bg-gray-50/80 rounded-xl space-y-1">
-                <span className="text-xs font-medium text-gray-400 flex items-center gap-1">
-                  <Star className="w-3.5 h-3.5 text-amber-500" /> Đánh giá
-                </span>
-                <p className="font-semibold text-gray-800 flex items-center gap-1">
-                  {place.rating ? `${place.rating} / 5` : "Chưa có đánh giá"}
-                  {place.totalReviews ? ` (${place.totalReviews} lượt)` : ""}
-                </p>
-              </div>
-            </div>
-
-            {/* Description */}
-            {place.description && (
-              <div className="space-y-2">
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Mô tả địa điểm</h3>
-                <p className="text-sm text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  {place.description}
-                </p>
-              </div>
-            )}
-
-            {/* Tags */}
-            {place.tags && place.tags.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
-                  <Tag className="w-3.5 h-3.5 text-primary" /> Thẻ phân loại (Tags)
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {place.tags.map((t, idx) => (
-                    <span
-                      key={t.id || idx}
-                      className="px-3 py-1 bg-blue-50 text-primary text-xs font-medium rounded-lg border border-blue-100"
-                    >
-                      {t.name || t}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-6">
+          <AdminSurface as="section">
+            <div className="mb-4 flex flex-wrap items-center gap-2"><StatusBadge variant="info" label={place.category || "Chưa cập nhật danh mục"} /><StatusBadge status={place.status || "Chưa cập nhật trạng thái"} /></div>
+            <h2 className="text-lg font-bold leading-[26px]">Thông tin tổng quan</h2>
+            <dl className="mt-3 grid gap-x-6 sm:grid-cols-2">
+              {fact("Địa chỉ",place.address || null)}
+              {fact("Chi phí ước tính",place.estimatedCostMin != null || place.estimatedCostMax != null ? `${place.estimatedCostMin?.toLocaleString() ?? "—"}đ - ${place.estimatedCostMax?.toLocaleString() ?? "—"}đ` : null)}
+              {fact("Thời gian trải nghiệm",place.estimatedDurationMinutes ? `${place.estimatedDurationMinutes} phút` : null)}
+              {fact("Đánh giá",place.rating ? `${place.rating} / 5${place.totalReviews ? ` (${place.totalReviews} lượt)` : ""}` : "Chưa có đánh giá")}
+            </dl>
+            {place.description && <div className="mt-5"><h3 className="font-semibold">Mô tả địa điểm</h3><p className="mt-2 whitespace-pre-line break-words text-[#5C6B8A]">{place.description}</p></div>}
+            {place.tags?.length > 0 && <div className="mt-5"><h3 className="font-semibold">Thẻ phân loại (Tags)</h3><div className="mt-3 flex flex-wrap gap-2">{place.tags.map((tag,index) => <StatusBadge key={tag.id || index} variant="info" label={tag.name || tag} />)}</div></div>}
+          </AdminSurface>
+          <AdminSurface as="section"><h2 className="mb-4 text-lg font-bold">Ảnh địa điểm</h2>{place.imageUrl ? <img src={place.imageUrl} alt={place.name} className="max-h-96 w-full rounded-[8px] object-contain" /> : <EmptyState icon="image" title="Chưa có ảnh địa điểm" density="compact" />}</AdminSurface>
         </div>
-
-        {/* Right Column: Metro Station & Opening Hours (1 col) */}
-        <div className="space-y-6">
-          {/* Location & Coordinates Card */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
-            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2 border-b pb-3 border-gray-100">
-              <Train className="w-5 h-5 text-primary" />
-              Kết Nối Ga Metro & Tọa Độ
-            </h2>
-
-            <div className="space-y-3 text-xs">
-              <div className="flex justify-between items-center p-3 bg-blue-50/50 rounded-xl border border-blue-100">
-                <span className="text-gray-600 font-medium">Ga Metro gần nhất:</span>
-                <span className="font-bold text-primary">
-                  {place.nearestStationName || place.stationName || "Chưa gán ga"}
-                </span>
-              </div>
-
-              {place.distanceToStationMeters && (
-                <div className="flex justify-between items-center px-1 text-gray-500">
-                  <span>Khoảng cách đến ga:</span>
-                  <span className="font-semibold text-gray-800">
-                    {Math.round(place.distanceToStationMeters)}m
-                  </span>
-                </div>
-              )}
-
-              <div className="p-3 bg-gray-50 rounded-xl space-y-1 font-mono text-gray-600">
-                <div className="flex justify-between">
-                  <span>Vĩ độ (Lat):</span>
-                  <span className="font-bold text-gray-800">{place.latitude || place.lat || "N/A"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Kinh độ (Lng):</span>
-                  <span className="font-bold text-gray-800">{place.longitude || place.lng || "N/A"}</span>
-                </div>
-              </div>
-
-              {place.latitude && place.longitude && (
-                <a
-                  href={buildMapsSearchUrl({
-                    lat: place.latitude,
-                    lng: place.longitude,
-                    query: place.name,
-                    placeId: place.googlePlaceId,
-                  })}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-primary bg-blue-50 hover:bg-blue-100 rounded-xl transition border border-blue-200"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Mở vị trí trên Google Maps
-                </a>
-              )}
-            </div>
-          </div>
-
-          {/* Opening Hours Schedule Card */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
-            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2 border-b pb-3 border-gray-100">
-              <Clock className="w-5 h-5 text-primary" />
-              Lịch Giờ Mở Cửa (Opening Hours)
-            </h2>
-
-            {openingHours.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-4">Chưa có thông tin giờ mở cửa</p>
-            ) : (
-              <div className="space-y-2 text-xs divide-y divide-gray-50">
-                {openingHours.map((oh, idx) => {
-                  const dayName = DAYS_MAP[oh.dayOfWeek] || oh.dayOfWeek;
-                  const isClosed = oh.isClosed;
-                  const timeText = isClosed
-                    ? "Đóng cửa"
-                    : `${oh.openTime || "08:00"} - ${oh.closeTime || "22:00"}`;
-
-                  return (
-                    <div key={idx} className="flex justify-between items-center pt-2">
-                      <span className="font-medium text-gray-700">{dayName}</span>
-                      <span
-                        className={`font-semibold px-2 py-0.5 rounded-md ${isClosed
-                            ? "bg-red-50 text-red-600"
-                            : "bg-emerald-50 text-emerald-700"
-                          }`}
-                      >
-                        {timeText}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+        <div className="min-w-0 space-y-6">
+          <AdminSurface as="section"><h2 className="text-lg font-bold leading-[26px]">Vị trí & kết nối Metro</h2><dl className="mt-3">
+            {fact("Ga Metro gần nhất",place.nearestStationName || place.stationName || "Chưa gán ga")}
+            {place.distanceToStationMeters ? fact("Khoảng cách đến ga",`${Math.round(place.distanceToStationMeters)}m`) : null}
+            {fact("Vĩ độ (Lat)",place.latitude ?? place.lat ?? null)}
+            {fact("Kinh độ (Lng)",place.longitude ?? place.lng ?? null)}
+          </dl>
+          {place.latitude && place.longitude && <a href={buildMapsSearchUrl({lat:place.latitude,lng:place.longitude,query:place.name,placeId:place.googlePlaceId})} target="_blank" rel="noopener noreferrer" className={`mt-4 ${ADMIN_SECONDARY_BUTTON}`}><span aria-hidden="true" className="material-symbols-outlined text-[20px]">open_in_new</span>Mở vị trí trên Google Maps</a>}
+          </AdminSurface>
+          <AdminSurface as="section"><h2 className="text-lg font-bold leading-[26px]">Lịch giờ mở cửa</h2>
+            {openingHours.length === 0 ? <p className="mt-4 text-[#5C6B8A]">Chưa có thông tin giờ mở cửa</p> : <dl className="mt-3 divide-y divide-[#DCE2EE]">{openingHours.map((hours,index) => <div key={index} className="flex flex-wrap items-center justify-between gap-2 py-3"><dt>{DAYS_MAP[hours.dayOfWeek] || hours.dayOfWeek}</dt><dd><StatusBadge variant={hours.isClosed ? "neutral" : "success"} label={hours.isClosed ? "Đóng cửa" : `${hours.openTime || "Chưa cập nhật"} - ${hours.closeTime || "Chưa cập nhật"}`} /></dd></div>)}</dl>}
+          </AdminSurface>
         </div>
       </div>
     </div>

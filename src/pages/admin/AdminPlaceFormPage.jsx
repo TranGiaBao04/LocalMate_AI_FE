@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { Save, Loader2 } from "lucide-react";
+import { AdminSurface, AdminField, LoadingState } from "../../components/admin/ui";
+import { ADMIN_INPUT, ADMIN_SELECT, ADMIN_PRIMARY_BUTTON, ADMIN_SECONDARY_BUTTON } from "../../components/admin/adminStyles";
 import AdminPageHeader from "../../components/admin/AdminPageHeader";
 import { adminPlaceService } from "../../services/adminPlaceService";
 import MapCoordinatePicker from "../../components/admin/MapCoordinatePicker";
@@ -43,7 +44,7 @@ export default function AdminPlaceFormPage() {
   const [showConflictModal, setShowConflictModal] = useState(false);
 
   // Load existing place if editing
-  const loadPlaceData = async () => {
+  const loadPlaceData = useCallback(async () => {
     if (!isEdit) return;
     setFetching(true);
     try {
@@ -69,11 +70,11 @@ export default function AdminPlaceFormPage() {
     } finally {
       setFetching(false);
     }
-  };
+  }, [id, isEdit, navigate]);
 
   useEffect(() => {
     loadPlaceData();
-  }, [id]);
+  }, [loadPlaceData]);
 
   // Check PostGIS distance warning (>1.5km) when coordinates change
   useEffect(() => {
@@ -158,178 +159,34 @@ export default function AdminPlaceFormPage() {
     }
   };
 
-  if (fetching) {
-    return (
-      <div className="grid min-h-64 place-items-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
+  if (fetching) return <LoadingState label="Đang tải thông tin địa điểm..." />;
   return (
     <div className="space-y-6">
-      <AdminPageHeader
-        back={{ to: "/admin/places", label: "Danh sách địa điểm" }}
-        title={isEdit ? "Chỉnh sửa địa điểm" : "Thêm địa điểm mới"}
-        description="Nhập thông tin chi tiết và vị trí tọa độ địa điểm dành cho Admin"
-      />
-
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Info Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Tên địa điểm <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="Ví dụ: Phở Phượng Sài Gòn"
-                value={form.name}
-                onChange={(e) => handleChange("name", e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition"
-              />
-              {errors.name && <p className="text-xs text-red-500 mt-1 font-medium">{errors.name}</p>}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Danh mục <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={form.category}
-                onChange={(e) => handleChange("category", e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition"
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+      <AdminPageHeader back={{to:"/admin/places",label:"Danh sách địa điểm"}} title={isEdit ? "Chỉnh sửa địa điểm" : "Thêm địa điểm mới"} description="Thông tin, vị trí và thời gian hoạt động của địa điểm" />
+      <AdminSurface as="form" onSubmit={handleSubmit} className="space-y-6">
+        <section className="border-b border-[#DCE2EE] pb-6">
+          <h2 className="mb-5 text-lg font-bold leading-[26px]">Thông tin cơ bản</h2>
+          <div className="grid gap-5 md:grid-cols-2">
+            <AdminField id="place-name" label="Tên địa điểm *" error={errors.name}><input id="place-name" type="text" placeholder="Ví dụ: Phở Phượng Sài Gòn" value={form.name} onChange={(e) => handleChange("name",e.target.value)} aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? "place-name-error" : undefined} className={ADMIN_INPUT} /></AdminField>
+            <AdminField id="place-category" label="Danh mục *"><select id="place-category" value={form.category} onChange={(e) => handleChange("category",e.target.value)} className={ADMIN_SELECT}>{CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</select></AdminField>
           </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Địa chỉ chi tiết <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="Ví dụ: 25 Hoàng Sa, Phường Đa Kao, Quận 1"
-              value={form.address}
-              onChange={(e) => handleChange("address", e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition"
-            />
-            {errors.address && <p className="text-xs text-red-500 mt-1 font-medium">{errors.address}</p>}
-          </div>
-
-          {/* Coordinate Picker Component */}
-          <MapCoordinatePicker
-            latitude={form.latitude}
-            longitude={form.longitude}
-            onChange={(lat, lng) => {
-              handleChange("latitude", lat);
-              handleChange("longitude", lng);
-            }}
-          />
-
-          {/* Distance Warning Alert Component */}
-          <ValidationAlert warning={distanceWarning} />
-
-          {/* Price Range Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Giá từ (VNĐ)
-              </label>
-              <input
-                type="number"
-                placeholder="30000"
-                value={form.estimatedCostMin}
-                onChange={(e) => handleChange("estimatedCostMin", e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition"
-              />
-              {errors.estimatedCostMin && <p className="text-xs text-red-500 mt-1 font-medium">{errors.estimatedCostMin}</p>}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Giá đến (VNĐ)
-              </label>
-              <input
-                type="number"
-                placeholder="50000"
-                value={form.estimatedCostMax}
-                onChange={(e) => handleChange("estimatedCostMax", e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition"
-              />
-            </div>
-          </div>
-
-          {/* Image Upload Component */}
-          <ImageUploadDropzone
-            value={form.imageUrl}
-            onChange={(url) => handleChange("imageUrl", url)}
-            error={errors.imageUrl}
-          />
-
-          {/* Description */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Mô tả chi tiết
-            </label>
-            <textarea
-              rows={3}
-              placeholder="Nhập mô tả về không gian, món ăn nổi bật hoặc lưu ý..."
-              value={form.description}
-              onChange={(e) => handleChange("description", e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition"
-            />
-          </div>
-
-          {/* Multi Tag Selector */}
-          <MultiTagSelector
-            selectedTagIds={form.selectedTagIds}
-            onChange={(tags) => handleChange("selectedTagIds", tags)}
-          />
-
-          {/* Open Hours Editor */}
-          <OpenHoursEditor
-            value={form.openingHours}
-            onChange={(hours) => handleChange("openingHours", hours)}
-          />
-
-          {/* Submit Action Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
-            <Link
-              to="/admin/places"
-              className="px-4 py-2 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition"
-            >
-              Hủy bỏ
-            </Link>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-5 py-2 text-xs font-medium text-white bg-primary hover:bg-[#17366f] rounded-xl transition shadow-sm disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {isEdit ? "Cập nhật địa điểm" : "Tạo địa điểm"}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* 409 Concurrency Conflict Modal */}
-      <ConflictModal
-        isOpen={showConflictModal}
-        onClose={() => setShowConflictModal(false)}
-        onReload={() => {
-          setShowConflictModal(false);
-          loadPlaceData();
-        }}
-      />
+          <AdminField className="mt-5" id="place-address" label="Địa chỉ chi tiết *" error={errors.address}><input id="place-address" type="text" placeholder="Ví dụ: 25 Hoàng Sa, Phường Đa Kao, Quận 1" value={form.address} onChange={(e) => handleChange("address",e.target.value)} aria-invalid={Boolean(errors.address)} aria-describedby={errors.address ? "place-address-error" : undefined} className={ADMIN_INPUT} /></AdminField>
+          <AdminField className="mt-5" id="place-description" label="Mô tả chi tiết"><textarea id="place-description" rows={4} placeholder="Nhập mô tả về không gian, món ăn nổi bật hoặc lưu ý..." value={form.description} onChange={(e) => handleChange("description",e.target.value)} className={`${ADMIN_INPUT} !h-auto py-3`} /></AdminField>
+        </section>
+        <section className="border-b border-[#DCE2EE] pb-6"><h2 className="mb-5 text-lg font-bold leading-[26px]">Vị trí & Metro</h2><MapCoordinatePicker latitude={form.latitude} longitude={form.longitude} onChange={(lat,lng) => { handleChange("latitude",lat); handleChange("longitude",lng); }} /><ValidationAlert warning={distanceWarning} /></section>
+        <section className="border-b border-[#DCE2EE] pb-6"><h2 className="mb-5 text-lg font-bold leading-[26px]">Chi phí</h2><div className="grid gap-5 sm:grid-cols-2">
+          <AdminField id="place-min" label="Giá từ (VNĐ)" error={errors.estimatedCostMin}><input id="place-min" type="number" placeholder="30000" value={form.estimatedCostMin} onChange={(e) => handleChange("estimatedCostMin",e.target.value)} aria-invalid={Boolean(errors.estimatedCostMin)} aria-describedby={errors.estimatedCostMin ? "place-min-error" : undefined} className={ADMIN_INPUT} /></AdminField>
+          <AdminField id="place-max" label="Giá đến (VNĐ)"><input id="place-max" type="number" placeholder="50000" value={form.estimatedCostMax} onChange={(e) => handleChange("estimatedCostMax",e.target.value)} className={ADMIN_INPUT} /></AdminField>
+        </div></section>
+        <section className="border-b border-[#DCE2EE] pb-6"><h2 className="mb-5 text-lg font-bold leading-[26px]">Ảnh địa điểm</h2><ImageUploadDropzone value={form.imageUrl} onChange={(url) => handleChange("imageUrl",url)} error={errors.imageUrl} /></section>
+        <section className="border-b border-[#DCE2EE] pb-6"><h2 className="mb-5 text-lg font-bold leading-[26px]">Thẻ phân loại</h2><MultiTagSelector selectedTagIds={form.selectedTagIds} onChange={(tags) => handleChange("selectedTagIds",tags)} /></section>
+        <section className="border-b border-[#DCE2EE] pb-6"><h2 className="mb-5 text-lg font-bold leading-[26px]">Thời gian hoạt động</h2><OpenHoursEditor value={form.openingHours} onChange={(hours) => handleChange("openingHours",hours)} /></section>
+        <div className="flex flex-wrap justify-end gap-3 border-t border-[#DCE2EE] pt-5">
+          <Link to="/admin/places" className={ADMIN_SECONDARY_BUTTON}>Hủy bỏ</Link>
+          <button type="submit" disabled={loading} className={ADMIN_PRIMARY_BUTTON}><span aria-hidden="true" className={`material-symbols-outlined text-[20px] ${loading ? "animate-spin motion-reduce:animate-none" : ""}`}>{loading ? "progress_activity" : "save"}</span>{isEdit ? "Cập nhật địa điểm" : "Tạo địa điểm"}</button>
+        </div>
+      </AdminSurface>
+      <ConflictModal isOpen={showConflictModal} onClose={() => setShowConflictModal(false)} onReload={() => { setShowConflictModal(false); loadPlaceData(); }} />
     </div>
   );
 }

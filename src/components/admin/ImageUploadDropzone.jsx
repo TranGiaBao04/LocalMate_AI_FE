@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { UploadCloud, X, Loader2, Image as ImageIcon } from "lucide-react";
+import { LoadingState } from "./ui";
+import { ADMIN_DESTRUCTIVE_BUTTON } from "./adminStyles";
 import { adminPlaceService } from "../../services/adminPlaceService";
 
 export default function ImageUploadDropzone({ value, onChange, error }) {
@@ -38,56 +39,13 @@ export default function ImageUploadDropzone({ value, onChange, error }) {
   };
 
   return (
-    <div className="space-y-2">
-      <label className="block text-xs font-semibold text-gray-700">
-        Ảnh đại diện địa điểm <span className="text-red-500">*</span>
-      </label>
-
-      {value ? (
-        <div className="relative group w-full h-44 rounded-xl border border-gray-200 overflow-hidden bg-gray-50">
-          <img
-            src={value}
-            alt="Preview địa điểm"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => onChange("")}
-              className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition shadow"
-              title="Xóa ảnh"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      ) : (
-        <label className="relative flex flex-col items-center justify-center w-full h-44 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary hover:bg-blue-50/30 transition bg-gray-50">
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="sr-only"
-            onChange={(e) => handleFileChange(e.target.files?.[0])}
-            disabled={loading}
-          />
-          {loading ? (
-            <div className="flex flex-col items-center gap-2 text-primary">
-              <Loader2 className="w-8 h-8 animate-spin" />
-              <span className="text-xs font-medium">Đang tải ảnh lên Cloudinary...</span>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-1.5 text-gray-500">
-              <UploadCloud className="w-8 h-8 text-gray-400" />
-              <span className="text-xs font-medium text-gray-700">Kéo thả hoặc click để chọn ảnh</span>
-              <span className="text-[11px] text-gray-400">JPG, PNG, WEBP tối đa 5MB</span>
-            </div>
-          )}
-        </label>
-      )}
-
-      {(uploadError || error) && (
-        <p className="text-xs text-red-500 font-medium">{uploadError || error}</p>
-      )}
+    <div className="space-y-3">
+      {value ? <div className="space-y-3"><img src={value} alt="Preview địa điểm" className="max-h-64 w-full rounded-[8px] border border-[#DCE2EE] object-contain" /><button type="button" onClick={() => onChange("")} className={ADMIN_DESTRUCTIVE_BUTTON}><span aria-hidden="true" className="material-symbols-outlined text-[20px]">delete</span>Xóa ảnh</button></div> :
+        <label className="relative flex min-h-44 cursor-pointer flex-col items-center justify-center gap-3 rounded-[12px] border-2 border-dashed border-[#DCE2EE] bg-[#F8FAFC] p-5 text-center focus-within:border-[#2C56A8] focus-within:ring-2 focus-within:ring-[#2C56A8]/20">
+          <input id="place-image" aria-label="Ảnh đại diện địa điểm" aria-invalid={Boolean(uploadError || error)} aria-describedby={uploadError || error ? "place-image-error" : "place-image-hint"} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => handleFileChange(e.target.files?.[0])} disabled={loading} />
+          {loading ? <LoadingState variant="inline" label="Đang tải ảnh lên Cloudinary..." /> : <><span aria-hidden="true" className="material-symbols-outlined text-[32px] text-[#2C56A8]">add_photo_alternate</span><span className="text-sm font-semibold text-[#0F2148]">Chọn ảnh đại diện địa điểm</span><span id="place-image-hint" className="text-xs text-[#5C6B8A]">JPG, PNG, WEBP tối đa 5MB</span></>}
+        </label>}
+      {(uploadError || error) && <p id="place-image-error" role="alert" className="text-xs text-red-700">{uploadError || error}</p>}
     </div>
   );
 }
