@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { DataTable, FilterBar, StatusBadge } from "../ui";
+import { AdminErrorState, AdminPagination, AdminRecordCard, DataTable, EmptyState, FilterBar, LoadingState, StatusBadge } from "../ui";
+import { ADMIN_SELECT, ADMIN_ICON_BUTTON } from "../adminStyles";
 import RatingStars from "../../ui/RatingStars";
 import { ADMIN_PERMISSIONS } from "../../../constants";
 import { useAuth } from "../../../context/AuthContext";
@@ -10,12 +11,12 @@ import { formatDateTimeInVietnam } from "../../../utils/vnTime";
 
 const PAGE_SIZE = 20;
 const EMPTY_FILTERS = { from: "", to: "", hasComment: "", rating: "", quickTag: "", userId: "", placeId: "" };
-const SELECT_CLASS = "h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100/60";
-const DATE_BOX_CLASS = "flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 focus-within:border-blue-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100/60";
+const SELECT_CLASS = ADMIN_SELECT + " sm:w-auto";
+const DATE_BOX_CLASS = "flex min-h-11 min-w-0 items-center gap-1.5 rounded-[12px] border border-[#DCE2EE] bg-[#F8FAFC] px-3 py-1.5 focus-within:border-blue-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100/60";
 
 function FilterButton({ label, onClick }) {
   return (
-    <button type="button" title={label} aria-label={label} onClick={onClick} className="shrink-0 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-primary">
+    <button type="button" title={label} aria-label={label} onClick={onClick} className={ADMIN_ICON_BUTTON}>
       <span className="material-symbols-outlined text-[16px]">filter_alt</span>
     </button>
   );
@@ -25,7 +26,7 @@ function ScopeChip({ label, onClear }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 py-1 pl-3 pr-1.5 text-xs font-semibold text-primary">
       {label}
-      <button type="button" aria-label={`Bỏ lọc ${label}`} onClick={onClear} className="rounded-full p-0.5 hover:bg-blue-100">
+      <button type="button" aria-label={`Bỏ lọc ${label}`} onClick={onClear} className={ADMIN_ICON_BUTTON + " ml-1"}>
         <span className="material-symbols-outlined text-[14px]">close</span>
       </button>
     </span>
@@ -36,7 +37,7 @@ function SentAtCell({ row }) {
   return (
     <div className="whitespace-nowrap">
       <p>{formatDateTimeInVietnam(row.createdAt)}</p>
-      {row.tripDeleted && <p className="mt-0.5 text-xs text-slate-400">Chuyến đi đã bị xoá</p>}
+      {row.tripDeleted && <p className="mt-0.5 text-xs text-[#8993AC]">Chuyến đi đã bị xoá</p>}
     </div>
   );
 }
@@ -46,11 +47,11 @@ function AuthorCell({ author, canOpen, onFilter }) {
     <div className="flex items-start gap-1">
       <div className="min-w-0">
         {canOpen ? (
-          <Link to={`/admin/users/${author.userId}`} className="font-semibold text-slate-900 hover:text-primary">{author.fullName}</Link>
+          <Link to={`/admin/users/${author.userId}`} className="font-semibold text-[#0F2148] hover:text-primary">{author.fullName}</Link>
         ) : (
-          <p className="font-semibold text-slate-900">{author.fullName}</p>
+          <p className="font-semibold text-[#0F2148]">{author.fullName}</p>
         )}
-        <p className="mt-0.5 break-all text-xs text-slate-500">{author.email}</p>
+        <p className="mt-0.5 break-all text-xs text-[#5C6B8A]">{author.email}</p>
       </div>
       <FilterButton label={`Chỉ xem của ${author.fullName}`} onClick={() => onFilter(author)} />
     </div>
@@ -58,11 +59,11 @@ function AuthorCell({ author, canOpen, onFilter }) {
 }
 
 function CommentCell({ comment, children }) {
-  if (!comment && !children) return <span className="text-slate-400">—</span>;
+  if (!comment && !children) return <span className="text-[#8993AC]">—</span>;
   return (
-    <div className="min-w-[220px] max-w-md space-y-1.5">
+    <div className="min-w-0 max-w-md space-y-1.5">
       {children}
-      {comment && <p className="whitespace-pre-line break-words text-slate-700">{comment}</p>}
+      {comment && <p className="whitespace-pre-line break-words text-[#5C6B8A]">{comment}</p>}
     </div>
   );
 }
@@ -195,9 +196,9 @@ export default function FeedbackList({ kind, tagLabels = {}, preset = null }) {
           <div className="flex items-start gap-1">
             <div className="min-w-0">
               {canOpenPlace ? (
-                <Link to={`/admin/places/${row.place.id}`} className="font-semibold text-slate-900 hover:text-primary">{row.place.name}</Link>
+                <Link to={`/admin/places/${row.place.id}`} className="font-semibold text-[#0F2148] hover:text-primary">{row.place.name}</Link>
               ) : (
-                <p className="font-semibold text-slate-900">{row.place.name}</p>
+                <p className="font-semibold text-[#0F2148]">{row.place.name}</p>
               )}
               {!row.place.isVisible && <div className="mt-1"><StatusBadge status="inactive" label="Đã ẩn" /></div>}
             </div>
@@ -212,7 +213,7 @@ export default function FeedbackList({ kind, tagLabels = {}, preset = null }) {
         render: (row) => (
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
             <RatingStars value={row.rating} size={14} />
-            <span className="font-semibold text-slate-900">{row.rating}</span>
+            <span className="font-semibold text-[#0F2148]">{row.rating}</span>
           </span>
         ),
       },
@@ -224,7 +225,7 @@ export default function FeedbackList({ kind, tagLabels = {}, preset = null }) {
             {row.quickTags.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {row.quickTags.map((code) => (
-                  <span key={code} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  <span key={code} className="rounded-full bg-[#F4F6FA] px-2 py-0.5 text-xs font-medium text-[#5C6B8A]">
                     {tagLabels[code] ?? code}
                   </span>
                 ))}
@@ -263,12 +264,12 @@ export default function FeedbackList({ kind, tagLabels = {}, preset = null }) {
           <option value="false">Không có nhận xét</option>
         </select>
         <div className={DATE_BOX_CLASS}>
-          <span className="text-xs font-semibold text-slate-400">Từ</span>
-          <input type="date" value={filters.from} min="2000-01-01" max="2100-12-31" onChange={(event) => changeFilter("from", event.target.value)} aria-label="Gửi từ ngày" className="bg-transparent text-sm text-slate-700 outline-none" />
+          <span className="text-xs font-semibold text-[#8993AC]">Từ</span>
+          <input type="date" value={filters.from} min="2000-01-01" max="2100-12-31" onChange={(event) => changeFilter("from", event.target.value)} aria-label="Gửi từ ngày" className="min-w-0 max-w-full bg-transparent text-sm text-[#5C6B8A] outline-none" />
         </div>
         <div className={DATE_BOX_CLASS}>
-          <span className="text-xs font-semibold text-slate-400">Đến</span>
-          <input type="date" value={filters.to} min="2000-01-01" max="2100-12-31" onChange={(event) => changeFilter("to", event.target.value)} aria-label="Gửi đến ngày" className="bg-transparent text-sm text-slate-700 outline-none" />
+          <span className="text-xs font-semibold text-[#8993AC]">Đến</span>
+          <input type="date" value={filters.to} min="2000-01-01" max="2100-12-31" onChange={(event) => changeFilter("to", event.target.value)} aria-label="Gửi đến ngày" className="bg-transparent text-sm text-[#5C6B8A] outline-none" />
         </div>
       </FilterBar>
 
@@ -280,38 +281,28 @@ export default function FeedbackList({ kind, tagLabels = {}, preset = null }) {
       )}
 
       {dateError && (
-        <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{dateError}</p>
+        <p role="alert" className="rounded-[12px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{dateError}</p>
       )}
 
-      {response.error && !loading && !dateError && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          <span>{response.error}</span>
-          <button type="button" onClick={() => setReloadCount((count) => count + 1)} className="shrink-0 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700">
-            Thử lại
-          </button>
+      {response.error && !loading && !dateError && <AdminErrorState message={response.error} onRetry={() => setReloadCount(count => count + 1)} />}
+      {!loading && !response.error && !dateError && response.data && <p className="text-sm text-[#5C6B8A]">{response.data.totalCount} kết quả · Trang {response.data.page} / {Math.max(1, response.data.totalPages)}</p>}
+      {!response.error && !dateError && <>
+        <div className="hidden md:block [&_table]:min-w-[900px]"><DataTable columns={columns} rows={rows} loading={loading} sort={sort} onSort={handleSort}
+          emptyState={{ icon: isReviews ? "reviews" : "forum", title: hasFilters ? "Không có dòng nào phù hợp" : isReviews ? "Chưa có đánh giá" : "Chưa có feedback chuyến đi", description: hasFilters ? "Thử đổi từ khoá hoặc bộ lọc." : undefined, actionLabel: hasFilters ? "Xóa bộ lọc" : undefined, onAction: hasFilters ? handleClearFilters : undefined }} /></div>
+        <div aria-label={isReviews ? "Đánh giá trên di động" : "Feedback chuyến đi trên di động"} className="space-y-3 md:hidden">
+          {loading ? <LoadingState label="Đang tải phản hồi" /> : rows.length ? rows.map(row => (
+            <AdminRecordCard key={row.id} title={columns.find(column => column.key === "user").render(row)}
+              status={columns.find(column => column.key === (isReviews ? "rating" : "quickTag")).render(row)}>
+              <dl className="space-y-3">
+                {isReviews && <div><dt className="mb-1 text-xs">Địa điểm</dt><dd>{columns.find(column => column.key === "place").render(row)}</dd></div>}
+                <div><dt className="mb-1 text-xs">Nhận xét</dt><dd>{columns.find(column => column.key === "comment").render(row)}</dd></div>
+                <div><dt className="mb-1 text-xs">Ngày gửi</dt><dd>{columns[0].render(row)}</dd></div>
+              </dl>
+            </AdminRecordCard>
+          )) : <EmptyState icon={isReviews ? "reviews" : "forum"} title={hasFilters ? "Không có dòng nào phù hợp" : isReviews ? "Chưa có đánh giá" : "Chưa có feedback chuyến đi"} actionLabel={hasFilters ? "Xóa bộ lọc" : undefined} onAction={hasFilters ? handleClearFilters : undefined} />}
         </div>
-      )}
-
-      <DataTable
-        columns={columns}
-        rows={rows}
-        loading={loading}
-        sort={sort}
-        onSort={handleSort}
-        pagination={!dateError && response.data && {
-          page: response.data.page,
-          totalPages: response.data.totalPages,
-          totalCount: response.data.totalCount,
-        }}
-        onPageChange={setPage}
-        emptyState={{
-          icon: isReviews ? "reviews" : "forum",
-          title: hasFilters ? "Không có dòng nào phù hợp" : isReviews ? "Chưa có đánh giá" : "Chưa có feedback chuyến đi",
-          description: hasFilters ? "Thử đổi từ khoá hoặc bộ lọc." : undefined,
-          actionLabel: hasFilters ? "Xóa bộ lọc" : undefined,
-          onAction: hasFilters ? handleClearFilters : undefined,
-        }}
-      />
+        {response.data && <AdminPagination {...response.data} onPageChange={setPage} disabled={loading} />}
+      </>}
     </div>
   );
 }

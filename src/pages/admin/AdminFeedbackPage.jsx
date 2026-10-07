@@ -51,16 +51,18 @@ export default function AdminFeedbackPage() {
         description="Xem đánh giá địa điểm và feedback chuyến đi người dùng đã gửi. Trang này chỉ để xem, chưa có thao tác ẩn hay xoá."
       />
 
-      <div role="tablist" aria-label="Phản hồi & đánh giá" className="inline-flex flex-wrap rounded-xl bg-slate-100 p-1">
+      <div role="tablist" aria-label="Phản hồi & đánh giá" className="flex flex-wrap gap-1 border-b border-[#DCE2EE]">
         {TABS.map((item) => (
           <button
             key={item.key}
             type="button"
             role="tab"
+            id={`feedback-tab-${item.key}`}
+            aria-controls={`feedback-panel-${item.key}`}
             aria-selected={tab === item.key}
             onClick={() => selectTab(item.key)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-              tab === item.key ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-900"
+            className={`min-h-11 border-b-2 px-3 py-2 text-sm font-semibold transition ${
+              tab === item.key ? "border-[#2C56A8] text-[#1D3E82]" : "border-transparent text-[#5C6B8A] hover:text-[#0F2148]"
             }`}
           >
             {item.label}
@@ -68,6 +70,7 @@ export default function AdminFeedbackPage() {
         ))}
       </div>
 
+      <div role="tabpanel" id={`feedback-panel-${tab}`} aria-labelledby={`feedback-tab-${tab}`}>
       {tab === "summary" && (
         <FeedbackSummary
           reviewTagLabels={tagLabels.review}
@@ -77,6 +80,7 @@ export default function AdminFeedbackPage() {
       )}
       {tab === "reviews" && <FeedbackList kind="reviews" tagLabels={tagLabels.review} preset={reviewPreset} />}
       {tab === "tripFeedback" && <FeedbackList kind="tripFeedback" tagLabels={tagLabels.feedback} />}
+      </div>
     </div>
   );
 }
