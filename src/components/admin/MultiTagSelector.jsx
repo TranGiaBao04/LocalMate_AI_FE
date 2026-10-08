@@ -33,7 +33,7 @@ export default function MultiTagSelector({ selectedTagIds = [], onChange }) {
     <div role="group" aria-label="Thẻ phân loại" className="flex flex-wrap gap-2">
       {allTags.map((tag) => {
         const selected = selectedTagIds.includes(tag.id);
-        return <button key={tag.id} type="button" aria-pressed={selected} onClick={() => handleToggleTag(tag.id)} className={`inline-flex min-h-11 items-center gap-2 rounded-[10px] border px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2C56A8] ${selected ? "border-[#2C56A8] bg-blue-50 text-[#1D3E82]" : "border-[#DCE2EE] bg-white text-[#5C6B8A] hover:bg-[#F8FAFC]"}`}><span>{tag.name}</span><span aria-hidden="true" className="material-symbols-outlined text-[18px]">{selected ? "check" : "add"}</span></button>;
+        return <button key={tag.id} type="button" aria-pressed={selected} onClick={() => handleToggleTag(tag.id)} className={`inline-flex min-h-11 min-w-0 max-w-full items-center gap-2 rounded-[10px] border px-3 py-2 text-left text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2C56A8] ${selected ? "border-[#2C56A8] bg-blue-50 text-[#1D3E82]" : "border-[#DCE2EE] bg-white text-[#5C6B8A] hover:bg-[#F8FAFC]"}`}><span className="min-w-0 [overflow-wrap:anywhere]">{tag.name}</span><span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[18px]">{selected ? "check" : "add"}</span></button>;
       })}
       {loading && <LoadingState variant="inline" label="Đang tải thẻ..." />}
       {allTags.length === 0 && !loading && <span className="text-sm text-[#5C6B8A]">Không có tag sẵn có</span>}

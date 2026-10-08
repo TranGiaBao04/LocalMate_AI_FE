@@ -138,7 +138,7 @@ function StatCard({ label, value, hint, icon, tone }) {
 function InfoRow({ label, children }) {
   return (
     <div className="flex flex-col gap-1 border-b border-[#DCE2EE] py-3 last:border-b-0 sm:flex-row sm:justify-between sm:gap-4">
-      <dt className="text-sm text-[#5C6B8A]">{label}</dt>
+      <dt className="shrink-0 text-sm text-[#5C6B8A]">{label}</dt>
       <dd className="min-w-0 break-words text-sm font-medium text-[#0F2148] sm:text-right">{children}</dd>
     </div>
   );
@@ -378,7 +378,7 @@ function UserDetail({ userId }) {
   const stats = detail.stats ?? {};
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6 [overflow-wrap:anywhere]">
       <BackLink />
 
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
