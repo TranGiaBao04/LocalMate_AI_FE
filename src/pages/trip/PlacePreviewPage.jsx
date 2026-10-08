@@ -8,6 +8,7 @@ import {
 } from "../../utils/formatCurrency";
 import MapEmbedPreview from "../../components/MapEmbedPreview";
 import GoogleMapsButton from "../../components/GoogleMapsButton";
+import PlaceReviews, { PlaceRatingSummary } from "../../components/place/PlaceReviews";
 
 export default function PlacePreviewPage() {
   const { placeId } = useParams();
@@ -93,6 +94,7 @@ function PlaceDetail({ placeId }) {
         </div>
 
         <PlaceBadges place={place} />
+        <PlaceRatingSummary averageRating={place.averageRating} reviewCount={place.reviewCount} />
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           {[
@@ -210,18 +212,26 @@ function PlaceDetail({ placeId }) {
             lat={place.latitude}
             lng={place.longitude}
             placeName={place.name}
+            googlePlaceId={place.googlePlaceId}
             address={place.area}
             initExpanded={true}
           />
         </div>
+
+        <PlaceReviews
+          placeId={placeId}
+          averageRating={place.averageRating}
+          reviewCount={place.reviewCount}
+        />
       </main>
 
       <div className="app-footer space-y-2 border-t border-outline-variant/20 px-container-margin py-stack-md lg:px-8">
-        {/* SPEC-03 / FE-65 & FE-67: Nút bấm GoogleMapsButton với Deeplink App */}
+        {/* SPEC-03 / FE-65 & FE-67: chỉ đường từ vị trí hiện tại của người dùng tới địa điểm */}
         <GoogleMapsButton
-          lat={place.latitude}
-          lng={place.longitude}
-          placeName={place.name}
+          destLat={place.latitude}
+          destLng={place.longitude}
+          destName={place.name}
+          destPlaceId={place.googlePlaceId}
           variant="primary"
           size="lg"
           className="w-full text-button"

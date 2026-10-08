@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 
 import { AuthProvider } from "./context/AuthContext";
 import { SubscriptionProvider } from "./context/SubscriptionContext";
+import { NotificationProvider } from "./context/NotificationContext";
 import { TripProvider } from "./context/TripContext";
 import App from "./App";
 import "./index.css";
@@ -13,9 +14,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <BrowserRouter>
       <AuthProvider>
         <SubscriptionProvider>
-          <TripProvider>
-            <App />
-          </TripProvider>
+          <NotificationProvider>
+            <TripProvider>
+              <App />
+            </TripProvider>
+          </NotificationProvider>
         </SubscriptionProvider>
       </AuthProvider>
     </BrowserRouter>

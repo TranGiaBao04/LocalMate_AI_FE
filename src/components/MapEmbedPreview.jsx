@@ -11,6 +11,7 @@ export const MapEmbedPreview = ({
   lat,
   lng,
   placeName,
+  googlePlaceId,
   address,
   height = '240px',
   initExpanded = false,
@@ -54,7 +55,13 @@ export const MapEmbedPreview = ({
               Xem bản đồ
             </button>
           )}
-          <GoogleMapsButton lat={lat} lng={lng} placeName={placeName} variant="compact" />
+          <GoogleMapsButton
+            lat={lat}
+            lng={lng}
+            placeName={placeName}
+            placeId={googlePlaceId}
+            variant="compact"
+          />
           {isExpanded && (
             <button
               type="button"

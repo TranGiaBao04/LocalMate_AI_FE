@@ -41,11 +41,12 @@ export function normalizeTripForExport(trip) {
     const latitude = toOptionalNumber(item.latitude);
     const longitude = toOptionalNumber(item.longitude);
     const hasCoordinates = latitude !== null && longitude !== null;
+    const placeName = toOptionalText(item.placeName);
 
     return {
       order: index + 1,
       time: toOptionalText(item.time),
-      placeName: toOptionalText(item.placeName),
+      placeName,
       category: toOptionalText(item.placeCategory),
       durationMinutes: toOptionalNumber(item.durationMinutes),
       estimatedCost: toOptionalNumber(item.estimatedCost),
@@ -54,7 +55,12 @@ export function normalizeTripForExport(trip) {
       latitude,
       longitude,
       mapUrl: hasCoordinates
-        ? buildMapsSearchUrl({ lat: latitude, lng: longitude })
+        ? buildMapsSearchUrl({
+            lat: latitude,
+            lng: longitude,
+            query: placeName,
+            placeId: toOptionalText(item.googlePlaceId),
+          })
         : null,
     };
   });

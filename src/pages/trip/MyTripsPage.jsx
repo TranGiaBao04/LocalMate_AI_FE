@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTrip } from "../../context/TripContext";
 import { useAuth } from "../../context/AuthContext";
 import MobileLayout from "../../components/layout/MobileLayout";
+import PageHeader from "../../components/layout/PageHeader";
 import {
   formatCurrencyShort,
   formatRelativeTime,
@@ -45,19 +46,15 @@ export default function MyTripsPage() {
 
   return (
     <MobileLayout>
-      <header className="app-header flex h-16 items-center justify-between border-b border-outline-variant/20 px-container-margin py-stack-sm lg:px-8">
-        <h1 className="text-headline-lg-mobile font-extrabold text-primary">
-          Lịch trình cá nhân
-        </h1>
-
+      <PageHeader title="Lịch trình cá nhân">
         <button
           onClick={() => navigate("/create")}
-          className="flex items-center gap-1 px-4 py-2 bg-primary text-on-primary rounded-full text-label-md font-bold active:scale-95 transition-all"
+          className="flex flex-none items-center gap-1 px-3 py-2 bg-primary sm:px-4 text-on-primary rounded-full text-label-md font-bold active:scale-95 transition-all"
         >
           <span className="material-symbols-outlined text-[16px]">add</span>
           Tạo mới
         </button>
-      </header>
+      </PageHeader>
 
       <main className="content-shell flex-1 space-y-stack-md px-container-margin pb-28 pt-20 lg:px-8 lg:pb-12">
         {isDemo ? (

@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { todayInVietnam } from "../../../utils/vnTime";
 import { RANGE_PRESETS, validateRange } from "./dashboardUtils";
-
-const INPUT_CLASS =
-  "h-10 rounded-[10px] border bg-white px-3 text-sm text-on-surface outline-none transition focus:border-navy-mid focus:ring-4 focus:ring-[#dde1ff]/60";
+import { AdminField } from "../ui";
+import { ADMIN_INPUT, ADMIN_PRIMARY_BUTTON } from "../adminStyles";
 
 // Khoảng ngày cho KPI, biểu đồ doanh thu, top ga. "Tùy chọn" chỉ gọi API khi bấm Áp dụng và đã
 // qua kiểm tra; serverErrors là lỗi 400 BE trả theo ô ({ from, to }).
@@ -35,16 +34,16 @@ export default function DashboardRangeFilter({ preset, range, serverErrors, onPr
   };
 
   return (
-    <div className="flex flex-col items-stretch gap-3 sm:items-end">
-      <div role="group" aria-label="Khoảng thời gian" className="inline-flex w-fit flex-wrap rounded-[10px] bg-surface-container-low p-1">
+    <div className="flex min-w-0 flex-col items-stretch gap-3 lg:items-end">
+      <div role="group" aria-label="Khoảng thời gian" className="inline-flex w-fit max-w-full flex-wrap gap-1 rounded-[12px] bg-[#E9EDF5] p-1">
         {RANGE_PRESETS.map((option) => (
           <button
             key={option.key}
             type="button"
             aria-pressed={preset === option.key}
             onClick={() => selectPreset(option.key)}
-            className={`rounded-md px-3 py-1.5 text-sm font-semibold transition ${
-              preset === option.key ? "bg-white text-navy-darkest shadow-sm" : "text-text-muted hover:text-navy-darkest"
+            className={`min-h-11 rounded-[8px] px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2C56A8] motion-reduce:transition-none ${
+              preset === option.key ? "bg-white text-[#1D3E82] shadow-sm" : "text-[#5C6B8A] hover:text-[#1D3E82]"
             }`}
           >
             {option.label}
@@ -53,7 +52,7 @@ export default function DashboardRangeFilter({ preset, range, serverErrors, onPr
       </div>
 
       {preset === "custom" ? (
-        <form onSubmit={handleApply} noValidate className="flex flex-wrap items-start gap-2">
+        <form onSubmit={handleApply} noValidate className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
           <DateField
             id="dashboard-from"
             label="Từ ngày"
@@ -73,14 +72,14 @@ export default function DashboardRangeFilter({ preset, range, serverErrors, onPr
           />
           <button
             type="submit"
-            className="mt-5 h-10 rounded-[10px] bg-navy-darkest px-4 text-sm font-semibold text-white transition hover:bg-navy-dark"
+            className={`sm:mt-[26px] self-start ${ADMIN_PRIMARY_BUTTON}`}
           >
             Áp dụng
           </button>
         </form>
       ) : (
         serverMessages.length > 0 && (
-          <p role="alert" className="text-xs text-error">{serverMessages.join(" ")}</p>
+          <p role="alert" className="text-xs text-red-700">{serverMessages.join(" ")}</p>
         )
       )}
     </div>
@@ -89,17 +88,15 @@ export default function DashboardRangeFilter({ preset, range, serverErrors, onPr
 
 function DateField({ id, label, error, ...inputProps }) {
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-semibold text-text-muted">{label}</label>
+    <AdminField id={id} label={label} error={error}>
       <input
         id={id}
         type="date"
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${id}-error` : undefined}
-        className={`${INPUT_CLASS} ${error ? "border-error" : "border-[#e3e7f1]"}`}
+        className={ADMIN_INPUT}
         {...inputProps}
       />
-      {error && <p id={`${id}-error`} className="max-w-[220px] text-xs text-error">{error}</p>}
-    </div>
+    </AdminField>
   );
 }

@@ -2,11 +2,8 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTrip } from "../../context/TripContext";
 import { useAuth } from "../../context/AuthContext";
-import {
-  formatCurrencyShort,
-  formatDuration,
-  buildGoogleMapsDirectionUrl,
-} from "../../utils/formatCurrency";
+import { formatCurrencyShort, formatDuration } from "../../utils/formatCurrency";
+import { buildDirectionsUrl } from "../../utils/googleMaps";
 
 export default function FinalizedItineraryPage() {
   const navigate = useNavigate();
@@ -191,10 +188,12 @@ export default function FinalizedItineraryPage() {
                     <div className="flex gap-2 pt-1">
                       {item.latitude && item.longitude && (
                         <a
-                          href={buildGoogleMapsDirectionUrl(
-                            item.latitude,
-                            item.longitude,
-                          )}
+                          href={buildDirectionsUrl({
+                            destLat: item.latitude,
+                            destLng: item.longitude,
+                            destName: item.placeName,
+                            destPlaceId: item.googlePlaceId,
+                          })}
                           target="_blank"
                           rel="noreferrer"
                           className="flex-1 py-2 bg-secondary/10 text-secondary rounded-full text-label-md font-bold flex items-center justify-center gap-1 active:scale-95 transition-all"

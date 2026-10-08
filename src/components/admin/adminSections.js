@@ -5,6 +5,8 @@ import { ADMIN_PERMISSIONS as P } from "../../constants";
 export const ADMIN_SECTIONS = [
   {
     path: "stations",
+    navLabel: "Ga Metro",
+    navGroup: "Dữ liệu Metro",
     label: "Quản lý Ga Metro",
     group: "Dữ liệu Metro",
     icon: "directions_subway",
@@ -14,6 +16,8 @@ export const ADMIN_SECTIONS = [
   },
   {
     path: "places",
+    navLabel: "Địa điểm",
+    navGroup: "Dữ liệu Metro",
     label: "Địa điểm & Tiện ích",
     group: "Dữ liệu Metro",
     icon: "location_on",
@@ -23,6 +27,8 @@ export const ADMIN_SECTIONS = [
   },
   {
     path: "import",
+    navLabel: "Import dữ liệu",
+    navGroup: "Dữ liệu Metro",
     label: "Nhập dữ liệu Excel",
     group: "Dữ liệu Metro",
     icon: "upload_file",
@@ -32,6 +38,8 @@ export const ADMIN_SECTIONS = [
   },
   {
     path: "plans",
+    navLabel: "Gói thành viên",
+    navGroup: "Kinh doanh",
     label: "Gói thành viên",
     group: "Gói cước & Doanh thu",
     icon: "sell",
@@ -41,15 +49,19 @@ export const ADMIN_SECTIONS = [
   },
   {
     path: "transactions",
+    navLabel: "Giao dịch",
+    navGroup: "Kinh doanh",
     label: "Giao dịch PayOS",
     group: "Gói cước & Doanh thu",
     icon: "payments",
-    permissions: [P.VIEW_REVENUE, P.MANAGE_PLANS],
+    permissions: [P.VIEW_REVENUE],
     description: "Tra cứu và đối soát giao dịch thanh toán.",
     tone: "bg-orange-50 text-orange-700",
   },
   {
     path: "users",
+    navLabel: "Users",
+    navGroup: "Người dùng",
     label: "Quản lý Users",
     group: "Người dùng & Phân quyền",
     icon: "group",
@@ -58,7 +70,20 @@ export const ADMIN_SECTIONS = [
     tone: "bg-blue-50 text-blue-700",
   },
   {
+    path: "feedback",
+    navLabel: "Phản hồi",
+    navGroup: "Người dùng",
+    label: "Phản hồi & đánh giá",
+    group: "Người dùng & Phân quyền",
+    icon: "reviews",
+    permissions: [P.VIEW_FEEDBACK],
+    description: "Xem đánh giá địa điểm, feedback chuyến đi và thống kê.",
+    tone: "bg-rose-50 text-rose-700",
+  },
+  {
     path: "roles",
+    navLabel: "Phân quyền",
+    navGroup: "Người dùng",
     label: "Phân quyền & Quản trị",
     group: "Người dùng & Phân quyền",
     icon: "admin_panel_settings",
@@ -68,6 +93,8 @@ export const ADMIN_SECTIONS = [
   },
   {
     path: "settings",
+    navLabel: "Cấu hình",
+    navGroup: "Hệ thống",
     label: "Cấu hình hệ thống",
     group: "Hệ thống",
     icon: "tune",

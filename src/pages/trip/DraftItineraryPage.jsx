@@ -1,15 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTrip } from "../../context/TripContext";
+import { useAuth } from "../../context/AuthContext";
+import { useSubscription } from "../../context/SubscriptionContext";
 import {
   formatCurrencyShort,
   formatDuration,
 } from "../../utils/formatCurrency";
 import { formatPlannedDate } from "../../utils/vnTime";
 import TimelineItemDirections from "../../components/TimelineItemDirections";
-import { itineraryPurchaseService } from "../../services/itineraryPurchaseService";
+import { itineraryPurchaseService, canPurchaseSingle, isAvailableSingleEntitlement } from "../../services/itineraryPurchaseService";
 import SingleItineraryPaymentModal from "../../components/itineraryPurchase/SingleItineraryPaymentModal";
 import { formatPlanPrice } from "../../utils/subscriptionUtils";
+import TripRequestAssistant from "../../components/trip/TripRequestAssistant";
+import { toParseBase } from "../../services/tripService";
+import { getAiErrorMessage } from "../../utils/aiErrors";
 
 const ITEM_ERROR_MESSAGES = {
   cannot_delete_last_item: "Lịch trình cần ít nhất một địa điểm nên không xoá được chặng cuối cùng.",
@@ -42,9 +47,50 @@ function travelLabel(trip, item) {
   };
 }
 
+const LEG_MODES = {
+  Walking: { icon: "directions_walk", label: "Đi bộ", toStation: "đi bộ ra ga" },
+  Motorbike: { icon: "two_wheeler", label: "Xe máy", toStation: "xe máy ra ga" },
+};
+
+// Cách đi tới một chặng theo item.leg. Đoạn Metro: ra ga -> chờ tàu -> ngồi tàu -> đi bộ từ ga xuống.
+function LegInfo({ leg, fromOrigin }) {
+  const suffix = fromOrigin ? " từ điểm xuất phát" : "";
+  if (leg.mode !== "Metro") {
+    const mode = LEG_MODES[leg.mode] ?? LEG_MODES.Motorbike;
+    return (
+      <p className="mb-1 text-label-md text-on-surface-variant flex items-center gap-1">
+        <span className="material-symbols-outlined text-[14px]">{mode.icon}</span>
+        {mode.label} {leg.totalMinutes} phút{suffix}
+        {leg.fallback === "metro_unavailable" && " · đã hết chuyến tàu nên tính theo xe máy"}
+      </p>
+    );
+  }
+  const parts = [
+    // toStationMode null = đang đứng sẵn ở ga
+    leg.toStationMode &&
+      `${LEG_MODES[leg.toStationMode]?.toStation ?? "ra ga"} ${leg.toStationMinutes} phút`,
+    `chờ tàu ${leg.waitMinutes} phút`,
+    `đi tàu ${leg.rideMinutes} phút (${leg.stopCount} ga)`,
+    leg.walkMinutes > 0 && `đi bộ ${leg.walkMinutes} phút`,
+  ].filter(Boolean);
+  return (
+    <div className="mb-1 rounded bg-secondary/5 px-2 py-1 text-label-md">
+      <p className="flex items-center gap-1 font-medium text-secondary">
+        <span className="material-symbols-outlined text-[14px]">train</span>
+        Metro {leg.boardStation.name} → {leg.alightStation.name} · {leg.totalMinutes} phút{suffix}
+      </p>
+      <p className="text-on-surface-variant">Gồm: {parts.join(" · ")}. Giờ tàu là dự kiến.</p>
+    </div>
+  );
+}
+
 // Phương tiện cho nút chỉ đường Google Maps. Xe máy dùng "driving" (Maps URL không có xe máy).
 // Auto: BE chọn đi bộ khi gần, xa hơn thì xe máy; chặng đầu chưa có số liệu theo phương tiện nên để đi bộ.
 function mapsTravelMode(trip, item) {
+  if (item.leg) {
+    if (item.leg.mode === "Metro") return "transit";
+    return item.leg.mode === "Walking" ? "walking" : "driving";
+  }
   if (trip.travelMode === "Walking") return "walking";
   if (trip.travelMode === "Motorbike") return "driving";
   return item.travelMinutesFromPrevious != null &&
@@ -53,34 +99,57 @@ function mapsTravelMode(trip, item) {
     : "walking";
 }
 
-export default function DraftItineraryPage() {
+function DraftItineraryPageInner() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentTrip, finalizeTrip, deleteItem } = useTrip();
+  const { currentTrip, finalizeTrip, deleteItem, explainTrip, explainingTripIds } = useTrip();
+  const { isDemo } = useAuth();
+  const { refreshSubscription } = useSubscription();
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [showSinglePurchaseModal, setShowSinglePurchaseModal] = useState(false);
   const [availability, setAvailability] = useState(null);
-  const [, setLoadingAvailability] = useState(false);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [availableEntitlements, setAvailableEntitlements] = useState([]);
+  const activeRef = useRef(true);
+  const availabilityGeneration = useRef(0);
+  const finalizingRef = useRef(false);
   const [finalizing, setFinalizing] = useState(false);
   const [deletingItemId, setDeletingItemId] = useState(null);
   const [deleteError, setDeleteError] = useState("");
   const [finalizeError, setFinalizeError] = useState("");
   const [finalizeErrorCode, setFinalizeErrorCode] = useState("");
-  const [quotaMetadata, setQuotaMetadata] = useState(null);
   const [toastMessage, setToastMessage] = useState(location.state?.toast ?? "");
+  const explaining = explainingTripIds.includes(currentTrip?.id);
+  const [explainError, setExplainError] = useState("");
+  // 429 ai_trip_limit_reached: khoá nút trong lần xem này. Không lưu lại vì mã này cũng trả khi một lần gọi khác
+  // của trip đang chờ kết quả; tải lại trang thì cho bấm lại, BE tự chặn nếu thật sự hết lượt.
+  const [explainLocked, setExplainLocked] = useState(false);
 
-  const fetchAvailability = async () => {
+  const fetchAvailability = useCallback(async () => {
+    const generation = ++availabilityGeneration.current;
     setLoadingAvailability(true);
+    setAvailability(null);
+    setAvailableEntitlements([]);
     try {
-      const data = await itineraryPurchaseService.getAvailability();
+      const [data, evidence] = await Promise.all([
+        itineraryPurchaseService.getAvailability(),
+        itineraryPurchaseService.getMyEntitlements(),
+      ]);
+      if (!activeRef.current || generation !== availabilityGeneration.current) return null;
       setAvailability(data);
+      setAvailableEntitlements(evidence?.entitlements?.filter(isAvailableSingleEntitlement) ?? []);
       return data;
     } catch {
       return null;
     } finally {
-      setLoadingAvailability(false);
+      if (activeRef.current && generation === availabilityGeneration.current) setLoadingAvailability(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    activeRef.current = true;
+    return () => { activeRef.current = false; };
+  }, []);
 
   const handleOpenFinalizeModal = () => {
     setFinalizeError("");
@@ -94,39 +163,44 @@ export default function DraftItineraryPage() {
   };
 
   const handleFinalize = async () => {
+    if (finalizingRef.current || availability?.normalFinalizeAvailable !== true) return;
+    finalizingRef.current = true;
     setFinalizing(true);
     setFinalizeError("");
     setFinalizeErrorCode("");
-    setQuotaMetadata(null);
     try {
       await finalizeTrip(currentTrip.id, { fundingSource: "Normal" });
+      if (!activeRef.current) return;
+      await fetchAvailability();
+      await refreshSubscription().catch(() => {});
+      if (!activeRef.current) return;
       setShowFinalizeModal(false);
       navigate("/finalized");
     } catch (err) {
+      if (!activeRef.current) return;
       setFinalizeErrorCode(err.code || "");
-      setQuotaMetadata(err.data?.extensions || err.data || null);
       setFinalizeError(ITEM_ERROR_MESSAGES[err.code] ?? err.message);
       if (err.code === "saved_trip_quota_exceeded") {
         fetchAvailability();
       }
     } finally {
-      setFinalizing(false);
+      finalizingRef.current = false;
+      if (activeRef.current) setFinalizing(false);
     }
   };
 
   const handleFinalizeWithSingleEntitlement = async (entitlementIdToUse = null) => {
+    if (finalizingRef.current) return;
+    finalizingRef.current = true;
     setFinalizing(true);
     setFinalizeError("");
     setFinalizeErrorCode("");
     try {
-      let targetEntitlementId = entitlementIdToUse;
-      if (!targetEntitlementId) {
-        const myData = await itineraryPurchaseService.getMyEntitlements();
-        const available = myData?.entitlements?.find(
-          (e) => (e.available === true || e.consumedAt == null),
-        );
-        targetEntitlementId = available?.entitlementId || available?.id;
-      }
+      const myData = await itineraryPurchaseService.getMyEntitlements();
+      if (!activeRef.current) return;
+      const available = myData?.entitlements?.find((e) =>
+        isAvailableSingleEntitlement(e) && (!entitlementIdToUse || e.entitlementId === entitlementIdToUse));
+      const targetEntitlementId = available?.entitlementId;
 
       if (!targetEntitlementId) {
         throw new Error(
@@ -138,22 +212,27 @@ export default function DraftItineraryPage() {
         fundingSource: "SingleEntitlement",
         entitlementId: targetEntitlementId,
       });
+      if (!activeRef.current) return;
+      await fetchAvailability();
+      await refreshSubscription().catch(() => {});
+      if (!activeRef.current) return;
       setShowFinalizeModal(false);
       setShowSinglePurchaseModal(false);
       navigate("/finalized");
     } catch (err) {
+      if (!activeRef.current) return;
       setFinalizeErrorCode(err.code || "");
       setFinalizeError(ITEM_ERROR_MESSAGES[err.code] ?? err.message);
       fetchAvailability();
     } finally {
-      setFinalizing(false);
+      finalizingRef.current = false;
+      if (activeRef.current) setFinalizing(false);
     }
   };
 
   const handleUsePurchasedEntitlement = async (entitlement) => {
-    const entitlementId = entitlement?.entitlementId || entitlement?.id;
-    if (entitlementId) {
-      await handleFinalizeWithSingleEntitlement(entitlementId);
+    if (isAvailableSingleEntitlement(entitlement)) {
+      await handleFinalizeWithSingleEntitlement(entitlement.entitlementId);
     } else {
       setShowSinglePurchaseModal(false);
       setShowFinalizeModal(true);
@@ -177,6 +256,36 @@ export default function DraftItineraryPage() {
     } finally {
       setDeletingItemId(null);
     }
+  };
+
+  const handleExplain = async () => {
+    setExplainError("");
+    try {
+      await explainTrip(currentTrip.id);
+    } catch (err) {
+      if (!activeRef.current) return;
+      if (err.code === "ai_trip_limit_reached") setExplainLocked(true);
+      // AI lỗi thì các câu lý do đang có vẫn giữ nguyên
+      setExplainError(getAiErrorMessage(err));
+    }
+  };
+
+  // "Muốn đổi gì?": AI ghép thay đổi vào tiêu chí của lịch này rồi mở form tạo lịch đã điền sẵn.
+  // Kết quả là một trip MỚI, lịch này không bị sửa.
+  const handleChangeParsed = (result) => {
+    // Không đổi gì: ô nhập tự hiện message của BE (isTripRequest có thể true hoặc false nên dựa vào changed)
+    if (result.changed.length === 0) return;
+    navigate("/create", {
+      state: {
+        prefill: {
+          fields: result.fields,
+          changed: result.changed,
+          missing: result.missing,
+          base: toParseBase(currentTrip),
+          origin: { latitude: currentTrip.startLatitude, longitude: currentTrip.startLongitude },
+        },
+      },
+    });
   };
 
   useEffect(() => {
@@ -272,6 +381,19 @@ export default function DraftItineraryPage() {
               {currentTrip.totalTravelMinutes ?? 0} phút
             </p>
           )}
+          {currentTrip.travelMode === "Metro" && (
+            <p className="text-label-md text-on-surface-variant mt-1">
+              Đi Metro · giờ tàu là lịch dự kiến.
+            </p>
+          )}
+          {currentTrip.note && (
+            <p className="text-label-md text-on-surface-variant mt-1">
+              Ghi chú: "{currentTrip.note}".{" "}
+              {currentTrip.noteApplied
+                ? "Đã ưu tiên theo ghi chú của bạn."
+                : "Chưa tìm được địa điểm khớp với ghi chú của bạn, lịch được tạo theo sở thích và vị trí."}
+            </p>
+          )}
           {currentTrip.totalMinutes != null &&
             currentTrip.totalMinutes < currentTrip.durationHours * 60 - 30 && (
               <p className="text-label-md text-on-surface-variant mt-1">
@@ -291,6 +413,30 @@ export default function DraftItineraryPage() {
           )}
         </div>
 
+        {!isDemo && (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExplain}
+              disabled={explaining || explainLocked}
+              className="flex min-h-10 items-center gap-1 rounded-full border border-primary px-4 py-2 text-label-md font-bold text-primary transition-all active:scale-95 disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
+              {explaining
+                ? "AI đang viết…"
+                : currentTrip.aiExplainedAt
+                  ? "Nhờ AI viết lại lý do"
+                  : "Nhờ AI viết lý do"}
+            </button>
+            <span className="text-label-md text-on-surface-variant">
+              {currentTrip.aiExplainedAt ? "Lý do do AI viết. " : ""}Mỗi lần tính 1 lượt AI trong ngày.
+            </span>
+            {explainError && (
+              <p role="alert" className="w-full text-label-md text-error">{explainError}</p>
+            )}
+          </div>
+        )}
+
         <div className="space-y-0">
           {currentTrip.items.map((item, idx) => (
             <div key={item.id} className="flex gap-3">
@@ -304,21 +450,28 @@ export default function DraftItineraryPage() {
               </div>
 
               <div className="flex-1 mb-4">
-                {idx === 0 && currentTrip.travelMinutesFromOrigin != null && (
-                  <p className="mb-1 text-label-md text-on-surface-variant flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px]">
-                      near_me
-                    </span>
-                    Đi {currentTrip.travelMinutesFromOrigin} phút từ điểm xuất phát
-                  </p>
-                )}
-                {travelLabel(currentTrip, item) && (
-                  <p className="mb-1 text-label-md text-on-surface-variant flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px]">
-                      {travelLabel(currentTrip, item).icon}
-                    </span>
-                    {travelLabel(currentTrip, item).text}
-                  </p>
+                {item.leg ? (
+                  <LegInfo leg={item.leg} fromOrigin={idx === 0} />
+                ) : (
+                  <>
+                    {/* Trip cũ / BE chưa trả leg */}
+                    {idx === 0 && currentTrip.travelMinutesFromOrigin != null && (
+                      <p className="mb-1 text-label-md text-on-surface-variant flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">
+                          near_me
+                        </span>
+                        Đi {currentTrip.travelMinutesFromOrigin} phút từ điểm xuất phát
+                      </p>
+                    )}
+                    {travelLabel(currentTrip, item) && (
+                      <p className="mb-1 text-label-md text-on-surface-variant flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">
+                          {travelLabel(currentTrip, item).icon}
+                        </span>
+                        {travelLabel(currentTrip, item).text}
+                      </p>
+                    )}
+                  </>
                 )}
                 <div className="card space-y-2">
                   <div className="flex items-start justify-between">
@@ -350,9 +503,16 @@ export default function DraftItineraryPage() {
                     </span>
                   </div>
 
-                  <p className="text-label-md text-on-surface-variant italic">
-                    "{item.reason}"
-                  </p>
+                  {/* Chặng vừa thay địa điểm có reason = null cho tới khi nhờ AI viết lại */}
+                  {explaining ? (
+                    <p className="text-label-md text-on-surface-variant italic">AI đang viết…</p>
+                  ) : (
+                    item.reason && (
+                      <p className="text-label-md text-on-surface-variant italic">
+                        "{item.reason}"
+                      </p>
+                    )
+                  )}
 
                   {/* SPEC-03 / FE-69: Nút chỉ đường trên từng điểm dừng Timeline */}
                   <TimelineItemDirections
@@ -421,6 +581,16 @@ export default function DraftItineraryPage() {
             {deleteError}
           </p>
         )}
+
+        {!isDemo && (
+          <TripRequestAssistant
+            title="Muốn đổi gì?"
+            placeholder='Ví dụ: "rẻ hơn chút", "ngắn hơn 1 tiếng", "dời sang thứ bảy"'
+            submitLabel="Xem thay đổi"
+            base={toParseBase(currentTrip)}
+            onParsed={handleChangeParsed}
+          />
+        )}
       </main>
 
       <div className="app-footer flex gap-3 border-t border-outline-variant/20 px-container-margin py-stack-md lg:px-8">
@@ -456,18 +626,21 @@ export default function DraftItineraryPage() {
           finalizeErrorCode === "saved_trip_quota_exceeded" ||
           (availability != null && availability.normalFinalizeAvailable === false);
         const unusedCount = availability?.unusedEntitlementCount ?? 0;
-        const singleTripPrice = availability?.price ?? 29000;
+        const singleTripPrice = canPurchaseSingle(availability) ? availability.price : null;
         const quotaDisplay =
-          availability?.normalSavedTripLimit != null
+          availability?.normalSavedTripsUsed != null && availability?.normalSavedTripLimit != null
             ? `${availability.normalSavedTripsUsed}/${availability.normalSavedTripLimit}`
-            : quotaMetadata?.limit != null
-              ? `${quotaMetadata.used ?? quotaMetadata.limit}/${quotaMetadata.limit}`
-              : null;
+            : null;
 
         return (
           <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">
-            <div className="w-full max-w-md bg-surface rounded-t-lg p-stack-lg space-y-stack-md animate-fade-in-up lg:rounded-lg">
+            <div role="dialog" aria-label="Chốt lịch trình" className="w-full max-w-md bg-surface rounded-t-lg p-stack-lg space-y-stack-md animate-fade-in-up lg:rounded-lg max-h-[92vh] overflow-y-auto">
               <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
+
+              {(loadingAvailability || !availability) && <div role="status" className="space-y-2 text-center">
+                <p>{loadingAvailability ? "Đang kiểm tra hạn mức và lượt mua lẻ..." : "Chưa thể tải thông tin khả dụng."}</p>
+                {!loadingAvailability && <button type="button" onClick={fetchAvailability} className="rounded-lg border px-4 py-2">Tải lại thông tin khả dụng</button>}
+              </div>}
 
               {isExhausted && unusedCount > 0 ? (
                 /* CASE 2: Normal exhausted BUT user has unused single entitlements */
@@ -525,7 +698,7 @@ export default function DraftItineraryPage() {
                     <button
                       type="button"
                       onClick={() => handleFinalizeWithSingleEntitlement()}
-                      disabled={finalizing}
+                      disabled={finalizing || availableEntitlements.length === 0 || loadingAvailability}
                       className="flex-1 py-3 bg-primary text-on-primary rounded-full font-semibold active:scale-95 transition-all shadow-lg shadow-primary/30 disabled:opacity-60 flex items-center justify-center gap-1.5"
                     >
                       {finalizing ? "Đang chốt..." : "Dùng 1 lượt để chốt"}
@@ -568,16 +741,16 @@ export default function DraftItineraryPage() {
                           {finalizeError || "Bạn đã đạt giới hạn lịch trình được lưu của gói hiện tại."}
                         </p>
                         <p className="text-body-sm text-on-surface-variant">
-                          Bạn có thể mua thêm 1 lượt lưu cho riêng lịch trình này hoặc nâng cấp gói để lưu thêm không giới hạn.
+                          Bạn có thể mua một lượt chốt và để dành cho lịch trình bất kỳ. Nâng cấp sang gói phù hợp để có thêm hạn mức.
                         </p>
                       </div>
                     </div>
 
-                    {(quotaDisplay || (quotaMetadata && (quotaMetadata.limit != null || quotaMetadata.used != null))) && (
+                    {quotaDisplay && (
                       <div className="bg-surface rounded-lg p-3 text-body-sm border border-outline-variant/10 flex justify-between text-on-surface">
                         <span>Đã lưu:</span>
                         <span className="font-semibold">
-                          {quotaDisplay || `${quotaMetadata.used ?? quotaMetadata.limit} / ${quotaMetadata.limit}`} lịch trình
+                          {quotaDisplay} lịch trình
                         </span>
                       </div>
                     )}
@@ -586,16 +759,19 @@ export default function DraftItineraryPage() {
                       <button
                         type="button"
                         onClick={() => {
+                          if (loadingAvailability || !canPurchaseSingle(availability)) return;
                           setShowFinalizeModal(false);
                           setShowSinglePurchaseModal(true);
                         }}
-                        className="w-full py-2.5 px-4 bg-primary text-on-primary rounded-full font-semibold text-label-md flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-sm"
+                        disabled={loadingAvailability || !canPurchaseSingle(availability)}
+                        className="w-full py-2.5 px-4 bg-primary text-on-primary rounded-full font-semibold text-label-md flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-sm disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[18px]">
                           shopping_bag
                         </span>
-                        Mua thêm 1 lịch trình — {formatPlanPrice(singleTripPrice)}
+                        {singleTripPrice != null ? `Mua thêm 1 lịch trình — ${formatPlanPrice(singleTripPrice)}` : "Mua thêm lịch trình chưa khả dụng"}
                       </button>
+                      {!canPurchaseSingle(availability) && !loadingAvailability && <p className="text-body-sm text-on-surface-variant">Hiện chưa thể mua thêm lịch trình. Vui lòng tải lại thông tin khả dụng.</p>}
 
                       <button
                         type="button"
@@ -677,7 +853,7 @@ export default function DraftItineraryPage() {
                     <button
                       type="button"
                       onClick={handleFinalize}
-                      disabled={finalizing}
+                      disabled={finalizing || loadingAvailability || availability?.normalFinalizeAvailable !== true}
                       className="flex-1 py-3 bg-primary text-on-primary rounded-full font-semibold active:scale-95 transition-all shadow-lg shadow-primary/30 disabled:opacity-60"
                     >
                       {finalizing ? "Đang chốt..." : "Chốt lịch trình"}
@@ -701,4 +877,10 @@ export default function DraftItineraryPage() {
       )}
     </div>
   );
+}
+
+export default function DraftItineraryPage() {
+  const { user } = useAuth();
+  const { currentTrip } = useTrip();
+  return <DraftItineraryPageInner key={`${user?.id ?? "anonymous"}:${currentTrip?.id ?? "none"}`} />;
 }

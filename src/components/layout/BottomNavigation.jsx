@@ -4,28 +4,30 @@ import { useTrip } from "../../context/TripContext";
 import { useSubscription } from "../../context/SubscriptionContext";
 import { PLAN_CODES, PLAN_DISPLAY_NAMES } from "../../utils/subscriptionUtils";
 import { canAccessAdmin } from "../../utils/adminAccess";
+import { goHomeOrScrollTop } from "../../utils/scrollToTop";
 import logo from "../../assets/logo.jpg";
 
+// Dùng chung cho sidebar (label) và thanh dưới mobile (shortLabel ?? label)
 const NAV_ITEMS = [
-  { path: "/home", icon: "home", label: "Home" },
-  { path: "/trips", icon: "map_search", label: "Trip" },
-  { path: "/create", icon: "explore", label: "Explore" },
-  { path: "/profile", icon: "person", label: "Person" },
-];
-
-const SIDEBAR_NAV_ITEMS = [
-  { path: "/home", icon: "home", label: "Home" },
+  { path: "/home", icon: "home", label: "Trang chủ" },
   {
     path: "/trips",
     icon: "confirmation_number",
-    label: "My Trips",
+    label: "Lịch trình",
     badgeKey: "trips",
     // Trang con của một chuyến đi: chi tiết, nháp, thay địa điểm, đã chốt
     activePaths: ["/trips", "/draft", "/replace", "/finalized"],
   },
-  { path: "/metro", icon: "train", label: "Metro Stations" },
-  { path: "/create", icon: "location_on", label: "Hot Check-in Spots" },
-  { path: "/profile", icon: "person", label: "My Account" },
+  { path: "/metro", icon: "train", label: "Ga Metro", shortLabel: "Metro" },
+  {
+    path: "/explore",
+    icon: "explore",
+    label: "Khám phá",
+    // Wizard tạo lịch mở từ trang này nên vẫn tô sáng mục
+    activePaths: ["/explore", "/create"],
+  },
+  { path: "/subscription", icon: "workspace_premium", label: "Gói hội viên", shortLabel: "Hội viên" },
+  { path: "/profile", icon: "person", label: "Tài khoản" },
 ];
 
 // "/trips" khớp "/trips" và "/trips/<id>", không khớp "/trips-abc"
@@ -49,7 +51,7 @@ export function NavigationItem({ item, isActive, onClick, variant = "bottom" }) 
       className={`transition-all duration-200 active:scale-95 ${
         variant === "side"
           ? "w-full flex items-center gap-[11px] rounded-xl px-3 py-2.5 text-left"
-          : "flex flex-col items-center justify-center px-3 py-1 rounded-full"
+          : "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-0.5 py-1.5"
       } ${isActive ? activeClass : idleClass}`}
     >
       <span
@@ -65,10 +67,10 @@ export function NavigationItem({ item, isActive, onClick, variant = "bottom" }) 
         className={
           variant === "side"
             ? `flex-1 min-w-0 truncate text-[13.5px] ${isActive ? "font-bold" : "font-medium"}`
-            : "text-label-md font-medium"
+            : "w-full truncate text-center text-label-sm"
         }
       >
-        {item.label}
+        {variant === "side" ? item.label : (item.shortLabel ?? item.label)}
       </span>
       {variant === "side" && item.badge && (
         <span className="flex-none rounded-full bg-navy/10 px-[7px] py-0.5 text-[10.5px] font-bold text-navy">
@@ -86,9 +88,9 @@ export function SideNavigation() {
   const { savedTrips } = useTrip();
   const { subscription } = useSubscription();
 
-  const navItems = SIDEBAR_NAV_ITEMS.map((item) => ({
+  const navItems = NAV_ITEMS.map((item) => ({
     ...item,
-    badge: item.badgeKey === "trips" ? `${savedTrips.length} saved` : null,
+    badge: item.badgeKey === "trips" ? `${savedTrips.length} đã lưu` : null,
   }));
 
   const displayName = user?.fullName || "Khách";
@@ -100,7 +102,12 @@ export function SideNavigation() {
 
   return (
     <aside className="desktop-sidebar-bg fixed inset-y-0 left-0 z-50 hidden w-[220px] flex-col gap-[22px] border-r border-navy/10 px-3.5 py-6 lg:flex">
-      <div className="flex items-center gap-2.5 px-1.5">
+      <button
+        type="button"
+        onClick={() => goHomeOrScrollTop(navigate, pathname, "/home")}
+        aria-label="LocalMate AI, về Trang chủ"
+        className="flex items-center gap-2.5 rounded-xl px-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+      >
         <div className="h-[42px] w-[42px] flex-none overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(20,30,60,0.1)]">
           <img
             src={logo}
@@ -121,7 +128,7 @@ export function SideNavigation() {
             Metro-friendly planner
           </div>
         </div>
-      </div>
+      </button>
 
       <nav className="flex flex-col gap-[3px]">
         {navItems.map((item, i) => (
@@ -157,7 +164,7 @@ export function SideNavigation() {
             onClick={() => navigate("/subscription")}
           >
             <div className="flex items-center justify-between gap-2 text-[11.5px]">
-              <span className="font-bold text-navy-dark">Gói thành viên</span>
+              <span className="font-bold text-navy-dark">Gói hội viên</span>
               <span className="flex-none rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">
                 Demo
               </span>
@@ -216,7 +223,7 @@ export default function BottomNavigation() {
   const { pathname } = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-20 w-full items-center justify-around rounded-t-lg border-t border-outline-variant/20 bg-surface/90 px-4 shadow-[0_-4px_30px_rgba(20,30,60,0.08)] backdrop-blur-lg lg:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-20 w-full items-center rounded-t-lg border-t border-outline-variant/20 bg-surface/90 px-1 shadow-[0_-4px_30px_rgba(20,30,60,0.08)] backdrop-blur-lg lg:hidden">
       {NAV_ITEMS.map((item) => (
         <NavigationItem
           key={item.path}

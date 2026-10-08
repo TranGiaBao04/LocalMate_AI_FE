@@ -1,19 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { useTrip } from "../../context/TripContext";
 import MobileLayout from "../../components/layout/MobileLayout";
+import PageHeader from "../../components/layout/PageHeader";
 import GuestTourCard from "../../components/home/GuestTourCard";
+import HomeSearch from "../../components/home/HomeSearch";
+import NotificationBell from "../../components/notifications/NotificationBell";
+import CuratedItineraryCard from "../../components/trip/CuratedItineraryCard";
+import { useCuratedItineraries } from "../../hooks/useCuratedItineraries";
 import { placeService } from "../../services/placeService";
-import { itineraryService } from "../../services/itineraryService";
 import { STORAGE_KEYS } from "../../constants";
-import { formatCurrencyShort, formatDuration } from "../../utils/formatCurrency";
-import {
-  DAY_MINUTES,
-  minutesNowInVietnam,
-  minutesToTime,
-  roundUpMinutes,
-} from "../../utils/vnTime";
 
 const HERO_FIELDS = [
   {
@@ -33,32 +29,23 @@ const HERO_FIELDS = [
   },
 ];
 
-const APPLY_ERROR_MESSAGES = {
-  apply_requires_persisted_user: "Đăng nhập bằng tài khoản đã đăng ký để dùng lịch trình mẫu.",
-  curated_itinerary_unavailable: "Các địa điểm của lịch trình này đã ngừng hoạt động.",
-  curated_itinerary_not_found: "Lịch trình mẫu này không còn nữa.",
-};
-
-// Giờ rời điểm xuất phát: giờ Việt Nam hiện tại làm tròn 15 phút
-function currentStartTime() {
-  return minutesToTime(Math.min(roundUpMinutes(minutesNowInVietnam()), DAY_MINUTES - 15));
-}
-
 export default function HomePage() {
   const navigate = useNavigate();
-  const { user, isDemo } = useAuth();
-  const { setCurrentTrip } = useTrip();
+  const { user } = useAuth();
   const [activeStationId, setActiveStationId] = useState(null);
   const [clusters, setClusters] = useState([]);
   const [clustersLoading, setClustersLoading] = useState(true);
   const [clustersError, setClustersError] = useState(false);
   const [clustersRetryKey, setClustersRetryKey] = useState(0);
-  const [curated, setCurated] = useState([]);
-  const [curatedLoading, setCuratedLoading] = useState(true);
-  const [curatedError, setCuratedError] = useState(false);
-  const [curatedRetryKey, setCuratedRetryKey] = useState(0);
-  const [applyingId, setApplyingId] = useState(null);
-  const [applyError, setApplyError] = useState(null); // { id, message }
+  const {
+    curated,
+    loading: curatedLoading,
+    error: curatedError,
+    retry: retryCurated,
+    applyingId,
+    applyError,
+    apply: handleApplyCurated,
+  } = useCuratedItineraries();
 
   const [showGuestTour, setShowGuestTour] = useState(() => {
     try {
@@ -83,50 +70,6 @@ export default function HomePage() {
       });
     return () => { active = false; };
   }, [clustersRetryKey]);
-
-  useEffect(() => {
-    let active = true;
-    itineraryService
-      .getCuratedItineraries()
-      .then((data) => {
-        if (active) setCurated(Array.isArray(data) ? data : []);
-      })
-      .catch(() => {
-        if (active) setCuratedError(true);
-      })
-      .finally(() => {
-        if (active) setCuratedLoading(false);
-      });
-    return () => { active = false; };
-  }, [curatedRetryKey]);
-
-  const retryCurated = () => {
-    setCuratedLoading(true);
-    setCuratedError(false);
-    setCuratedRetryKey((key) => key + 1);
-  };
-
-  // Áp dụng lịch mẫu thành trip nháp (hôm nay, từ giờ hiện tại). Demo bị BE chặn nên báo trước.
-  const handleApplyCurated = async (itinerary) => {
-    if (applyingId) return;
-    if (isDemo) {
-      setApplyError({ id: itinerary.id, message: APPLY_ERROR_MESSAGES.apply_requires_persisted_user });
-      return;
-    }
-    setApplyError(null);
-    setApplyingId(itinerary.id);
-    try {
-      const trip = await itineraryService.applyCuratedItinerary(itinerary.id, {
-        startTime: currentStartTime(),
-      });
-      setCurrentTrip(trip);
-      navigate("/draft");
-    } catch (err) {
-      setApplyError({ id: itinerary.id, message: APPLY_ERROR_MESSAGES[err.code] ?? err.message });
-    } finally {
-      setApplyingId(null);
-    }
-  };
 
   const handleDismissTour = () => {
     setShowGuestTour(false);
@@ -153,42 +96,25 @@ export default function HomePage() {
 
   return (
     <MobileLayout>
-      <main className="content-shell flex flex-1 flex-col gap-6 px-container-margin pb-28 pt-6 lg:gap-7 lg:px-8 lg:pb-12">
-        {/* Top bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex-none">
-            <div className="text-[15px] font-extrabold text-navy-dark">
-              Trang chủ
-            </div>
-            <div className="text-xs text-text-faint">Tổng quan chuyến đi</div>
-          </div>
+      <PageHeader title="Trang chủ">
+        {/* Từ sm trở lên ô tìm nằm trong thanh tiêu đề; mobile xuống hàng riêng bên dưới */}
+        <div className="hidden min-w-0 flex-1 justify-center sm:flex">
+          <HomeSearch />
+        </div>
+        <div className="flex flex-none items-center gap-2.5">
+          <NotificationBell />
+          <button
+            onClick={() => navigate("/profile")}
+            className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-full bg-navy text-sm font-bold text-white active:scale-95"
+          >
+            {initial}
+          </button>
+        </div>
+      </PageHeader>
 
-          <div className="soft-shadow hidden min-w-0 max-w-[320px] flex-1 items-center gap-2 rounded-full bg-white px-3.5 py-[9px] sm:flex">
-            <span className="material-symbols-outlined flex-none text-[15px] text-text-faint">
-              search
-            </span>
-            <span className="flex-1 truncate text-[12.5px] text-text-faint">
-              Tìm theo ga Bến Thành, Ba Son...
-            </span>
-            <span className="flex-none rounded border border-[#E4E8F2] px-[5px] py-0.5 text-[10.5px] text-[#B4BCD1]">
-              ⌘K
-            </span>
-          </div>
-
-          <div className="flex flex-none items-center gap-2.5">
-            <button className="soft-shadow relative flex h-[38px] w-[38px] items-center justify-center rounded-full bg-white active:scale-95">
-              <span className="material-symbols-outlined text-[17px] text-[#3A4256]">
-                notifications
-              </span>
-              <span className="absolute right-[9px] top-2 h-[7px] w-[7px] rounded-full border-[1.5px] border-white bg-[#E5484D]" />
-            </button>
-            <button
-              onClick={() => navigate("/profile")}
-              className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-full bg-navy text-sm font-bold text-white active:scale-95"
-            >
-              {initial}
-            </button>
-          </div>
+      <main className="content-shell flex flex-1 flex-col gap-6 px-container-margin pb-28 pt-20 lg:gap-7 lg:px-8 lg:pb-12">
+        <div className="sm:hidden">
+          <HomeSearch />
         </div>
 
         {/* Guest Tour banner / quick guide */}
@@ -299,66 +225,13 @@ export default function HomePage() {
           ) : (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {curated.map((itinerary) => (
-                <div key={itinerary.id} className="flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleApplyCurated(itinerary)}
-                    disabled={applyingId !== null}
-                    aria-busy={applyingId === itinerary.id}
-                    className="soft-shadow soft-shadow-hover overflow-hidden rounded-[20px] bg-white text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-wait"
-                  >
-                    <div className="relative h-[170px] bg-surface-variant">
-                      {itinerary.coverImageUrl ? (
-                        <img
-                          src={itinerary.coverImageUrl}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span aria-hidden="true" className="material-symbols-outlined flex h-full items-center justify-center text-4xl text-navy/30">route</span>
-                      )}
-                      {itinerary.stationName && (
-                        <span className="absolute left-2.5 top-2.5 rounded-full bg-navy-dark px-2 py-[3px] text-[10.5px] font-bold text-white">
-                          Ga {itinerary.stationName}
-                        </span>
-                      )}
-                    </div>
-                    <div className="p-4">
-                      <h4 className="text-[15px] font-bold text-[#111726]">
-                        {itinerary.title}
-                      </h4>
-                      {itinerary.description && (
-                        <p className="mt-1.5 line-clamp-2 text-[12.5px] leading-relaxed text-text-muted">
-                          {itinerary.description}
-                        </p>
-                      )}
-                      <div className="mt-3 flex items-center justify-between gap-2 text-[12.5px]">
-                        <div className="flex items-center gap-1.5 text-text-muted">
-                          <span className="material-symbols-outlined text-[13px]">
-                            schedule
-                          </span>
-                          {formatDuration(itinerary.estimatedDurationMinutes)} · {itinerary.items.length} điểm
-                        </div>
-                        <div className="font-bold text-navy-dark">
-                          ~{formatCurrencyShort(itinerary.estimatedCostMin)} – {formatCurrencyShort(itinerary.estimatedCostMax)}/người
-                        </div>
-                      </div>
-                      <div className="mt-2 text-[12px] font-bold text-navy">
-                        {applyingId === itinerary.id ? "Đang tạo bản nháp..." : "Dùng lịch trình này ›"}
-                      </div>
-                    </div>
-                  </button>
-                  {applyError?.id === itinerary.id && (
-                    <p role="alert" className="px-1 text-[12.5px] text-error">
-                      {applyError.message}
-                      {isDemo && (
-                        <button type="button" onClick={() => navigate("/login")} className="ml-1 font-bold underline">
-                          Đăng nhập
-                        </button>
-                      )}
-                    </p>
-                  )}
-                </div>
+                <CuratedItineraryCard
+                  key={itinerary.id}
+                  itinerary={itinerary}
+                  applyingId={applyingId}
+                  applyError={applyError}
+                  onApply={handleApplyCurated}
+                />
               ))}
             </div>
           )}

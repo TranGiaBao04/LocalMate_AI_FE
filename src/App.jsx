@@ -6,6 +6,7 @@ import BottomNavigation, {
 import { useAuth } from "./context/AuthContext";
 import AdminRoute from "./components/admin/AdminRoute";
 import { ADMIN_SECTIONS } from "./components/admin/adminSections";
+import { ADMIN_PERMISSIONS } from "./constants";
 
 import WelcomePage from "./pages/auth/WelcomePage";
 import LoginPage from "./pages/auth/LoginPage";
@@ -25,6 +26,7 @@ import ReplacePlacePage from "./pages/trip/ReplacePlacePage";
 import FinalizedItineraryPage from "./pages/trip/FinalizedItineraryPage";
 import MyTripsPage from "./pages/trip/MyTripsPage";
 import SavedTripDetailPage from "./pages/trip/SavedTripDetailPage";
+import CuratedItinerariesPage from "./pages/trip/CuratedItinerariesPage";
 
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
@@ -32,33 +34,53 @@ const AdminStationsPage = lazy(() => import("./pages/admin/AdminStationsPage"));
 const AdminPlansPage = lazy(() => import("./pages/admin/AdminPlansPage"));
 const AdminTransactionsPage = lazy(() => import("./pages/admin/AdminTransactionsPage"));
 const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
+const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
+const AdminUserDetailPage = lazy(() => import("./pages/admin/AdminUserDetailPage"));
+const AdminRolesPage = lazy(() => import("./pages/admin/AdminRolesPage"));
+const AdminFeedbackPage = lazy(() => import("./pages/admin/AdminFeedbackPage"));
 const AdminSectionPlaceholder = lazy(() => import("./pages/admin/AdminSectionPlaceholder"));
 
 // Mục đã có trang thật; mục còn lại hiện placeholder
 const ADMIN_PAGES = {
   stations: AdminStationsPage,
+  places: AdminPlaceListPage,
+  import: ImportStepperPage,
   plans: AdminPlansPage,
   transactions: AdminTransactionsPage,
   settings: AdminSettingsPage,
+  users: AdminUsersPage,
+  feedback: AdminFeedbackPage,
+  roles: AdminRolesPage,
 };
+
+import AdminPlaceListPage from "./pages/admin/AdminPlaceListPage";
+import AdminPlaceFormPage from "./pages/admin/AdminPlaceFormPage";
+import AdminPlaceDetailPage from "./pages/admin/AdminPlaceDetailPage";
+import ImportStepperPage from "./pages/admin/ImportStepperPage";
 
 export default function App() {
   const { pathname } = useLocation();
   const { isLoggedIn, initializing } = useAuth();
-  const showAppNav = !pathname.startsWith("/admin") && !["/", "/login", "/register", "/forgot-password", "/loading", "/payment/success", "/payment/cancel"].includes(
+  const showAppNav = !pathname.startsWith("/admin") && !["/", "/about", "/login", "/register", "/forgot-password", "/loading", "/payment/success", "/payment/cancel"].includes(
     pathname,
   ) && isLoggedIn;
-  const showBottomNav = ["/home", "/trips", "/profile"].includes(pathname);
+  const showBottomNav = ["/home", "/trips", "/metro", "/explore", "/profile", "/subscription"].includes(pathname);
   const requireAuth = (element) => {
     if (initializing) return null;
     return isLoggedIn ? element : <Navigate to="/login" replace />;
+  };
+  // Trang đích: đã đăng nhập thì vào thẳng app, không dựng landing (tránh nháy và gọi API thừa)
+  const landingOrHome = () => {
+    if (initializing) return null;
+    return isLoggedIn ? <Navigate to="/home" replace /> : <WelcomePage />;
   };
 
   return (
     <>
       {showAppNav && <SideNavigation />}
       <Routes>
-        <Route path="/" element={<WelcomePage />} />
+        <Route path="/" element={landingOrHome()} />
+        <Route path="/about" element={<WelcomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -77,6 +99,7 @@ export default function App() {
 
         <Route path="/trips" element={requireAuth(<MyTripsPage />)} />
         <Route path="/metro" element={requireAuth(<MetroStationsPage />)} />
+        <Route path="/explore" element={requireAuth(<CuratedItinerariesPage />)} />
         <Route
           path="/trips/:tripId"
           element={requireAuth(<SavedTripDetailPage />)}
@@ -107,6 +130,46 @@ export default function App() {
               />
             );
           })}
+          <Route
+            path="places/create"
+            element={
+              <AdminRoute permissions={[ADMIN_PERMISSIONS.MANAGE_PLACES]}>
+                <AdminPlaceFormPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="places/edit/:id"
+            element={
+              <AdminRoute permissions={[ADMIN_PERMISSIONS.MANAGE_PLACES]}>
+                <AdminPlaceFormPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="places/:id"
+            element={
+              <AdminRoute permissions={[ADMIN_PERMISSIONS.MANAGE_PLACES]}>
+                <AdminPlaceDetailPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="places/import"
+            element={
+              <AdminRoute permissions={[ADMIN_PERMISSIONS.MANAGE_PLACES]}>
+                <ImportStepperPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="users/:userId"
+            element={
+              <AdminRoute permissions={[ADMIN_PERMISSIONS.MANAGE_USERS]}>
+                <AdminUserDetailPage />
+              </AdminRoute>
+            }
+          />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
 

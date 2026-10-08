@@ -12,6 +12,7 @@ function formatDistance(meters) {
 const WARNING_LABELS = {
   different_station: "Khác cụm ga hiện tại",
   higher_cost: "Chi phí cao hơn điểm cũ",
+  exceeds_duration: "Lịch kết thúc muộn hơn số giờ bạn chọn",
 };
 
 const REPLACE_ERROR_MESSAGES = {
@@ -20,6 +21,8 @@ const REPLACE_ERROR_MESSAGES = {
   place_already_in_trip: "Địa điểm này đã có trong lịch trình.",
   itinerary_item_not_found: "Không tìm thấy chặng cần thay. Hãy tải lại lịch trình.",
   trip_finalized: "Lịch trình đã chốt nên không thay được địa điểm.",
+  replacement_crosses_midnight:
+    "Thay địa điểm này sẽ làm lịch kéo qua 24:00. Hãy chọn địa điểm khác.",
 };
 
 export default function ReplacePlacePage() {
@@ -52,7 +55,9 @@ export default function ReplacePlacePage() {
         .map((w) => WARNING_LABELS[w])
         .filter(Boolean)
         .join(", ");
+      // Thay /replace trong lịch sử, để nút back ở trang Nháp không quay lại trang thay thế
       navigate("/draft", {
+        replace: true,
         state: {
           toast: warningText ? `Đã thay thế địa điểm (${warningText})` : "Đã thay thế địa điểm",
         },

@@ -14,6 +14,22 @@ export const subscriptionService = {
   getMySubscription: () => apiClient.get("/subscription/me"),
 
   /**
+   * Lấy báo giá thanh toán / nâng cấp gói cước (preview read-only)
+   * Yêu cầu tài khoản thực (persisted User/Admin)
+   * @param {string} planCode Mã gói cước cần lấy báo giá
+   */
+  getCheckoutQuote: (planCode) => {
+    const params = new URLSearchParams();
+    if (planCode !== undefined && planCode !== null) {
+      params.set("planCode", String(planCode));
+    }
+    const query = params.toString();
+    return apiClient.get(
+      query ? `/subscription/checkout-quote?${query}` : "/subscription/checkout-quote"
+    );
+  },
+
+  /**
    * Tạo yêu cầu thanh toán mua gói cước mới (TripPass hoặc Membership)
    * @param {string} planCode "TripPass" | "Membership"
    */

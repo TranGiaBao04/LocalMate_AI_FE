@@ -34,14 +34,6 @@ export const formatDistance = (meters) => {
     : `${(meters / 1000).toFixed(1)}km`;
 };
 
-export const buildGoogleMapsUrl = (lat, lng) => {
-  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-};
-
-export const buildGoogleMapsDirectionUrl = (lat, lng) => {
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-};
-
 export const formatDate = (dateStr) => {
   const date = new Date(dateStr);
 
@@ -65,3 +57,7 @@ export const formatRelativeTime = (dateStr) => {
 
   return formatDate(dateStr);
 };
+
+// 5 -> "5,0"; 4.3 -> "4,3" (BE trả số tròn dạng 5, không phải 5.0)
+export const formatRating = (value) =>
+  Number(value).toLocaleString("vi-VN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });

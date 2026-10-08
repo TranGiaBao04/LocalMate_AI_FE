@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { AdminOverlayFrame, AdminField, NoticeBanner } from "../ui";
+import { ADMIN_INPUT, ADMIN_PRIMARY_BUTTON, ADMIN_SECONDARY_BUTTON } from "../adminStyles";
 import BenefitEditor from "./BenefitEditor";
 import { adminPlanService } from "../../../services/adminPlanService";
 import { formatPlanPrice } from "../../../utils/subscriptionUtils";
@@ -198,401 +200,69 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
     }
   };
 
+  const inputProps = (field) => ({
+    id: `plan-${field}`,
+    "aria-invalid": Boolean(fieldErrors[field]),
+    "aria-describedby": fieldErrors[field] ? `plan-${field}-error` : undefined,
+    className: ADMIN_INPUT,
+    disabled: submitting,
+  });
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="plan-form-title"
-      className="my-auto w-full max-w-2xl rounded-2xl bg-white shadow-2xl transition"
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-[#1d3e82]">
-            <span className="material-symbols-outlined text-[22px]">
-              {isEdit ? "edit_note" : "add_box"}
-            </span>
-          </div>
-          <div>
-            <h2 id="plan-form-title" className="text-lg font-bold text-slate-900">
-              {isEdit ? `Chỉnh sửa gói: ${plan?.name}` : "Tạo gói dịch vụ mới"}
-            </h2>
-            <p className="text-xs text-slate-500">
-              {isEdit
-                ? `Mã: ${plan?.code} · Phiên bản hiện tại: v${plan?.currentVersion?.versionNumber ?? 1}`
-                : "Thiết lập thông số thương mại và quyền lợi cho gói cước mới"}
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={submitting}
-          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
-          aria-label="Đóng"
-        >
-          <span className="material-symbols-outlined text-[20px]">close</span>
-        </button>
-      </div>
-
-      {/* Form Body */}
-      <form onSubmit={handleSubmit}>
-        <div className="max-h-[calc(100vh-200px)] space-y-5 overflow-y-auto px-6 py-5">
-          {generalError && (
-            <div
-              role="alert"
-              className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-700"
-            >
-              <span className="material-symbols-outlined text-[18px]">error</span>
-              <span className="flex-1 font-medium">{generalError}</span>
-            </div>
-          )}
-
-          {isEdit && (
-            <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3.5 text-xs text-slate-600">
-              <div className="flex items-start gap-2.5">
-                <span className="material-symbols-outlined mt-0.5 text-[18px] text-[#1d3e82]">info</span>
-                <div className="space-y-1 leading-relaxed">
-                  <p className="font-semibold text-slate-800">Cơ chế quản lý phiên bản (Immutable Versioning):</p>
-                  <p>
-                    Mọi thay đổi về giá, thời hạn, hạn mức hoặc tính năng sẽ tự động phát hành phiên bản mới.
-                    Người dùng đang đăng ký gói hiện tại vẫn được bảo lưu trọn vẹn quyền lợi cũ đến hết chu kỳ, không bị thay đổi hồi tố.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Row 1: Code & Priority (Create Only) */}
+    <AdminOverlayFrame open title={isEdit ? `Chỉnh sửa gói: ${plan?.name}` : "Tạo gói dịch vụ mới"}
+      description={isEdit ? `Mã: ${plan?.code} · Phiên bản hiện tại: v${plan?.currentVersion?.versionNumber ?? 1}` : "Thiết lập thông số thương mại và quyền lợi cho gói cước mới"}
+      onClose={onClose} loading={submitting}
+      footer={<>
+        <button type="button" onClick={onClose} disabled={submitting} className={ADMIN_SECONDARY_BUTTON}>Hủy</button>
+        <button type="submit" form="plan-form" disabled={submitting} className={ADMIN_PRIMARY_BUTTON}>{submitting ? "Đang lưu..." : isEdit ? "Cập nhật gói" : "Tạo gói dịch vụ"}</button>
+      </>}>
+      <form id="plan-form" onSubmit={handleSubmit} className="space-y-6">
+        <NoticeBanner notice={generalError ? { type: "error", message: generalError } : null} />
+        {isEdit && <p className="border-l-2 border-blue-200 pl-3 text-sm text-[#5C6B8A]">Mọi thay đổi về giá, thời hạn, hạn mức hoặc tính năng sẽ tự động phát hành phiên bản mới. Người dùng đang đăng ký gói hiện tại vẫn được bảo lưu quyền lợi cũ đến hết chu kỳ.</p>}
+        <fieldset className="space-y-4">
+          <legend className="mb-3 text-base font-semibold">Thông tin gói</legend>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
-                Mã gói (Code) <span className="text-rose-500">*</span>
-              </label>
-              {isEdit ? (
-                <div className="mt-1.5 flex h-11 items-center justify-between rounded-xl border border-slate-200 bg-slate-100 px-3.5 text-sm font-semibold font-mono text-slate-700">
-                  <span>{plan?.code}</span>
-                  <span className="rounded bg-slate-200 px-2 py-0.5 text-[10px] uppercase text-slate-600">
-                    Cố định
-                  </span>
-                </div>
-              ) : (
-                <>
-                  <input
-                    type="text"
-                    value={form.code}
-                    onChange={(e) => handleChange("code", e.target.value.toUpperCase().replace(/\s+/g, "_"))}
-                    placeholder="VD: PRO_YEARLY, TRIP_PASS"
-                    maxLength={64}
-                    className={`mt-1.5 h-11 w-full rounded-xl border px-3.5 font-mono text-sm uppercase outline-none transition focus:ring-4 ${
-                      fieldErrors.code
-                        ? "border-rose-300 bg-rose-50/30 focus:border-rose-400 focus:ring-rose-100"
-                        : "border-slate-200 bg-slate-50 focus:border-blue-300 focus:bg-white focus:ring-blue-100/60"
-                    }`}
-                  />
-                  {fieldErrors.code ? (
-                    <p className="mt-1 text-xs text-rose-600">{fieldErrors.code}</p>
-                  ) : (
-                    <p className="mt-1 text-[11px] text-slate-400">
-                      Bắt đầu bằng chữ in hoa, chỉ chứa [A-Z, 0-9, _].
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
-                Độ ưu tiên quyền hạn <span className="text-rose-500">*</span>
-              </label>
-              {isEdit ? (
-                <div className="mt-1.5 flex h-11 items-center justify-between rounded-xl border border-slate-200 bg-slate-100 px-3.5 text-sm font-semibold text-slate-700">
-                  <span>{plan?.entitlementPriority}</span>
-                  <span className="rounded bg-slate-200 px-2 py-0.5 text-[10px] uppercase text-slate-600">
-                    Cố định
-                  </span>
-                </div>
-              ) : (
-                <>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={form.entitlementPriority}
-                    onChange={(e) => handleChange("entitlementPriority", e.target.value)}
-                    placeholder="10, 20, 30..."
-                    className={`mt-1.5 h-11 w-full rounded-xl border px-3.5 text-sm outline-none transition focus:ring-4 ${
-                      fieldErrors.entitlementPriority
-                        ? "border-rose-300 bg-rose-50/30 focus:border-rose-400 focus:ring-rose-100"
-                        : "border-slate-200 bg-slate-50 focus:border-blue-300 focus:bg-white focus:ring-blue-100/60"
-                    }`}
-                  />
-                  {fieldErrors.entitlementPriority ? (
-                    <p className="mt-1 text-xs text-rose-600">{fieldErrors.entitlementPriority}</p>
-                  ) : (
-                    <p className="mt-1 text-[11px] text-slate-400">
-                      Số nguyên không âm; số càng cao ưu tiên càng lớn.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
+            <AdminField id="plan-code" label="Mã gói (Code)" error={fieldErrors.code}>
+              {isEdit ? <p className="break-words font-mono">{plan?.code} <span className="text-xs text-[#5C6B8A]">· Cố định</span></p> : <input {...inputProps("code")} type="text" value={form.code} onChange={e => handleChange("code", e.target.value.toUpperCase().replace(/\s+/g, "_"))} maxLength={64} placeholder="VD: PRO_YEARLY" />}
+            </AdminField>
+            <AdminField id="plan-entitlementPriority" label="Độ ưu tiên quyền hạn" error={fieldErrors.entitlementPriority}>
+              {isEdit ? <p>{plan?.entitlementPriority} <span className="text-xs text-[#5C6B8A]">· Cố định</span></p> : <input {...inputProps("entitlementPriority")} type="number" min={0} step={1} value={form.entitlementPriority} onChange={e => handleChange("entitlementPriority", e.target.value)} />}
+            </AdminField>
           </div>
-
-          {/* Row 2: Name */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
-              Tên hiển thị gói <span className="text-rose-500">*</span>
+          <AdminField id="plan-name" label="Tên hiển thị gói" error={fieldErrors.name}>
+            <input {...inputProps("name")} type="text" value={form.name} onChange={e => handleChange("name", e.target.value)} maxLength={200} placeholder="Tên gói dịch vụ" />
+          </AdminField>
+        </fieldset>
+        <fieldset className="space-y-4 border-t border-[#DCE2EE] pt-4">
+          <legend className="px-1 text-base font-semibold">Giá bán & thời hạn</legend>
+          <AdminField id="plan-price" label="Giá bán (VND)" error={fieldErrors.price}>
+            {isFree ? <p>0 VND (Miễn phí)</p> : <><input {...inputProps("price")} type="number" min={1} step={1} value={form.price} onChange={e => handleChange("price", e.target.value)} /><p className="mt-1 text-xs text-[#5C6B8A]">Hiển thị: {formatPlanPrice(Number(form.price) || 0)}</p></>}
+          </AdminField>
+          <AdminField id="plan-durationDays" label="Thời hạn hiệu lực (Ngày)" error={fieldErrors.durationDays}>
+            {isFree ? <p>Không áp dụng (Gói mặc định, không có thời hạn mua)</p> : <input {...inputProps("durationDays")} type="number" min={1} step={1} value={form.durationDays} onChange={e => handleChange("durationDays", e.target.value)} />}
+          </AdminField>
+        </fieldset>
+        <fieldset className="space-y-4 border-t border-[#DCE2EE] pt-4">
+          <legend className="px-1 text-base font-semibold">Hạn mức sử dụng</legend>
+          <AdminField id="plan-generateLimit" label="Lượt tạo AI (Generate Limit)" error={fieldErrors.generateLimit}>
+            <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.generateUnlimited} disabled={submitting} onChange={e => handleChange("generateUnlimited", e.target.checked)} />Không giới hạn (∞)
             </label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => handleChange("name", e.target.value)}
-              placeholder="VD: Gói Khám Phá Nâng Cao, Membership 30 Ngày"
-              maxLength={200}
-              className={`mt-1.5 h-11 w-full rounded-xl border px-3.5 text-sm outline-none transition focus:ring-4 ${
-                fieldErrors.name
-                  ? "border-rose-300 bg-rose-50/30 focus:border-rose-400 focus:ring-rose-100"
-                  : "border-slate-200 bg-slate-50 focus:border-blue-300 focus:bg-white focus:ring-blue-100/60"
-              }`}
-            />
-            {fieldErrors.name && (
-              <p className="mt-1 text-xs text-rose-600">{fieldErrors.name}</p>
-            )}
-          </div>
-
-          {/* Row 3: Price & Duration */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
-                Giá bán (VND) <span className="text-rose-500">*</span>
-              </label>
-              {isFree ? (
-                <div className="mt-1.5 flex h-11 items-center justify-between rounded-xl border border-slate-200 bg-slate-100 px-3.5 text-sm font-semibold text-slate-700">
-                  <span>0 VND (Miễn phí)</span>
-                  <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-                    Mặc định hệ thống
-                  </span>
-                </div>
-              ) : (
-                <>
-                  <div className="relative mt-1.5">
-                    <input
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={form.price}
-                      onChange={(e) => handleChange("price", e.target.value)}
-                      placeholder="59000"
-                      className={`h-11 w-full rounded-xl border pl-3.5 pr-14 text-sm outline-none transition focus:ring-4 ${
-                        fieldErrors.price
-                          ? "border-rose-300 bg-rose-50/30 focus:border-rose-400 focus:ring-rose-100"
-                          : "border-slate-200 bg-slate-50 focus:border-blue-300 focus:bg-white focus:ring-blue-100/60"
-                      }`}
-                    />
-                    <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
-                      VND
-                    </span>
-                  </div>
-                  {fieldErrors.price ? (
-                    <p className="mt-1 text-xs text-rose-600">{fieldErrors.price}</p>
-                  ) : (
-                    <p className="mt-1 text-[11px] text-slate-500">
-                      Hiển thị: <strong className="text-slate-700">{formatPlanPrice(Number(form.price) || 0)}</strong>
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
-                Thời hạn hiệu lực (Ngày) {!isFree && <span className="text-rose-500">*</span>}
-              </label>
-              {isFree ? (
-                <div className="mt-1.5 flex h-11 items-center rounded-xl border border-slate-200 bg-slate-100 px-3.5 text-sm font-semibold text-slate-700">
-                  <span>Không áp dụng (Gói mặc định, không có thời hạn mua)</span>
-                </div>
-              ) : (
-                <>
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={form.durationDays}
-                    onChange={(e) => handleChange("durationDays", e.target.value)}
-                    placeholder="30, 365..."
-                    className={`mt-1.5 h-11 w-full rounded-xl border px-3.5 text-sm outline-none transition focus:ring-4 ${
-                      fieldErrors.durationDays
-                        ? "border-rose-300 bg-rose-50/30 focus:border-rose-400 focus:ring-rose-100"
-                        : "border-slate-200 bg-slate-50 focus:border-blue-300 focus:bg-white focus:ring-blue-100/60"
-                    }`}
-                  />
-                  {fieldErrors.durationDays ? (
-                    <p className="mt-1 text-xs text-rose-600">{fieldErrors.durationDays}</p>
-                  ) : (
-                    <p className="mt-1 text-[11px] text-slate-400">
-                      Số ngày người dùng được hưởng quyền lợi sau khi thanh toán.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Row 4: Quotas (GenerateLimit & SavedTripLimit) */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">
-                  Lượt tạo AI (Generate Limit)
-                </label>
-                <label className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-[#1d3e82]">
-                  <input
-                    type="checkbox"
-                    checked={form.generateUnlimited}
-                    onChange={(e) => handleChange("generateUnlimited", e.target.checked)}
-                    className="rounded border-slate-300 text-[#1d3e82] focus:ring-[#1d3e82]"
-                  />
-                  <span>Không giới hạn (∞)</span>
-                </label>
-              </div>
-              {form.generateUnlimited ? (
-                <div className="mt-2 flex h-10 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700">
-                  <span className="text-emerald-700">Không giới hạn lượt tạo</span>
-                </div>
-              ) : (
-                <div className="mt-2">
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={form.generateLimit}
-                    onChange={(e) => handleChange("generateLimit", e.target.value)}
-                    placeholder="0, 1, 10..."
-                    className={`h-10 w-full rounded-lg border px-3 text-sm outline-none transition focus:ring-4 ${
-                      fieldErrors.generateLimit
-                        ? "border-rose-300 bg-rose-50/30 focus:border-rose-400 focus:ring-rose-100"
-                        : "border-slate-200 bg-white focus:border-blue-300 focus:ring-blue-100/60"
-                    }`}
-                  />
-                  {fieldErrors.generateLimit ? (
-                    <p className="mt-1 text-xs text-rose-600">{fieldErrors.generateLimit}</p>
-                  ) : (
-                    <p className="mt-1 text-[11px] text-slate-400">
-                      Nhập 0 nếu gói không cho phép tạo AI.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">
-                  Lượt lưu chuyến (Saved Trip Limit)
-                </label>
-                <label className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-[#1d3e82]">
-                  <input
-                    type="checkbox"
-                    checked={form.savedTripUnlimited}
-                    onChange={(e) => handleChange("savedTripUnlimited", e.target.checked)}
-                    className="rounded border-slate-300 text-[#1d3e82] focus:ring-[#1d3e82]"
-                  />
-                  <span>Không giới hạn (∞)</span>
-                </label>
-              </div>
-              {form.savedTripUnlimited ? (
-                <div className="mt-2 flex h-10 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700">
-                  <span className="text-emerald-700">Không giới hạn lượt lưu</span>
-                </div>
-              ) : (
-                <div className="mt-2">
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={form.savedTripLimit}
-                    onChange={(e) => handleChange("savedTripLimit", e.target.value)}
-                    placeholder="0, 3, 10..."
-                    className={`h-10 w-full rounded-lg border px-3 text-sm outline-none transition focus:ring-4 ${
-                      fieldErrors.savedTripLimit
-                        ? "border-rose-300 bg-rose-50/30 focus:border-rose-400 focus:ring-rose-100"
-                        : "border-slate-200 bg-white focus:border-blue-300 focus:ring-blue-100/60"
-                    }`}
-                  />
-                  {fieldErrors.savedTripLimit ? (
-                    <p className="mt-1 text-xs text-rose-600">{fieldErrors.savedTripLimit}</p>
-                  ) : (
-                    <p className="mt-1 text-[11px] text-slate-400">
-                      Nhập 0 nếu gói không cho phép lưu chuyến.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Row 5: Dynamic Benefit Editor (FE-125) */}
-          <BenefitEditor
-            selectedIds={form.featureIds}
-            onChange={(ids) => handleChange("featureIds", ids)}
-            disabled={submitting}
-            error={fieldErrors.featureIds}
-          />
-        </div>
-
-        {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50/70 px-6 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
-          >
-            Hủy
-          </button>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="min-w-28 rounded-xl bg-[#1d3e82] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#17366f] focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:cursor-wait disabled:opacity-60"
-          >
-            {submitting
-              ? "Đang lưu..."
-              : isEdit
-                ? "Cập nhật gói"
-                : "Tạo gói dịch vụ"}
-          </button>
-        </div>
+            {form.generateUnlimited ? <p className="text-sm text-[#5C6B8A]">Không giới hạn lượt tạo</p> : <input {...inputProps("generateLimit")} type="number" min={0} step={1} value={form.generateLimit} onChange={e => handleChange("generateLimit", e.target.value)} />}
+          </AdminField>
+          <AdminField id="plan-savedTripLimit" label="Lượt lưu chuyến (Saved Trip Limit)" error={fieldErrors.savedTripLimit}>
+            <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.savedTripUnlimited} disabled={submitting} onChange={e => handleChange("savedTripUnlimited", e.target.checked)} />Không giới hạn (∞)
+            </label>
+            {form.savedTripUnlimited ? <p className="text-sm text-[#5C6B8A]">Không giới hạn lượt lưu</p> : <input {...inputProps("savedTripLimit")} type="number" min={0} step={1} value={form.savedTripLimit} onChange={e => handleChange("savedTripLimit", e.target.value)} />}
+          </AdminField>
+        </fieldset>
+        <BenefitEditor selectedIds={form.featureIds} onChange={ids => handleChange("featureIds", ids)} disabled={submitting} error={fieldErrors.featureIds} />
       </form>
-    </div>
+    </AdminOverlayFrame>
   );
 }
 
-export default function PlanFormModal({
-  isOpen,
-  mode = "create",
-  plan = null,
-  onClose,
-  onSuccess,
-}) {
+export default function PlanFormModal({ isOpen, mode = "create", plan = null, onClose, onSuccess }) {
   if (!isOpen) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-sm sm:p-6"
-      role="presentation"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <PlanFormContent
-        key={`${mode}-${plan?.id || "new"}`}
-        mode={mode}
-        plan={plan}
-        onClose={onClose}
-        onSuccess={onSuccess}
-      />
-    </div>
-  );
+  return <PlanFormContent key={`${mode}-${plan?.id || "new"}`} mode={mode} plan={plan} onClose={onClose} onSuccess={onSuccess} />;
 }

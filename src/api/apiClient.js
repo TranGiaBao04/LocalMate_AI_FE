@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from "../constants";
+import { getToken } from "../utils/authStorage";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
@@ -49,11 +49,18 @@ function buildErrorMessage(status, data, code) {
     : `Yêu cầu thất bại (${status}).`;
 }
 
-function getToken() {
-  return localStorage.getItem(STORAGE_KEYS.TOKEN);
+function dispatchSessionEndedIfApplicable(token, code) {
+  // Chỉ khi request có gửi token: AuthContext nghe sự kiện để đăng xuất.
+  if (token && SESSION_ENDING_MESSAGES[code] && typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(AUTH_EVENTS.SESSION_ENDED, {
+        detail: { message: SESSION_ENDING_MESSAGES[code] },
+      })
+    );
+  }
 }
 
-async function request(path, { method = "GET", body, auth = true, withMeta = false } = {}) {
+async function request(path, { method = "GET", body, auth = true, withMeta = false, signal } = {}) {
   const headers = { "Content-Type": "application/json" };
   const token = auth ? getToken() : null;
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -62,6 +69,7 @@ async function request(path, { method = "GET", body, auth = true, withMeta = fal
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal,
   });
 
   if (res.status === 204) return withMeta ? { status: 204, data: null } : null;
@@ -72,12 +80,7 @@ async function request(path, { method = "GET", body, auth = true, withMeta = fal
   if (!res.ok) {
     const code = data?.code || data?.extensions?.code || null;
     const errors = data?.errors || null;
-    // Chỉ khi request có gửi token: AuthContext nghe sự kiện để đăng xuất.
-    if (token && SESSION_ENDING_MESSAGES[code]) {
-      window.dispatchEvent(new CustomEvent(AUTH_EVENTS.SESSION_ENDED, {
-        detail: { message: SESSION_ENDING_MESSAGES[code] },
-      }));
-    }
+    dispatchSessionEndedIfApplicable(token, code);
     throw new ApiError(buildErrorMessage(res.status, data, code), res.status, code, errors, data);
   }
 
@@ -103,7 +106,8 @@ async function requestBlob(path, { method = "GET", auth = true } = {}) {
     const data = isJson ? await res.json().catch(() => null) : null;
     const code = data?.code || data?.extensions?.code || null;
     const errors = data?.errors || null;
-    throw new ApiError(buildErrorMessage(res.status, data), res.status, code, errors, data);
+    dispatchSessionEndedIfApplicable(token, code);
+    throw new ApiError(buildErrorMessage(res.status, data, code), res.status, code, errors, data);
   }
 
   const blob = await res.blob();
@@ -131,6 +135,30 @@ async function requestBlob(path, { method = "GET", auth = true } = {}) {
   return blob;
 }
 
+async function upload(path, formData, { auth = true } = {}) {
+  const headers = {};
+  const token = auth ? getToken() : null;
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  const isJson = res.headers.get("content-type")?.includes("json");
+  const data = isJson ? await res.json().catch(() => null) : null;
+
+  if (!res.ok) {
+    const code = data?.code || data?.extensions?.code || null;
+    const errors = data?.errors || null;
+    dispatchSessionEndedIfApplicable(token, code);
+    throw new ApiError(buildErrorMessage(res.status, data, code), res.status, code, errors, data);
+  }
+
+  return data;
+}
+
 export const apiClient = {
   get: (path, options) => request(path, { ...options, method: "GET" }),
   post: (path, body, options) =>
@@ -143,4 +171,5 @@ export const apiClient = {
     request(path, { ...options, method: "PATCH", body }),
   delete: (path, options) => request(path, { ...options, method: "DELETE" }),
   getBlob: (path, options) => requestBlob(path, { ...options, method: "GET" }),
+  upload: (path, formData, options) => upload(path, formData, options),
 };

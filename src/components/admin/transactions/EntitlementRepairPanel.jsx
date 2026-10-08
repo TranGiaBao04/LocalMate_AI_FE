@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatVnDateTime } from "../../../utils/subscriptionUtils";
+import { ADMIN_ICON_BUTTON } from "../adminStyles";
 
 const GRANT_STATUS_CONFIG = {
   Granted: {
@@ -44,7 +45,7 @@ const REPAIR_OUTCOME_CONFIG = {
 };
 
 function renderGrantStatusPill(status) {
-  if (!status) return <span className="text-slate-400">Chưa xác định</span>;
+  if (!status) return <span className="text-[#5C6B8A]">Chưa xác định</span>;
   const config = GRANT_STATUS_CONFIG[status] || {
     label: status,
     style: "bg-slate-100 text-slate-700 ring-slate-200",
@@ -59,14 +60,14 @@ function renderGrantStatusPill(status) {
 }
 
 function renderRepairOutcomePill(outcome) {
-  if (!outcome) return <span className="text-slate-400">—</span>;
+  if (!outcome) return <span className="text-[#5C6B8A]">—</span>;
   const config = REPAIR_OUTCOME_CONFIG[outcome] || {
     label: outcome,
     style: "bg-slate-100 text-slate-700 ring-slate-200",
   };
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${config.style}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ${config.style}`}
     >
       {config.label}
     </span>
@@ -75,6 +76,7 @@ function renderRepairOutcomePill(outcome) {
 
 export default function EntitlementRepairPanel({
   detail,
+  canManagePlans = false,
   onOpenRepair,
   repairing = false,
 }) {
@@ -103,10 +105,10 @@ export default function EntitlementRepairPanel({
     <>
       {/* SECTION 2: Quyền hội viên & Khả năng khôi phục */}
       <section aria-labelledby="entitlement-heading" className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between">
           <h3
             id="entitlement-heading"
-            className="text-xs font-bold uppercase tracking-wider text-slate-400"
+            className="text-base font-semibold tracking-normal text-[#5C6B8A]"
           >
             Quyền hội viên
           </h3>
@@ -114,11 +116,11 @@ export default function EntitlementRepairPanel({
         </div>
 
         {/* Entitlement Evidence Card */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm shadow-sm">
+        <div className="rounded-[12px] border border-[#DCE2EE] bg-white p-5 text-sm ">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <span className="text-xs text-slate-400">Trạng thái ghi nhận:</span>
-              <p className="mt-0.5 font-semibold text-slate-900">
+              <span className="text-xs text-[#5C6B8A]">Trạng thái ghi nhận:</span>
+              <p className="mt-0.5 font-semibold text-[#0F2148]">
                 {GRANT_STATUS_CONFIG[entitlement?.grantStatus]?.label ||
                   entitlement?.grantStatus ||
                   "Chưa xác định"}
@@ -126,35 +128,36 @@ export default function EntitlementRepairPanel({
             </div>
 
             <div>
-              <span className="text-xs text-slate-400">Mã kỳ hội viên (Period ID):</span>
+              <span className="text-xs text-[#5C6B8A]">Mã kỳ hội viên (Period ID):</span>
               {entitlement?.subscriptionPeriodId ? (
                 <div className="mt-0.5 flex items-center gap-1.5 font-mono text-xs text-slate-800">
                   <span className="truncate">{entitlement.subscriptionPeriodId}</span>
                   <button
                     type="button"
                     onClick={() => handleCopyPeriodId(entitlement.subscriptionPeriodId)}
-                    className="inline-flex shrink-0 items-center text-slate-400 hover:text-slate-600"
+                    className={ADMIN_ICON_BUTTON}
+                    aria-label="Sao chép ID kỳ hội viên"
                     title="Sao chép ID kỳ hội viên"
                   >
-                    <span className="material-symbols-outlined text-[14px]">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
                       {copiedPeriodId ? "done" : "content_copy"}
                     </span>
                   </button>
                 </div>
               ) : (
-                <p className="mt-0.5 text-xs text-slate-400">—</p>
+                <p className="mt-0.5 text-xs text-[#5C6B8A]">—</p>
               )}
             </div>
 
             <div>
-              <span className="text-xs text-slate-400">Thời gian bắt đầu quyền:</span>
+              <span className="text-xs text-[#5C6B8A]">Thời gian bắt đầu quyền:</span>
               <p className="mt-0.5 font-medium text-slate-800">
                 {entitlement?.startsAt ? formatVnDateTime(entitlement.startsAt) : "—"}
               </p>
             </div>
 
             <div>
-              <span className="text-xs text-slate-400">Thời gian kết thúc quyền:</span>
+              <span className="text-xs text-[#5C6B8A]">Thời gian kết thúc quyền:</span>
               <p className="mt-0.5 font-medium text-slate-800">
                 {entitlement?.endsAt ? formatVnDateTime(entitlement.endsAt) : "—"}
               </p>
@@ -168,7 +171,7 @@ export default function EntitlementRepairPanel({
                 Đánh giá khôi phục entitlement:
               </span>
               {repairEligibility?.code && (
-                <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-600">
+                <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
                   {repairEligibility.code}
                 </code>
               )}
@@ -180,42 +183,46 @@ export default function EntitlementRepairPanel({
               </p>
             )}
 
-            {/* When Eligible: Display proposed details + warning + action button */}
-            {isEligible ? (
-              <div className="mt-3 space-y-3 rounded-xl border border-blue-100 bg-blue-50/50 p-3.5 text-xs">
+            {(repairEligibility?.proposedStartsAt || repairEligibility?.proposedEndsAt ||
+              repairEligibility?.reconstructionMode || repairEligibility?.assessedAt) && (
+              <div className="mt-3 text-xs">
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div>
-                    <span className="text-slate-500">Kỳ quyền dự kiến:</span>
+                    <span className="text-[#5C6B8A]">Kỳ quyền dự kiến:</span>
                     <p className="font-semibold text-slate-800">
                       {formatVnDateTime(repairEligibility.proposedStartsAt) || "—"}
-                      <span className="mx-1 text-slate-400">→</span>
+                      <span className="mx-1 text-[#5C6B8A]">→</span>
                       {formatVnDateTime(repairEligibility.proposedEndsAt) || "—"}
                     </p>
                   </div>
                   {repairEligibility.reconstructionMode && (
                     <div>
-                      <span className="text-slate-500">Chế độ tái thiết:</span>
-                      <p className="font-semibold text-slate-800">
+                      <span className="text-[#5C6B8A]">Chế độ tái thiết:</span>
+                      <p className="break-words font-semibold text-slate-800 [overflow-wrap:anywhere]">
                         {repairEligibility.reconstructionMode}
                       </p>
                     </div>
                   )}
                   {repairEligibility.assessedAt && (
                     <div className="sm:col-span-2">
-                      <span className="text-slate-500">Thời điểm đánh giá:</span>
+                      <span className="text-[#5C6B8A]">Thời điểm đánh giá:</span>
                       <p className="font-medium text-slate-700">
                         {formatVnDateTime(repairEligibility.assessedAt)}
                       </p>
                     </div>
                   )}
                 </div>
+              </div>
+            )}
 
-                <p className="text-[11px] leading-relaxed text-blue-900">
+            {isEligible ? (
+              <div className="mt-3 space-y-3 rounded-[12px] border border-blue-100 bg-blue-50/50 p-3.5 text-xs">
+                <p className="text-xs leading-relaxed text-blue-900">
                   Thao tác này khôi phục đúng kỳ quyền đã mua trong lịch sử. Không gia hạn gói và không thay đổi trạng thái thanh toán.
                 </p>
 
                 {isPastPeriod && (
-                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px] text-amber-800">
+                  <div className="flex items-start gap-2 rounded-[8px] border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
                     <span className="material-symbols-outlined shrink-0 text-[16px] text-amber-600">
                       warning
                     </span>
@@ -225,29 +232,33 @@ export default function EntitlementRepairPanel({
                   </div>
                 )}
 
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    disabled={repairing}
-                    onClick={onOpenRepair}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#1d3e82] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#17366f] focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-wait disabled:opacity-60"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">
-                      build_circle
-                    </span>
-                    <span>Khôi phục entitlement</span>
-                  </button>
-                </div>
+                {canManagePlans && (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      disabled={repairing}
+                      onClick={onOpenRepair}
+                      className="inline-flex min-h-11 items-center gap-1.5 rounded-[12px] bg-[#1d3e82] px-3.5 py-2 text-xs font-semibold text-white  transition hover:bg-[#17366f] focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">
+                        build_circle
+                      </span>
+                      <span>Khôi phục entitlement</span>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               /* When Not Eligible: display explanatory text, do not show active repair button */
-              <div className="mt-2.5 flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-                <span className="material-symbols-outlined shrink-0 text-[16px] text-slate-400">
+              <div className="mt-2.5 flex items-start gap-2 rounded-[12px] bg-slate-50 p-3 text-xs text-[#5C6B8A]">
+                <span className="material-symbols-outlined shrink-0 text-[16px] text-[#5C6B8A]">
                   info
                 </span>
                 <span>
                   {repairEligibility?.message ||
-                    "Giao dịch hiện không đủ điều kiện khôi phục entitlement."}
+                    (entitlement?.grantStatus === "NotApplicable"
+                      ? "Khôi phục quyền gói đăng ký không áp dụng cho sản phẩm này."
+                      : "Giao dịch hiện không đủ điều kiện khôi phục entitlement.")}
                 </span>
               </div>
             )}
@@ -257,17 +268,17 @@ export default function EntitlementRepairPanel({
 
       {/* SECTION 3: Lịch sử khôi phục entitlement */}
       <section aria-labelledby="repair-history-heading" className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between">
           <h3
             id="repair-history-heading"
-            className="text-xs font-bold uppercase tracking-wider text-slate-400"
+            className="text-base font-semibold tracking-normal text-[#5C6B8A]"
           >
             Lịch sử khôi phục entitlement ({repairHistory.length})
           </h3>
         </div>
 
         {repairHistory.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-6 text-center text-sm text-slate-500">
+          <div className="rounded-[12px] border border-[#DCE2EE] bg-slate-50/50 p-6 text-center text-sm text-[#5C6B8A]">
             Chưa có thao tác khôi phục entitlement nào.
           </div>
         ) : (
@@ -275,26 +286,26 @@ export default function EntitlementRepairPanel({
             {repairHistory.map((item, index) => (
               <div
                 key={item.id || `repair-hist-${index}`}
-                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                className="rounded-[12px] border border-[#DCE2EE] bg-white p-4 "
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                   <div className="flex items-center gap-2">
                     {renderRepairOutcomePill(item.outcome)}
                     {item.decisionCode && (
-                      <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-700">
+                      <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-700">
                         {item.decisionCode}
                       </code>
                     )}
                   </div>
-                  <span className="text-xs font-medium text-slate-400">
+                  <span className="text-xs font-medium text-[#5C6B8A]">
                     {formatVnDateTime(item.occurredAt)}
                   </span>
                 </div>
 
                 {/* Reason (plain text only, break-words) */}
                 {item.reason && (
-                  <div className="mt-2.5 rounded-xl border border-slate-100 bg-slate-50/70 p-2.5 text-xs">
-                    <span className="block text-[11px] font-medium text-slate-400">
+                  <div className="mt-2.5 rounded-[12px] border border-slate-100 bg-slate-50/70 p-2.5 text-xs">
+                    <span className="block text-xs font-medium text-[#5C6B8A]">
                       Lý do:
                     </span>
                     <p className="mt-0.5 whitespace-pre-wrap break-words text-slate-800">
@@ -307,13 +318,13 @@ export default function EntitlementRepairPanel({
                 <div className="mt-2.5 grid grid-cols-1 gap-2 text-xs text-slate-600 sm:grid-cols-2">
                   {item.actorUserId && (
                     <div>
-                      <span className="text-slate-400">Người thực hiện: </span>
+                      <span className="text-[#5C6B8A]">Người thực hiện: </span>
                       <span className="font-mono text-slate-700">{item.actorUserId}</span>
                     </div>
                   )}
                   {item.subscriptionPeriodId && (
                     <div>
-                      <span className="text-slate-400">Mã kỳ hội viên: </span>
+                      <span className="text-[#5C6B8A]">Mã kỳ hội viên: </span>
                       <span className="font-mono text-slate-700">
                         {item.subscriptionPeriodId}
                       </span>
@@ -321,7 +332,7 @@ export default function EntitlementRepairPanel({
                   )}
                   {item.reconstructionMode && (
                     <div className="sm:col-span-2">
-                      <span className="text-slate-400">Chế độ tái thiết: </span>
+                      <span className="text-[#5C6B8A]">Chế độ tái thiết: </span>
                       <span className="font-semibold text-slate-700">
                         {item.reconstructionMode}
                       </span>
