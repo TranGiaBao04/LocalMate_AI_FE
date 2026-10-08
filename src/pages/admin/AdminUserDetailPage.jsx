@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { DataTable, EmptyState, NoticeBanner, StatusBadge } from "../../components/admin/ui";
+import { AdminErrorState, AdminPagination, AdminRecordCard, AdminSurface, DataTable, EmptyState, LoadingState, NoticeBanner, StatusBadge } from "../../components/admin/ui";
+import { ADMIN_SELECT, ADMIN_TERTIARY_BUTTON } from "../../components/admin/adminStyles";
+import { createPortal } from "react-dom";
 import { TransactionDetailDrawer } from "../../components/admin/transactions";
 import { buildTransactionColumns } from "../../components/admin/transactions/transactionColumns";
 import AssignRoleDialog from "../../components/admin/roles/AssignRoleDialog";
@@ -23,8 +25,8 @@ const TRIP_STATUS_BADGE = {
   Finalized: { status: "success", label: "Đã chốt" },
 };
 const TRAVEL_MODE_LABELS = { Auto: "Tự động", Walking: "Đi bộ", Motorbike: "Xe máy" };
-const SELECT_CLASS = "h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100/60";
-const CARD_CLASS = "rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,.03)]";
+const SELECT_CLASS = ADMIN_SELECT + " sm:w-auto";
+const CARD_CLASS = "min-w-0 rounded-[12px] border border-[#DCE2EE] bg-white p-5";
 
 const nextSort = (prev, key) => (prev.key === key
   ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
@@ -39,10 +41,10 @@ const TRIP_COLUMNS = [
     sortable: true,
     render: (row) => (row.plannedDate ? (
       <div>
-        <p className="font-medium text-slate-800">{formatPlannedDate(row.plannedDate)}</p>
-        {row.startTime && <p className="mt-0.5 text-xs text-slate-500">Bắt đầu {row.startTime.slice(0, 5)}</p>}
+        <p className="font-medium text-[#0F2148]">{formatPlannedDate(row.plannedDate)}</p>
+        {row.startTime && <p className="mt-0.5 text-xs text-[#5C6B8A]">Bắt đầu {row.startTime.slice(0, 5)}</p>}
       </div>
-    ) : <span className="text-slate-400">Chưa chọn ngày</span>),
+    ) : <span className="text-[#8993AC]">Chưa chọn ngày</span>),
   },
   {
     key: "status",
@@ -62,8 +64,8 @@ const TRIP_COLUMNS = [
     header: "Kế hoạch",
     render: (row) => (
       <div>
-        <p className="text-slate-800">{row.durationHours} giờ · {TRAVEL_MODE_LABELS[row.travelMode] ?? row.travelMode}</p>
-        <p className="mt-0.5 text-xs text-slate-500">{row.itemCount} địa điểm</p>
+        <p className="text-[#0F2148]">{row.durationHours} giờ · {TRAVEL_MODE_LABELS[row.travelMode] ?? row.travelMode}</p>
+        <p className="mt-0.5 text-xs text-[#5C6B8A]">{row.itemCount} địa điểm</p>
       </div>
     ),
   },
@@ -72,8 +74,8 @@ const TRIP_COLUMNS = [
     header: "Chi phí / người",
     render: (row) => (
       <div>
-        <p className="font-semibold text-slate-900">{formatPlanPrice(row.estimatedBudget)}</p>
-        <p className="mt-0.5 text-xs text-slate-500">Ngân sách {formatPlanPrice(row.budgetMax)}</p>
+        <p className="font-semibold text-[#0F2148]">{formatPlanPrice(row.estimatedBudget)}</p>
+        <p className="mt-0.5 text-xs text-[#5C6B8A]">Ngân sách {formatPlanPrice(row.budgetMax)}</p>
       </div>
     ),
   },
@@ -88,7 +90,7 @@ const TRIP_COLUMNS = [
 
 function BackLink() {
   return (
-    <Link to="/admin/users" className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 transition hover:text-[#1d3e82]">
+    <Link to="/admin/users" className={ADMIN_TERTIARY_BUTTON}>
       <span className="material-symbols-outlined text-[18px]">arrow_back</span>
       Danh sách người dùng
     </Link>
@@ -96,36 +98,48 @@ function BackLink() {
 }
 
 function LoadError({ message, onRetry }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-      <span>{message}</span>
-      <button type="button" onClick={onRetry} className="shrink-0 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700">
-        Thử lại
-      </button>
+  return <AdminErrorState message={message} onRetry={onRetry} />;
+}
+
+function UserHistoryRecords({ columns, rows, loading, sort, onSort, pagination, onPageChange, emptyState, label }) {
+  return <div className="space-y-3">
+    <div className="hidden md:block [&_table]:min-w-[900px]"><DataTable columns={columns} rows={rows} loading={loading} sort={sort} onSort={onSort} emptyState={emptyState} /></div>
+    <div aria-label={label} className="space-y-3 md:hidden">
+      {loading ? <LoadingState label="Đang tải lịch sử" /> : rows.length ? rows.map(row => {
+        const identity = columns[0];
+        const status = columns.find(column => column.key === "status");
+        const action = columns.find(column => column.key === "actions");
+        return <AdminRecordCard key={row.id} title={identity.render ? identity.render(row) : row[identity.key]} status={status?.render(row)} primaryAction={action?.render(row)}>
+          <dl className="space-y-3">{columns.filter(column => ![identity.key, "status", "actions"].includes(column.key)).map(column => (
+            <div key={column.key}><dt className="mb-1 text-xs">{column.header}</dt><dd>{column.render ? column.render(row) : row[column.key]}</dd></div>
+          ))}</dl>
+        </AdminRecordCard>;
+      }) : <EmptyState {...emptyState} />}
     </div>
-  );
+    {pagination && <AdminPagination {...pagination} onPageChange={onPageChange} disabled={loading} />}
+  </div>;
 }
 
 function StatCard({ label, value, hint, icon, tone }) {
   return (
-    <div className={`flex items-start justify-between gap-4 ${CARD_CLASS}`}>
+    <AdminSurface className="flex min-w-0 items-start justify-between gap-3" density="compact">
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
-        <p className="mt-2 break-words text-2xl font-bold tracking-tight text-slate-950">{value}</p>
-        {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+        <p className="text-[13px] font-medium text-[#5C6B8A]">{label}</p>
+        <p className="mt-2 break-words text-xl font-bold text-[#0F2148]">{value}</p>
+        {hint && <p className="mt-1 text-xs text-[#8993AC]">{hint}</p>}
       </div>
-      <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${tone}`}>
+      <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-[8px] ${tone}`}>
         <span className="material-symbols-outlined text-[22px]">{icon}</span>
       </div>
-    </div>
+    </AdminSurface>
   );
 }
 
 function InfoRow({ label, children }) {
   return (
-    <div className="flex flex-col gap-1 border-b border-slate-100 py-3 last:border-b-0 sm:flex-row sm:justify-between sm:gap-4">
-      <dt className="text-sm text-slate-500">{label}</dt>
-      <dd className="text-sm font-medium text-slate-800 sm:text-right">{children}</dd>
+    <div className="flex flex-col gap-1 border-b border-[#DCE2EE] py-3 last:border-b-0 sm:flex-row sm:justify-between sm:gap-4">
+      <dt className="text-sm text-[#5C6B8A]">{label}</dt>
+      <dd className="min-w-0 break-words text-sm font-medium text-[#0F2148] sm:text-right">{children}</dd>
     </div>
   );
 }
@@ -163,7 +177,8 @@ function UserPaymentsTab({ userId, canViewDetail, onChanged, showNotice }) {
       {response.error && !loading && (
         <LoadError message={response.error} onRetry={() => setReloadCount((count) => count + 1)} />
       )}
-      <DataTable
+      <UserHistoryRecords
+        label="Lịch sử thanh toán trên di động"
         columns={columns}
         rows={loading ? [] : response.data?.items ?? []}
         loading={loading}
@@ -181,7 +196,7 @@ function UserPaymentsTab({ userId, canViewDetail, onChanged, showNotice }) {
         emptyState={{ icon: "receipt_long", title: "Chưa có giao dịch nào" }}
       />
       {!canViewDetail && (
-        <p className="text-xs text-slate-500">Cần quyền xem doanh thu để mở chi tiết từng đơn.</p>
+        <p className="text-xs text-[#5C6B8A]">Cần quyền xem doanh thu để mở chi tiết từng đơn.</p>
       )}
       <TransactionDetailDrawer
         isOpen={Boolean(detailId)}
@@ -242,7 +257,7 @@ function UserTripsTab({ userId }) {
           <option value="Draft">Nháp</option>
           <option value="Finalized">Đã chốt</option>
         </select>
-        <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+        <label className="inline-flex items-center gap-2 text-sm text-[#5C6B8A]">
           <input
             type="checkbox"
             checked={includeDeleted}
@@ -258,7 +273,8 @@ function UserTripsTab({ userId }) {
       {response.error && !loading && (
         <LoadError message={response.error} onRetry={() => setReloadCount((count) => count + 1)} />
       )}
-      <DataTable
+      <UserHistoryRecords
+        label="Lịch sử chuyến đi trên di động"
         columns={TRIP_COLUMNS}
         rows={loading ? [] : response.data?.items ?? []}
         loading={loading}
@@ -338,9 +354,7 @@ function UserDetail({ userId }) {
   if (!detail) {
     if (loading) {
       return (
-        <div className="grid min-h-64 place-items-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-200 border-t-[#1d3e82]" aria-label="Đang tải người dùng" />
-        </div>
+        <LoadingState label="Đang tải người dùng" />
       );
     }
     return (
@@ -370,16 +384,16 @@ function UserDetail({ userId }) {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{detail.fullName}</h1>
+            <h1 className="text-[28px] font-bold leading-9 text-[#0F2148] [overflow-wrap:anywhere]">{detail.fullName}</h1>
             <StatusBadge status={statusBadge.status} label={statusBadge.label} />
           </div>
-          <p className="mt-1 break-all text-sm text-slate-500">{detail.email}</p>
-          <p className="mt-2 text-sm text-slate-600">
-            Role: <strong className="text-slate-900">{detail.role?.name}</strong>
+          <p className="mt-1 break-all text-sm text-[#5C6B8A]">{detail.email}</p>
+          <p className="mt-2 text-sm text-[#5C6B8A]">
+            Role: <strong className="text-[#0F2148]">{detail.role?.name}</strong>
             {detail.managesRoles && <span className="ml-2 text-xs font-semibold text-violet-700">Quản lý phân quyền</span>}
             {/* BE chặn tự đổi role của chính mình (409 cannot_change_own_role) */}
             {canManageRoles && detail.id !== currentUser?.id && (
-              <button type="button" onClick={() => setAssignRoleOpen(true)} className="ml-3 text-xs font-semibold text-[#1d3e82] underline-offset-2 hover:underline">
+              <button type="button" onClick={() => setAssignRoleOpen(true)} className={ADMIN_TERTIARY_BUTTON + " mt-2 sm:ml-3 sm:mt-0"}>
                 Đổi role
               </button>
             )}
@@ -389,7 +403,7 @@ function UserDetail({ userId }) {
           <button
             type="button"
             onClick={() => setLockMode(detail.canLock ? "lock" : "unlock")}
-            className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition ${detail.canLock ? "bg-rose-600 hover:bg-rose-700" : "bg-[#1d3e82] hover:bg-[#17366f]"}`}
+            className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-[12px] px-4 py-2.5 text-sm font-semibold text-white transition ${detail.canLock ? "bg-rose-600 hover:bg-rose-700" : "bg-[#1d3e82] hover:bg-[#17366f]"}`}
           >
             <span className="material-symbols-outlined text-[20px]">{detail.canLock ? "lock" : "lock_open"}</span>
             {detail.canLock ? "Khoá tài khoản" : "Mở khoá"}
@@ -397,13 +411,13 @@ function UserDetail({ userId }) {
         )}
       </div>
 
-      <NoticeBanner notice={notice} onClose={() => setNotice(null)} />
+      {notice && createPortal(<div className="fixed bottom-4 left-4 right-4 z-[110] mx-auto max-w-xl"><NoticeBanner notice={notice} onClose={() => setNotice(null)} /></div>, document.body)}
       {response.error && !loading && (
         <LoadError message={response.error.message || "Không tải lại được thông tin người dùng."} onRetry={reload} />
       )}
 
       {detail.status === "Locked" && (
-        <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-900">
+        <section className="rounded-[12px] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-900">
           <p className="font-semibold">
             Tài khoản đang bị khoá{detail.lockedAt ? ` từ ${formatVnDateTime(detail.lockedAt)}` : ""}
           </p>
@@ -443,7 +457,7 @@ function UserDetail({ userId }) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className={CARD_CLASS}>
-          <h2 className="font-bold text-slate-900">Tài khoản</h2>
+          <h2 className="font-bold text-[#0F2148]">Tài khoản</h2>
           <dl className="mt-2">
             <InfoRow label="Đăng nhập bằng">{loginMethods.length > 0 ? loginMethods.join(", ") : "—"}</InfoRow>
             <InfoRow label="Ngày tạo">{formatVnDateTime(detail.createdAt)}</InfoRow>
@@ -451,7 +465,7 @@ function UserDetail({ userId }) {
           </dl>
         </section>
         <section className={CARD_CLASS}>
-          <h2 className="font-bold text-slate-900">Gói hiện tại</h2>
+          <h2 className="font-bold text-[#0F2148]">Gói hiện tại</h2>
           <dl className="mt-2">
             <InfoRow label="Gói">{getPlanDisplayName(subscription?.plan) || "—"}</InfoRow>
             <InfoRow label="Hiệu lực đến">{planUntil ? formatVnDateTime(planUntil) : "—"}</InfoRow>
@@ -459,7 +473,7 @@ function UserDetail({ userId }) {
               <InfoRow label="Lượt tạo lịch trình">
                 {formatLimit(subscription.usage.generateUsed, subscription.usage.generateLimit)}
                 {subscription.usage.resetAt && (
-                  <span className="block text-xs font-normal text-slate-500">
+                  <span className="block text-xs font-normal text-[#5C6B8A]">
                     Làm mới {formatVnDateTime(subscription.usage.resetAt)}
                   </span>
                 )}
@@ -475,25 +489,29 @@ function UserDetail({ userId }) {
       </div>
 
       <section className="space-y-4">
-        <div role="tablist" aria-label="Lịch sử của người dùng" className="flex gap-1 border-b border-slate-200">
+        <div role="tablist" aria-label="Lịch sử của người dùng" className="flex flex-wrap gap-1 border-b border-[#DCE2EE]">
           {TABS.map((item) => (
             <button
               key={item.key}
               type="button"
               role="tab"
+              id={`user-history-${item.key}`}
+              aria-controls={`user-history-panel-${item.key}`}
               aria-selected={tab === item.key}
               onClick={() => setTab(item.key)}
-              className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition ${tab === item.key ? "border-[#1d3e82] text-[#1d3e82]" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+              className={`-mb-px min-h-11 border-b-2 px-4 py-2.5 text-sm font-semibold transition ${tab === item.key ? "border-[#1d3e82] text-[#1d3e82]" : "border-transparent text-[#5C6B8A] hover:text-[#0F2148]"}`}
             >
               {item.label}
             </button>
           ))}
         </div>
+        <div role="tabpanel" id={`user-history-panel-${tab}`} aria-labelledby={`user-history-${tab}`}>
         {tab === "payments" ? (
           <UserPaymentsTab userId={userId} canViewDetail={canViewPayments} onChanged={reload} showNotice={showNotice} />
         ) : (
           <UserTripsTab userId={userId} />
         )}
+        </div>
       </section>
 
       {assignRoleOpen && (

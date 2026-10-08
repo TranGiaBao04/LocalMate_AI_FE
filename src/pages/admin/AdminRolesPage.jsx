@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminPageHeader from "../../components/admin/AdminPageHeader";
-import { ADMIN_PRIMARY_BUTTON } from "../../components/admin/adminStyles";
-import { ConfirmDialog, DataTable, NoticeBanner } from "../../components/admin/ui";
+import { ADMIN_PRIMARY_BUTTON, ADMIN_TERTIARY_BUTTON } from "../../components/admin/adminStyles";
+import { AdminErrorState, AdminRecordCard, ConfirmDialog, DataTable, EmptyState, LoadingState, NoticeBanner } from "../../components/admin/ui";
 import RoleFormDialog from "../../components/admin/roles/RoleFormDialog";
 import { getRoleErrorMessage } from "../../components/admin/roles/roleLabels";
 import { useAuth } from "../../context/AuthContext";
 import { adminRoleService } from "../../services/adminRoleService";
 
-const ACTION_CLASS = "inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40";
+const ACTION_CLASS = ADMIN_TERTIARY_BUTTON;
 
 export default function AdminRolesPage() {
   const { refreshProfile } = useAuth();
@@ -73,17 +73,17 @@ export default function AdminRolesPage() {
       key: "name",
       header: "Role",
       render: (row) => (
-        <div className="min-w-[180px]">
+        <div className="min-w-0 [overflow-wrap:anywhere]">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-semibold text-slate-900">{row.name}</p>
+            <p className="font-semibold text-[#0F2148]">{row.name}</p>
             {row.isSystem && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#F4F6FA] px-2 py-0.5 text-xs font-semibold text-[#5C6B8A]">
                 <span className="material-symbols-outlined text-[14px]">lock</span>
                 Hệ thống
               </span>
             )}
           </div>
-          {row.description && <p className="mt-1 text-xs leading-5 text-slate-500">{row.description}</p>}
+          {row.description && <p className="mt-1 text-xs leading-5 text-[#5C6B8A]">{row.description}</p>}
         </div>
       ),
     },
@@ -93,17 +93,17 @@ export default function AdminRolesPage() {
       render: (row) => (row.permissions.length > 0 ? (
         <div className="flex max-w-xl flex-wrap gap-1.5">
           {row.permissions.map((code) => (
-            <span key={code} className="rounded-lg bg-violet-50 px-2 py-1 text-xs font-semibold text-violet-700">
+            <span key={code} className="rounded-[8px] bg-violet-50 px-2 py-1 text-xs font-semibold text-violet-700">
               {permissionNames[code] ?? code}
             </span>
           ))}
         </div>
-      ) : <span className="text-slate-400">Không có quyền quản trị</span>),
+      ) : <span className="text-[#8993AC]">Không có quyền quản trị</span>),
     },
     {
       key: "userCount",
       header: "Người dùng",
-      render: (row) => <span className="font-medium text-slate-800">{row.userCount.toLocaleString("vi-VN")}</span>,
+      render: (row) => <span className="font-medium text-[#0F2148]">{row.userCount.toLocaleString("vi-VN")}</span>,
     },
     {
       key: "actions",
@@ -111,9 +111,9 @@ export default function AdminRolesPage() {
       className: "text-right",
       cellClassName: "text-right",
       render: (row) => (row.isSystem ? (
-        <span className="text-xs text-slate-400">Không sửa được</span>
+        <span className="text-xs text-[#8993AC]">Không sửa được</span>
       ) : (
-        <div className="flex justify-end gap-1">
+        <div className="flex flex-wrap justify-end gap-1">
           <button type="button" onClick={() => setFormTarget({ role: row })} className={`${ACTION_CLASS} text-[#1d3e82] hover:bg-blue-50`}>
             <span className="material-symbols-outlined text-[16px]">edit</span>
             Sửa
@@ -153,21 +153,17 @@ export default function AdminRolesPage() {
 
       <NoticeBanner notice={notice} onClose={() => setNotice(null)} />
 
-      {response.error && !loading && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          <span>{response.error}</span>
-          <button type="button" onClick={reload} className="shrink-0 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700">
-            Thử lại
-          </button>
-        </div>
-      )}
-
-      <DataTable
-        columns={columns}
-        rows={response.roles}
-        loading={response.key === null}
-        emptyState={{ icon: "admin_panel_settings", title: "Chưa có role nào" }}
-      />
+      {response.error && !loading && <AdminErrorState message={response.error} onRetry={reload} />}
+      <div className="hidden md:block [&_table]:min-w-[900px]">
+        <DataTable columns={columns} rows={response.roles} loading={response.key === null} emptyState={{ icon: "admin_panel_settings", title: "Chưa có role nào" }} />
+      </div>
+      <div aria-label="Danh sách role trên di động" className="space-y-3 md:hidden">
+        {response.key === null ? <LoadingState label="Đang tải role" /> : response.roles.length ? response.roles.map(row => (
+          <AdminRecordCard key={row.id} title={columns[0].render(row)} subtitle={`${row.userCount.toLocaleString("vi-VN")} người dùng`} primaryAction={columns[3].render(row)}>
+            {columns[1].render(row)}
+          </AdminRecordCard>
+        )) : <EmptyState icon="admin_panel_settings" title="Chưa có role nào" />}
+      </div>
 
       {formTarget && (
         <RoleFormDialog role={formTarget.role} permissions={response.permissions} onClose={closeForm} onSaved={handleSaved} />

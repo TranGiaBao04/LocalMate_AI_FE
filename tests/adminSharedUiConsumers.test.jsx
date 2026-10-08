@@ -62,7 +62,7 @@ describe("A2 existing consumer compatibility", () => {
   });
   it("Users preserve links, action eligibility and immediate status filter", async () => {
     mount(<AdminUsersPage />);
-    expect(await screen.findByRole("link", { name: /Người dùng thật/ })).toHaveAttribute("href", "/admin/users/u1");
+    expect(await within(screen.getByRole("table")).findByRole("link", { name: /Người dùng thật/ })).toHaveAttribute("href", "/admin/users/u1");
     expect(screen.queryByRole("button", { name: /Khoá/ })).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("combobox", { name: "Lọc theo trạng thái" }), { target: { value: "Locked" } });
     await waitFor(() => expect(mocks.users.getUsers.mock.lastCall[0]).toMatchObject({ status: "Locked", page: 1, pageSize: 20 }));
@@ -71,9 +71,9 @@ describe("A2 existing consumer compatibility", () => {
   });
   it("Roles preserve permissions and destructive confirmation ownership", async () => {
     mount(<AdminRolesPage />);
-    await screen.findByText("Custom Role");
-    expect(screen.getByText("Quản lý địa điểm")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Xoá/ }));
+    await within(screen.getByRole("table")).findByText("Custom Role");
+    expect(within(screen.getByRole("table")).getByText("Quản lý địa điểm")).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole("table")).getByRole("button", { name: /Xoá/ }));
     expect(screen.getByRole("dialog", { name: "Xoá role" })).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(mocks.roles.deleteRole).not.toHaveBeenCalled();
@@ -81,7 +81,7 @@ describe("A2 existing consumer compatibility", () => {
   it("Feedback restricted domain links stay restricted; sorting/filtering unchanged", async () => {
     mocks.auth.user.permissions = [];
     mount(<FeedbackList kind="reviews" />);
-    await screen.findByText(review.comment);
+    await within(screen.getByRole("table")).findByText(review.comment);
     expect(screen.queryByRole("link", { name: "Người đánh giá" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Địa điểm thật" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Sắp xếp theo Số sao" }));
@@ -91,7 +91,7 @@ describe("A2 existing consumer compatibility", () => {
   });
   it("Feedback retains invalid date validation and suppresses invalid fetch", async () => {
     mount(<FeedbackList kind="reviews" />);
-    await screen.findByText(review.comment);
+    await within(screen.getByRole("table")).findByText(review.comment);
     fireEvent.change(screen.getByLabelText("Gửi từ ngày"), { target: { value: "2026-10-07" } });
     await waitFor(() => expect(mocks.feedback.getReviews.mock.lastCall[0].from).toBe("2026-10-07"));
     const count = mocks.feedback.getReviews.mock.calls.length;

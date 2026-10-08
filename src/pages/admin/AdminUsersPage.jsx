@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminPageHeader from "../../components/admin/AdminPageHeader";
-import { DataTable, FilterBar, NoticeBanner, StatusBadge } from "../../components/admin/ui";
+import { AdminErrorState, AdminPagination, AdminRecordCard, DataTable, EmptyState, FilterBar, LoadingState, NoticeBanner, StatusBadge } from "../../components/admin/ui";
+import { ADMIN_SELECT, ADMIN_TERTIARY_BUTTON } from "../../components/admin/adminStyles";
 import LockUserDialog from "../../components/admin/users/LockUserDialog";
 import { USER_STATUS_BADGE, describeLockResult } from "../../components/admin/users/userLabels";
 import { useAuth } from "../../context/AuthContext";
@@ -10,8 +11,8 @@ import { formatVnDate } from "../../utils/subscriptionUtils";
 
 const PAGE_SIZE = 20;
 const EMPTY_FILTERS = { status: "", roleId: "", plan: "" };
-const SELECT_CLASS = "h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100/60";
-const ACTION_CLASS = "inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition";
+const SELECT_CLASS = ADMIN_SELECT + " sm:w-auto";
+const ACTION_CLASS = ADMIN_TERTIARY_BUTTON;
 
 export default function AdminUsersPage() {
   const { user: currentUser } = useAuth();
@@ -110,9 +111,9 @@ export default function AdminUsersPage() {
       header: "Người dùng",
       sortable: true,
       render: (row) => (
-        <Link to={`/admin/users/${row.id}`} className="group block min-w-0">
-          <p className="font-semibold text-slate-900 group-hover:text-[#1d3e82]">{row.fullName}</p>
-          <p className="mt-0.5 break-all text-xs text-slate-500">{row.email}</p>
+        <Link to={`/admin/users/${row.id}`} className="group block min-w-[160px] [overflow-wrap:anywhere]">
+          <p className="font-semibold text-[#0F2148] group-hover:text-[#1d3e82]">{row.fullName}</p>
+          <p className="mt-0.5 break-all text-xs text-[#5C6B8A]">{row.email}</p>
         </Link>
       ),
     },
@@ -121,7 +122,7 @@ export default function AdminUsersPage() {
       header: "Role",
       render: (row) => (
         <div>
-          <p className="font-medium text-slate-800">{row.role?.name}</p>
+          <p className="font-medium text-[#0F2148]">{row.role?.name}</p>
           {row.managesRoles && <p className="mt-0.5 text-xs text-violet-700">Quản lý phân quyền</p>}
         </div>
       ),
@@ -131,9 +132,9 @@ export default function AdminUsersPage() {
       header: "Gói hiện tại",
       render: (row) => (
         <div>
-          <p className="font-medium text-slate-800">{row.plan?.name || row.plan?.code}</p>
+          <p className="font-medium text-[#0F2148]">{row.plan?.name || row.plan?.code}</p>
           {row.planEffectiveUntil && (
-            <p className="mt-0.5 text-xs text-slate-500">Đến {formatVnDate(row.planEffectiveUntil)}</p>
+            <p className="mt-0.5 text-xs text-[#5C6B8A]">Đến {formatVnDate(row.planEffectiveUntil)}</p>
           )}
         </div>
       ),
@@ -147,7 +148,7 @@ export default function AdminUsersPage() {
         return (
           <div>
             <StatusBadge status={badge.status} label={badge.label} />
-            {row.lockedAt && <p className="mt-1 text-xs text-slate-500">Từ {formatVnDate(row.lockedAt)}</p>}
+            {row.lockedAt && <p className="mt-1 text-xs text-[#5C6B8A]">Từ {formatVnDate(row.lockedAt)}</p>}
           </div>
         );
       },
@@ -164,7 +165,7 @@ export default function AdminUsersPage() {
       className: "text-right",
       cellClassName: "text-right",
       render: (row) => (
-        <div className="flex justify-end gap-1">
+        <div className="flex flex-wrap justify-end gap-1">
           <Link to={`/admin/users/${row.id}`} className={`${ACTION_CLASS} text-[#1d3e82] hover:bg-blue-50`}>
             <span className="material-symbols-outlined text-[16px]">visibility</span>
             Xem
@@ -223,35 +224,26 @@ export default function AdminUsersPage() {
         )}
       </FilterBar>
 
-      {response.error && !loading && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          <span>{response.error}</span>
-          <button type="button" onClick={() => setReloadCount((count) => count + 1)} className="shrink-0 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700">
-            Thử lại
-          </button>
+      {response.error && !loading && <AdminErrorState message={response.error} onRetry={() => setReloadCount((count) => count + 1)} />}
+      {!loading && !response.error && response.data && <p className="text-sm text-[#5C6B8A]">{response.data.totalCount} người dùng · Trang {response.data.page} / {Math.max(1, response.data.totalPages)}</p>}
+      {!response.error && <>
+        <div className="hidden md:block [&_table]:w-full [&_table]:min-w-[900px]">
+          <DataTable columns={columns} rows={rows} loading={loading} sort={sort} onSort={handleSort}
+            emptyState={{ icon: "group", title: hasFilters ? "Không có người dùng phù hợp" : "Chưa có người dùng", description: hasFilters ? "Thử đổi từ khoá hoặc bộ lọc." : undefined, actionLabel: hasFilters ? "Xóa bộ lọc" : undefined, onAction: hasFilters ? handleClearFilters : undefined }} />
         </div>
-      )}
-
-      <DataTable
-        columns={columns}
-        rows={rows}
-        loading={loading}
-        sort={sort}
-        onSort={handleSort}
-        pagination={response.data && {
-          page: response.data.page,
-          totalPages: response.data.totalPages,
-          totalCount: response.data.totalCount,
-        }}
-        onPageChange={setPage}
-        emptyState={{
-          icon: "group",
-          title: hasFilters ? "Không có người dùng phù hợp" : "Chưa có người dùng",
-          description: hasFilters ? "Thử đổi từ khoá hoặc bộ lọc." : undefined,
-          actionLabel: hasFilters ? "Xóa bộ lọc" : undefined,
-          onAction: hasFilters ? handleClearFilters : undefined,
-        }}
-      />
+        <div aria-label="Danh sách người dùng trên di động" className="space-y-3 md:hidden">
+          {loading ? <LoadingState label="Đang tải người dùng" /> : rows.length ? rows.map((row) => (
+            <AdminRecordCard key={row.id} title={columns[0].render(row)} status={columns[3].render(row)} primaryAction={columns[5].render(row)}>
+              <dl className="grid grid-cols-2 gap-4">
+                <div><dt className="mb-1 text-xs">Role</dt><dd>{columns[1].render(row)}</dd></div>
+                <div><dt className="mb-1 text-xs">Gói hiện tại</dt><dd>{columns[2].render(row)}</dd></div>
+                <div className="col-span-2"><dt className="mb-1 text-xs">Ngày tạo</dt><dd>{formatVnDate(row.createdAt)}</dd></div>
+              </dl>
+            </AdminRecordCard>
+          )) : <EmptyState icon="group" title={hasFilters ? "Không có người dùng phù hợp" : "Chưa có người dùng"} actionLabel={hasFilters ? "Xóa bộ lọc" : undefined} onAction={hasFilters ? handleClearFilters : undefined} />}
+        </div>
+        {response.data && <AdminPagination {...response.data} onPageChange={setPage} disabled={loading} />}
+      </>}
 
       {lockTarget && (
         <LockUserDialog user={lockTarget.user} mode={lockTarget.mode} onClose={closeLockDialog} onDone={handleLockDone} />
