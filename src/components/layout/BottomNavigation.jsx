@@ -39,25 +39,29 @@ const isItemActive = (pathname, item) =>
 
 export function NavigationItem({ item, isActive, onClick, variant = "bottom" }) {
   const activeClass =
-    variant === "side" ? "bg-navy text-white" : "text-navy bg-navy/10";
+    variant === "side" ? "bg-chip-bg text-navy" : "text-navy bg-chip-bg";
   const idleClass =
     variant === "side"
-      ? "text-[#3A4256] hover:bg-[#E8ECF7]"
-      : "text-text-muted hover:bg-surface-container-high";
+      ? "text-text-muted hover:bg-surface-container-low hover:text-navy-dark"
+      : "text-text-muted hover:bg-surface-container-low hover:text-navy";
 
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`transition-all duration-200 active:scale-95 ${
+      aria-current={isActive ? "page" : undefined}
+      title={item.label}
+      className={`transition-colors duration-200 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-navy ${
         variant === "side"
-          ? "w-full flex items-center gap-[11px] rounded-xl px-3 py-2.5 text-left"
-          : "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-0.5 py-1.5"
+          ? "flex min-h-11 w-full items-center gap-2 rounded-[8px] px-2.5 py-2.5 text-left"
+          : "flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-[8px] px-0.5 py-2"
       } ${isActive ? activeClass : idleClass}`}
     >
       <span
+        aria-hidden="true"
         className="material-symbols-outlined flex-none"
         style={{
-          fontSize: variant === "side" ? "18px" : undefined,
+          fontSize: variant === "side" ? "20px" : "24px",
           ...(isActive ? { fontVariationSettings: "'FILL' 1" } : {}),
         }}
       >
@@ -66,14 +70,14 @@ export function NavigationItem({ item, isActive, onClick, variant = "bottom" }) 
       <span
         className={
           variant === "side"
-            ? `flex-1 min-w-0 truncate text-[13.5px] ${isActive ? "font-bold" : "font-medium"}`
-            : "w-full truncate text-center text-label-sm"
+            ? `min-w-0 flex-1 text-[13px] leading-5 [overflow-wrap:anywhere] ${isActive ? "font-bold" : "font-medium"}`
+            : `w-full truncate text-center text-[11px] leading-4 ${isActive ? "font-bold" : "font-medium"}`
         }
       >
         {variant === "side" ? item.label : (item.shortLabel ?? item.label)}
-      </span>
+      </span>{" "}
       {variant === "side" && item.badge && (
-        <span className="flex-none rounded-full bg-navy/10 px-[7px] py-0.5 text-[10.5px] font-bold text-navy">
+        <span className="flex-none rounded-full bg-white px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-navy">
           {item.badge}
         </span>
       )}
@@ -101,14 +105,14 @@ export function SideNavigation() {
   const isPaid = currentPlan === PLAN_CODES.TRIP_PASS || currentPlan === PLAN_CODES.MEMBERSHIP;
 
   return (
-    <aside className="desktop-sidebar-bg fixed inset-y-0 left-0 z-50 hidden w-[220px] flex-col gap-[22px] border-r border-navy/10 px-3.5 py-6 lg:flex">
+    <aside aria-label="LocalMate AI" className="fixed inset-y-0 left-0 z-50 hidden w-[220px] flex-col gap-6 border-r border-border-soft bg-surface-container-lowest px-3 py-5 lg:flex">
       <button
         type="button"
         onClick={() => goHomeOrScrollTop(navigate, pathname, "/home")}
         aria-label="LocalMate AI, về Trang chủ"
-        className="flex items-center gap-2.5 rounded-xl px-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+        className="flex min-h-11 shrink-0 items-center gap-2.5 rounded-[8px] px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
       >
-        <div className="h-[42px] w-[42px] flex-none overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(20,30,60,0.1)]">
+        <div className="h-11 w-11 flex-none overflow-hidden rounded-[8px] border border-border-soft bg-white">
           <img
             src={logo}
             alt="LocalMate AI"
@@ -117,20 +121,20 @@ export function SideNavigation() {
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-[5px]">
-            <span className="text-[15px] font-extrabold tracking-tight text-navy-dark">
+            <span className="text-[15px] font-extrabold text-navy-dark">
               LocalMate
             </span>
-            <span className="rounded-[5px] bg-navy px-[5px] py-0.5 text-[9.5px] font-extrabold text-white">
+            <span className="rounded-[4px] bg-navy px-1 py-0.5 text-[10px] font-bold text-white">
               AI
             </span>
           </div>
-          <div className="mt-px text-[10.5px] text-text-muted">
+          <div className="mt-1 text-[11px] leading-4 text-text-muted">
             Metro-friendly planner
           </div>
         </div>
       </button>
 
-      <nav className="flex flex-col gap-[3px]">
+      <nav aria-label="Điều hướng chính" className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain p-0.5">
         {navItems.map((item, i) => (
           <NavigationItem
             key={`${item.path}-${i}`}
@@ -145,74 +149,77 @@ export function SideNavigation() {
         ))}
       </nav>
 
-      <div className="mt-auto flex flex-col gap-3">
+      <div className="mt-auto flex shrink-0 flex-col gap-3 border-t border-border-soft pt-4">
         {canAccessAdmin(user) && (
           <button
             type="button"
             onClick={() => navigate("/admin")}
-            className="flex w-full items-center gap-2.5 rounded-xl bg-navy px-3 py-2.5 text-left text-[13px] font-semibold text-white transition hover:bg-navy-dark"
+            className="flex min-h-11 w-full items-center gap-2 rounded-[8px] border border-border-soft px-2.5 py-2.5 text-left text-[13px] font-semibold leading-5 text-navy transition-colors hover:bg-surface-container-low focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy motion-reduce:transition-none"
           >
-            <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+            <span aria-hidden="true" className="material-symbols-outlined flex-none text-[20px]">admin_panel_settings</span>
             Về giao diện quản trị
           </button>
         )}
 
         {/* Hộp thông tin gói dịch vụ */}
         {isDemo ? (
-          <div
-            className="rounded-[20px] bg-navy/[0.06] p-3.5 cursor-pointer hover:bg-navy/[0.09] transition-colors"
+          <button
+            type="button"
+            className="w-full rounded-[8px] border border-border-soft bg-surface-container-low p-3 text-left transition-colors hover:bg-chip-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy motion-reduce:transition-none"
             onClick={() => navigate("/subscription")}
           >
-            <div className="flex items-center justify-between gap-2 text-[11.5px]">
-              <span className="font-bold text-navy-dark">Gói hội viên</span>
-              <span className="flex-none rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">
+            <span className="flex items-start justify-between gap-2 text-[13px] leading-5">
+              <span className="font-bold text-navy-dark">Gói hội viên</span>{" "}
+              <span className="flex-none rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
                 Demo
               </span>
-            </div>
-            <div className="mt-1 text-[11px] text-text-muted">
+            </span>{" "}
+            <span className="mt-2 block text-[12px] leading-5 text-text-muted">
               Đăng ký để sử dụng đầy đủ
-            </div>
-          </div>
+            </span>
+          </button>
         ) : (
-          <div
-            className="rounded-[20px] bg-navy/[0.06] p-3.5 cursor-pointer hover:bg-navy/[0.09] transition-colors"
+          <button
+            type="button"
+            className="w-full rounded-[8px] border border-border-soft bg-surface-container-low p-3 text-left transition-colors hover:bg-chip-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy motion-reduce:transition-none"
             onClick={() => navigate("/subscription")}
           >
-            <div className="flex items-center justify-between gap-2 text-[11.5px]">
-              <span className="font-bold text-navy-dark">{planDisplayName}</span>
+            <span className="flex items-start justify-between gap-2 text-[13px] leading-5">
+              <span className="min-w-0 font-bold text-navy-dark [overflow-wrap:anywhere]">{planDisplayName}</span>{" "}
               <span
-                className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                className={`flex-none rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                   isPaid ? "bg-primary text-white" : "bg-border-soft text-text-muted"
                 }`}
               >
                 {isPaid ? "Đang dùng" : "Mặc định"}
               </span>
-            </div>
-            <div className="mt-1 text-[11px] text-text-muted">
+            </span>{" "}
+            <span className="mt-2 block text-[12px] leading-5 text-text-muted">
               {isPaid ? "Quản lý gói & gia hạn" : "Nâng cấp gói tạo không giới hạn"}
-            </div>
-          </div>
+            </span>
+          </button>
         )}
 
-        <div
-          className="flex cursor-pointer items-center gap-2.5 rounded-xl px-1.5 py-1 hover:bg-[#E8ECF7]"
+        <button
+          type="button"
+          className="flex min-h-11 w-full items-center gap-2.5 rounded-[8px] p-2 text-left transition-colors hover:bg-surface-container-low focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy motion-reduce:transition-none"
           onClick={() => navigate("/profile")}
         >
-          <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy text-[13px] font-bold text-white">
+          <span aria-hidden="true" className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-chip-bg text-[14px] font-bold text-navy">
             {initial}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[13px] font-bold text-navy-dark">
+          </span>
+          <span className="min-w-0 flex-1">
+            <span title={displayName} className="block truncate text-[13px] font-semibold leading-5 text-navy-dark">
               {displayName}
-            </div>
-            <div className="text-[11px] text-text-faint">
+            </span>{" "}
+            <span title={isDemo ? "Phiên Demo" : planDisplayName} className="block truncate text-[12px] leading-5 text-text-muted">
               {isDemo ? "Phiên Demo" : planDisplayName}
-            </div>
-          </div>
-          <span className="material-symbols-outlined flex-none text-[16px] text-text-faint">
+            </span>
+          </span>
+          <span aria-hidden="true" className="material-symbols-outlined flex-none text-[20px] text-text-muted">
             settings
           </span>
-        </div>
+        </button>
       </div>
     </aside>
   );
@@ -223,7 +230,7 @@ export default function BottomNavigation() {
   const { pathname } = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-20 w-full items-center rounded-t-lg border-t border-outline-variant/20 bg-surface/90 px-1 shadow-[0_-4px_30px_rgba(20,30,60,0.08)] backdrop-blur-lg lg:hidden">
+    <nav aria-label="Điều hướng di động" className="fixed bottom-0 left-0 right-0 z-50 flex h-20 w-full items-center gap-0.5 border-t border-border-soft bg-surface-container-lowest px-1 lg:hidden">
       {NAV_ITEMS.map((item) => (
         <NavigationItem
           key={item.path}
