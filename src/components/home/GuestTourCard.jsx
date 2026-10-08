@@ -6,31 +6,25 @@ export default function GuestTourCard({ onDismiss }) {
   return (
     <section
       aria-labelledby="guest-tour-title"
-      className="soft-shadow relative overflow-hidden rounded-[20px] border border-primary-container/30 bg-gradient-to-br from-white via-surface-container-lowest to-surface-container-low p-5 sm:p-6"
+      className="min-w-0 border-b border-border-soft pb-6"
     >
-      {/* Background decorative glow */}
-      <div
-        className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-primary-container/20 blur-2xl"
-        aria-hidden="true"
-      />
-
-      <div className="relative flex flex-col gap-4">
+      <div className="flex flex-col gap-5">
         {/* Card Header */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-primary-container/25 px-3 py-1 text-[11px] font-bold text-navy-dark">
-              <span className="material-symbols-outlined text-[15px] text-primary">
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-navy">
+              <span aria-hidden="true" className="material-symbols-outlined text-lg text-primary">
                 explore
               </span>
               <span>Dành cho khách mới</span>
             </div>
             <h3
               id="guest-tour-title"
-              className="text-lg font-extrabold text-navy-dark sm:text-xl"
+              className="text-lg font-bold leading-7 text-navy-dark sm:text-xl"
             >
               Khám phá TP.HCM cùng LocalMate AI
             </h3>
-            <p className="text-[13px] leading-relaxed text-text-muted">
+            <p className="text-sm leading-6 text-text-muted">
               Lên lịch trình thông minh quanh trục Metro số 1 chỉ với 3 bước đơn giản:
             </p>
           </div>
@@ -39,77 +33,77 @@ export default function GuestTourCard({ onDismiss }) {
             type="button"
             onClick={onDismiss}
             aria-label="Đóng hướng dẫn nhanh"
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-text-faint transition-colors hover:bg-surface-container-high hover:text-navy active:scale-95"
+            className="flex h-11 w-11 flex-none items-center justify-center rounded-[8px] text-text-muted hover:bg-chip-bg-alt hover:text-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
           >
-            <span className="material-symbols-outlined text-[18px]">close</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-xl">close</span>
           </button>
         </div>
 
         {/* 3 Quick Steps */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="flex items-start gap-3 rounded-xl border border-outline-variant/20 bg-white/80 p-3.5 backdrop-blur-[2px]">
-            <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-primary-container/30 text-primary">
-              <span className="material-symbols-outlined text-[18px]">train</span>
+        <ol className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          <li className="flex min-w-0 items-start gap-3">
+            <div aria-hidden="true" className="flex h-8 w-8 flex-none items-center justify-center text-primary">
+              <span className="material-symbols-outlined text-xl">train</span>
             </div>
             <div className="min-w-0">
-              <div className="text-[13px] font-bold text-navy-dark">
+              <div className="text-sm font-semibold leading-6 text-navy-dark">
                 1. Điểm xuất phát
               </div>
-              <div className="mt-0.5 text-[12px] leading-snug text-text-muted">
+              <div className="mt-1 text-sm leading-6 text-text-muted">
                 Chọn khu vực hoặc ga Metro gần bạn để tối ưu đi bộ.
               </div>
             </div>
-          </div>
+          </li>
 
-          <div className="flex items-start gap-3 rounded-xl border border-outline-variant/20 bg-white/80 p-3.5 backdrop-blur-[2px]">
-            <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-primary-container/30 text-primary">
-              <span className="material-symbols-outlined text-[18px]">tune</span>
+          <li className="flex min-w-0 items-start gap-3">
+            <div aria-hidden="true" className="flex h-8 w-8 flex-none items-center justify-center text-primary">
+              <span className="material-symbols-outlined text-xl">tune</span>
             </div>
             <div className="min-w-0">
-              <div className="text-[13px] font-bold text-navy-dark">
+              <div className="text-sm font-semibold leading-6 text-navy-dark">
                 2. Gu &amp; Ngân sách
               </div>
-              <div className="mt-0.5 text-[12px] leading-snug text-text-muted">
+              <div className="mt-1 text-sm leading-6 text-text-muted">
                 Tùy biến thời gian, chi phí và sở thích cà phê, văn hóa, ẩm thực.
               </div>
             </div>
-          </div>
+          </li>
 
-          <div className="flex items-start gap-3 rounded-xl border border-outline-variant/20 bg-white/80 p-3.5 backdrop-blur-[2px]">
-            <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-primary-container/30 text-primary">
-              <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+          <li className="flex min-w-0 items-start gap-3">
+            <div aria-hidden="true" className="flex h-8 w-8 flex-none items-center justify-center text-primary">
+              <span className="material-symbols-outlined text-xl">auto_awesome</span>
             </div>
             <div className="min-w-0">
-              <div className="text-[13px] font-bold text-navy-dark">
+              <div className="text-sm font-semibold leading-6 text-navy-dark">
                 3. Lịch trình AI
               </div>
-              <div className="mt-0.5 text-[12px] leading-snug text-text-muted">
+              <div className="mt-1 text-sm leading-6 text-text-muted">
                 Nhận lộ trình trọn vẹn, dễ dàng đổi điểm và lưu lại khi cần.
               </div>
             </div>
-          </div>
-        </div>
+          </li>
+        </ol>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/20 pt-3">
-          <div className="text-[12px] text-text-faint">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="max-w-[540px] text-xs leading-5 text-text-muted">
             💡 Bạn có thể tạo lịch trình trải nghiệm ngay mà không cần cấu hình phức tạp.
           </div>
-          <div className="flex w-full items-center justify-end gap-2.5 sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={onDismiss}
-              className="rounded-xl px-4 py-2.5 text-[13px] font-semibold text-text-muted transition-colors hover:text-navy-dark active:scale-95"
+              className="min-h-11 rounded-[8px] px-4 py-3 text-sm font-semibold text-text-muted hover:bg-chip-bg-alt hover:text-navy-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
             >
               Để sau
             </button>
             <button
               type="button"
               onClick={() => navigate("/create")}
-              className="flex items-center gap-1.5 rounded-xl bg-navy px-4 py-2.5 text-[13px] font-bold text-white shadow-sm transition-all hover:bg-navy-dark active:scale-95"
+              className="flex min-h-11 items-center justify-center gap-2 rounded-[8px] bg-navy px-4 py-3 text-sm font-semibold text-white hover:bg-navy-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
             >
               <span>Bắt đầu tạo lịch trình</span>
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              <span aria-hidden="true" className="material-symbols-outlined flex-none text-lg">arrow_forward</span>
             </button>
           </div>
         </div>
