@@ -12,16 +12,16 @@ const SORT_OPTIONS = [
   { value: "rating:asc", label: "Điểm thấp nhất" },
 ];
 const SELECT_CLASS =
-  "rounded-full border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-label-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container";
+  "min-h-11 w-full min-w-0 rounded-[8px] border border-border-soft bg-white px-3 py-2 text-sm text-navy-dark focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-navy sm:w-auto";
 
 // averageRating = null nghĩa là chưa có đánh giá (không hiện 0 sao)
 export function PlaceRatingSummary({ averageRating, reviewCount }) {
   if (averageRating == null) {
-    return <p className="text-body-md text-on-surface-variant">Chưa có đánh giá</p>;
+    return <p className="text-sm leading-6 text-text-muted">Chưa có đánh giá</p>;
   }
   return (
-    <p className="flex items-center gap-2 text-body-md text-on-surface-variant">
-      <span className="font-bold text-on-surface">{formatRating(averageRating)}</span>
+    <p className="flex flex-wrap items-center gap-2 text-sm leading-6 text-text-muted">
+      <span className="font-semibold text-navy-dark">{formatRating(averageRating)}</span>
       <RatingStars value={averageRating} />
       <span>({reviewCount} đánh giá)</span>
     </p>
@@ -97,10 +97,10 @@ export default function PlaceReviews({ placeId, averageRating, reviewCount }) {
   const changeSort = (event) => { setSort(event.target.value); setPage(1); };
 
   return (
-    <section aria-labelledby="place-reviews-title" className="space-y-stack-sm">
+    <section aria-labelledby="place-reviews-title" className="min-w-0 space-y-5 border-t border-border-soft pt-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 id="place-reviews-title" className="flex items-center gap-2 text-title-md font-bold text-on-surface">
-          <span className="material-symbols-outlined text-[20px] text-primary">reviews</span>
+        <h3 id="place-reviews-title" className="flex items-start gap-2 text-lg font-bold leading-7 text-navy-dark">
+          <span aria-hidden="true" className="material-symbols-outlined flex-none text-xl text-primary">reviews</span>
           Đánh giá từ người đã ghé
         </h3>
         <PlaceRatingSummary averageRating={averageRating} reviewCount={reviewCount} />
@@ -118,38 +118,38 @@ export default function PlaceReviews({ placeId, averageRating, reviewCount }) {
             </select>
           </div>
 
-          <ul className="space-y-3">
+          <ul className="space-y-4">
             {items.map((review) => (
-              <li key={review.id} className="card space-y-2 p-4">
+              <li key={review.id} className="min-w-0 space-y-3 rounded-[8px] border border-border-soft bg-white p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-body-md font-semibold text-on-surface">{review.reviewerName}</p>
-                  <span className="text-label-md text-on-surface-variant">{formatVnDate(review.createdAt)}</span>
+                  <p className="min-w-0 break-words text-sm font-semibold leading-6 text-navy-dark">{review.reviewerName}</p>
+                  <span className="text-xs leading-5 text-text-muted">{formatVnDate(review.createdAt)}</span>
                 </div>
                 <RatingStars value={review.rating} />
                 {review.quickTags.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {review.quickTags.map((code) => (
-                      <span key={code} className="chip text-label-md">{tagLabels[code] ?? code}</span>
+                      <span key={code} className="max-w-full break-words rounded-full border border-border-soft bg-chip-bg-alt px-3 py-1 text-xs leading-5 text-navy">{tagLabels[code] ?? code}</span>
                     ))}
                   </div>
                 )}
                 {review.comment && (
-                  <p className="whitespace-pre-line break-words text-body-md text-on-surface-variant">{review.comment}</p>
+                  <p className="whitespace-pre-line break-words text-sm leading-6 text-text-muted">{review.comment}</p>
                 )}
               </li>
             ))}
           </ul>
 
-          {loading && <p className="text-body-md text-on-surface-variant">Đang tải đánh giá...</p>}
+          {loading && <p role="status" className="py-4 text-sm leading-6 text-text-muted">Đang tải đánh giá...</p>}
           {!loading && !error && items.length === 0 && (
-            <p className="text-body-md text-on-surface-variant">
+            <p className="py-4 text-sm leading-6 text-text-muted">
               {rating ? `Chưa có đánh giá ${rating} sao.` : "Chưa có đánh giá."}
             </p>
           )}
           {error && (
-            <div role="alert" className="flex items-center justify-between gap-3 text-label-md text-error">
-              <span>{error}</span>
-              <button type="button" onClick={() => setReloadCount((count) => count + 1)} className="font-bold underline">
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 text-sm leading-6 text-error">
+              <span className="min-w-0 break-words">{error}</span>
+              <button type="button" onClick={() => setReloadCount((count) => count + 1)} className="min-h-11 rounded-[8px] px-3 font-semibold underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy">
                 Thử lại
               </button>
             </div>
@@ -159,7 +159,7 @@ export default function PlaceReviews({ placeId, averageRating, reviewCount }) {
               type="button"
               disabled={loading}
               onClick={() => setPage((current) => current + 1)}
-              className="w-full rounded-full border border-primary py-2.5 text-label-md font-bold text-primary transition-all active:scale-95 disabled:opacity-50"
+              className="min-h-11 w-full rounded-[8px] border border-border-soft bg-white px-4 py-3 text-sm font-semibold text-navy hover:bg-chip-bg-alt focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:opacity-50"
             >
               Xem thêm đánh giá
             </button>

@@ -164,25 +164,25 @@ const GENERATE_ERROR_MESSAGES = {
 };
 
 const chipClass = (selected) =>
-  `min-h-11 px-4 py-2 rounded-full text-body-md transition-all active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${
+  `min-h-11 max-w-full break-words rounded-[8px] border px-4 py-2.5 text-body-md font-medium tracking-normal transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
     selected
-      ? "bg-primary text-on-primary shadow-sm"
-      : "border border-outline-variant text-on-surface-variant hover:border-primary"
+      ? "border-primary bg-primary text-on-primary"
+      : "border-border-soft bg-white text-text-muted hover:border-primary hover:bg-primary/5"
   }`;
 
 // Lý do không tạo được lịch + cách sửa nhanh. onFix nhận phần request cần đổi rồi thử lại ngay;
 // BE không tự đổi ga/phương tiện thay người dùng.
 function TripIssue({ issue, busy, onFix, onGoToStep }) {
   const actionClass =
-    "min-h-11 px-4 py-2 rounded-full border border-primary text-primary text-label-md font-semibold active:scale-95 transition-all disabled:opacity-60";
+    "min-h-11 max-w-full break-words rounded-[8px] border border-error/30 bg-white px-4 py-2.5 text-body-md font-semibold text-error transition-colors hover:bg-error/5 disabled:opacity-60 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error";
   return (
     <div
       role="alert"
-      className="rounded-xl border border-error/20 bg-error-container/10 p-stack-md space-y-3"
+      className="space-y-4 rounded-[8px] border border-error/20 bg-error-container/20 p-4 sm:p-5"
     >
-      <p className="text-label-md text-error flex items-start gap-1 font-medium">
-        <span className="material-symbols-outlined text-[16px]">error</span>
-        {issue.message}
+      <p className="flex items-start gap-2 text-body-md font-medium text-error">
+        <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[20px]">error</span>
+        <span className="min-w-0 break-words">{issue.message}</span>
       </p>
       {issue.code === "insufficient_candidates" && issue.suggestedStations.length > 0 && (
         <div className="space-y-2">
@@ -592,6 +592,7 @@ export default function CreateTripPage() {
       // Thay /loading trong lịch sử, để nút back ở trang Nháp về wizard chứ không kẹt ở màn hình chờ
       navigate("/draft", { replace: true });
     } catch (err) {
+      if (err?.code === "trip_session_changed") return;
       navigate("/create", {
         replace: true,
         state: {
@@ -629,40 +630,48 @@ export default function CreateTripPage() {
   const progress = ((step + 1) / STEPS.length) * 100;
 
   return (
-    <div className="app-shell flex flex-col">
-      <header className="app-header flex h-16 items-center gap-3 border-b border-outline-variant/20 px-container-margin py-stack-sm lg:px-8">
+    <div className="app-shell flex min-w-0 flex-col">
+      <header className="app-header flex h-16 items-center gap-3 border-b border-border-soft !bg-white px-4 py-2 sm:px-6 lg:px-8">
         <button
           type="button"
           aria-label={step > 0 ? "Quay lại bước trước" : "Thoát tạo lịch trình"}
           onClick={() => (step > 0 ? setStep((s) => s - 1) : navigate(-1))}
-          className="w-11 h-11 rounded-full hover:bg-surface-container-high flex items-center justify-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] text-primary transition-colors hover:bg-primary/5 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
         >
-          <span className="material-symbols-outlined text-on-surface-variant">
+          <span aria-hidden="true" className="material-symbols-outlined text-on-surface-variant">
             arrow_back
           </span>
         </button>
 
-        <div className="flex-1">
+        <div className="min-w-0 flex-1 lg:max-w-[780px]">
           <div className="flex justify-between items-center mb-1">
-            <span className="text-label-md text-primary uppercase tracking-widest">
+            <span className="text-[13px] font-semibold tracking-normal text-primary">
               Bước {step + 1}/{STEPS.length}
             </span>
-            <span className="text-label-md text-outline">{STEPS[step]}</span>
+            <span className="text-[13px] font-medium tracking-normal text-text-muted">{STEPS[step]}</span>
           </div>
           <div role="progressbar" aria-label="Tiến độ tạo lịch trình" aria-valuemin={1} aria-valuemax={STEPS.length} aria-valuenow={step + 1} className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
             <div
-              className="h-full bg-primary rounded-full transition-all duration-500"
+              className="h-full bg-primary rounded-full transition-all duration-500 motion-reduce:transition-none"
               style={{ width: `${progress}%` }}
             />
           </div>
         </div>
       </header>
 
-      <main className="content-shell flex-1 px-container-margin pb-28 pt-20 lg:px-8 lg:pb-32">
+      <main className="content-shell !mx-auto !max-w-[900px] min-w-0 flex-1 px-4 pb-32 pt-24 sm:px-6 lg:px-8">
+        <ol aria-label="Các bước tạo lịch trình" className="mb-8 grid grid-cols-4 gap-2 border-b border-border-soft pb-5">
+          {STEPS.map((label, index) => (
+            <li key={label} aria-current={index === step ? "step" : undefined} className={`flex min-w-0 flex-col gap-2 text-[12px] font-medium sm:flex-row sm:items-center sm:text-[13px] ${index === step ? "text-primary" : "text-text-muted"}`}>
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[12px] font-semibold ${index === step ? "border-primary bg-primary text-white" : "border-border-soft bg-white"}`}>{index + 1}</span>
+              <span className="break-words">{label}</span>
+            </li>
+          ))}
+        </ol>
         {step === 0 && (
           <div className="space-y-stack-lg">
             {!isDemo && (
-              <div className="mt-stack-lg space-y-stack-sm">
+              <div className="space-y-stack-sm">
                 <TripRequestAssistant
                   title="Kể cho LocalMate bạn muốn đi chơi thế nào"
                   placeholder="Ví dụ: chiều mai rảnh khoảng 4 tiếng, có 300k, muốn đi cà phê chụp ảnh quanh Bến Thành"
@@ -672,12 +681,12 @@ export default function CreateTripPage() {
                 {aiFilled.length > 0 && (
                   <div
                     role="status"
-                    className="space-y-1 rounded-xl border border-primary/20 bg-primary/5 p-stack-md text-label-md"
+                    className="space-y-2 rounded-[8px] border border-primary/20 bg-primary/5 p-4 text-body-md"
                   >
                     <p className="font-semibold text-primary">
                       AI đã điền giúp bạn, hãy xem lại ở từng bước:
                     </p>
-                    <ul className="space-y-0.5 text-on-surface">
+                    <ul className="space-y-1 break-words text-on-surface">
                       {aiFilled.map(([name, text]) => (
                         <li key={name}>
                           {FIELD_LABELS[name]}: {text}
@@ -698,7 +707,7 @@ export default function CreateTripPage() {
               </div>
             )}
 
-            <h2 ref={stepHeadingRef} tabIndex={-1} className="text-headline-lg-mobile font-bold text-on-surface mt-stack-lg focus:outline-none">
+            <h2 ref={stepHeadingRef} tabIndex={-1} className="break-words text-[24px] font-bold leading-8 tracking-normal text-navy-dark focus:outline-none sm:text-[28px] sm:leading-9">
               Bạn đang ở đâu?
             </h2>
 
@@ -706,16 +715,16 @@ export default function CreateTripPage() {
               type="button"
               onClick={handleUseCurrentLocation}
               disabled={locating}
-              className="w-full flex items-center justify-center gap-2 rounded-full border border-primary px-6 py-3 font-semibold text-primary active:scale-95 transition-all disabled:opacity-60"
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[8px] border border-primary bg-white px-4 py-3 text-body-md font-semibold text-primary transition-colors hover:bg-primary/5 disabled:opacity-60 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              <span className="material-symbols-outlined">my_location</span>
+              <span aria-hidden="true" className="material-symbols-outlined">my_location</span>
               {locating ? "Đang định vị..." : "Dùng vị trí hiện tại"}
             </button>
 
-            <div className="space-y-stack-sm">
-              <label className="text-label-md text-on-surface-variant font-medium">
+            <div className="space-y-3 border-b border-border-soft pb-6">
+              <p className="text-body-md font-semibold text-navy-dark">
                 Hoặc xuất phát từ một ga Metro
-              </label>
+              </p>
               <div role="group" aria-label="Chọn ga xuất phát" aria-describedby={startAreaError ? "start-area-error" : undefined} className="flex flex-wrap gap-2">
                 {stations.map((s) => (
                   <button
@@ -746,7 +755,7 @@ export default function CreateTripPage() {
               )}
             </div>
 
-            <section className="space-y-stack-sm">
+            <section className="space-y-3 border-b border-border-soft pb-6">
               <h3 className="text-title-md font-semibold text-on-surface">
                 Muốn chơi quanh ga nào?
               </h3>
@@ -779,7 +788,7 @@ export default function CreateTripPage() {
             </section>
 
             {modeOptions.length > 0 && (
-              <section className="space-y-stack-sm">
+              <section className="space-y-3">
                 <h3 className="text-title-md font-semibold text-on-surface">Đi bằng gì?</h3>
                 <div role="group" aria-label="Chọn phương tiện" className="flex flex-wrap gap-2">
                   {modeOptions.map((m) => (
@@ -790,7 +799,7 @@ export default function CreateTripPage() {
                       onClick={() => setTravelMode(m.value)}
                       className={`${chipClass(effectiveTravelMode === m.value)} flex items-center gap-1.5`}
                     >
-                      <span className="material-symbols-outlined text-[18px]">{m.icon}</span>
+                      <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[18px]">{m.icon}</span>
                       {m.label}
                     </button>
                   ))}
@@ -807,7 +816,7 @@ export default function CreateTripPage() {
 
         {step === 1 && (
           <div className="space-y-stack-lg">
-            <h2 ref={stepHeadingRef} tabIndex={-1} className="text-headline-lg-mobile font-bold text-on-surface mt-stack-lg focus:outline-none">
+            <h2 ref={stepHeadingRef} tabIndex={-1} className="break-words text-[24px] font-bold leading-8 tracking-normal text-navy-dark focus:outline-none sm:text-[28px] sm:leading-9">
               Bạn có bao nhiêu thời gian?
             </h2>
 
@@ -828,16 +837,16 @@ export default function CreateTripPage() {
                     type="button"
                     aria-pressed={effectiveDate === opt.value}
                     onClick={() => setPlannedDate(opt.value)}
-                    className={`min-h-11 px-6 py-2 rounded-full font-semibold text-button active:scale-95 transition-all ${
+                    className={`min-h-11 rounded-[8px] border px-5 py-2.5 text-body-md font-semibold transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                       effectiveDate === opt.value
-                        ? "bg-primary text-on-primary shadow-md shadow-primary/20"
-                        : "border border-outline-variant text-on-surface-variant"
+                        ? "border-primary bg-primary text-on-primary"
+                        : "border-border-soft bg-white text-text-muted hover:border-primary"
                     }`}
                   >
                     {opt.label}
                   </button>
                 ))}
-                <label className="flex min-h-11 items-center gap-2 rounded-full border border-outline-variant px-4 text-body-md text-on-surface-variant">
+                <label className="flex min-h-11 max-w-full min-w-0 items-center gap-2 rounded-[8px] border border-border-soft bg-white px-3 text-body-md text-text-muted focus-within:ring-2 focus-within:ring-primary">
                   <span className="sr-only">Chọn ngày khác</span>
                   <input
                     type="date"
@@ -845,7 +854,7 @@ export default function CreateTripPage() {
                     min={today}
                     max={lastDate}
                     onChange={(e) => e.target.value && setPlannedDate(e.target.value)}
-                    className="bg-transparent border-none p-0 focus:ring-0"
+                    className="min-w-0 max-w-full bg-transparent border-none p-0 focus:outline-none"
                   />
                 </label>
               </div>
@@ -873,10 +882,10 @@ export default function CreateTripPage() {
                         setTimeSlotCode(slot.code);
                         setCustomStartTime(null);
                       }}
-                      className={`min-h-11 px-6 py-2 rounded-full font-semibold text-button active:scale-95 transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${
+                      className={`min-h-11 max-w-full break-words rounded-[8px] border px-4 py-2.5 text-body-md font-semibold transition-colors motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                         !useCustomStart && selectedSlot?.code === slot.code
-                          ? "bg-primary text-on-primary shadow-md shadow-primary/20"
-                          : "border border-outline-variant text-on-surface-variant"
+                          ? "border-primary bg-primary text-on-primary"
+                          : "border-border-soft bg-white text-text-muted hover:border-primary"
                       }`}
                     >
                       {slot.label}
@@ -887,7 +896,7 @@ export default function CreateTripPage() {
                   ))}
                   {/* Giờ lẻ do AI điền; bấm một buổi để bỏ */}
                   {useCustomStart && (
-                    <span className="flex min-h-11 items-center rounded-full bg-primary px-6 py-2 text-button font-semibold text-on-primary shadow-md shadow-primary/20">
+                    <span className="flex min-h-11 max-w-full flex-wrap items-center rounded-[8px] bg-primary px-4 py-2.5 text-body-md font-semibold text-on-primary">
                       Giờ riêng
                       <span className="ml-1 font-normal opacity-80">· từ {customStartTime}</span>
                     </span>
@@ -917,7 +926,7 @@ export default function CreateTripPage() {
                   </span>
                   Thời lượng
                 </h3>
-                <div className="grid grid-cols-2 gap-gutter lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {durationOptions.map((opt) => (
                     <button
                       key={opt.value}
@@ -925,20 +934,21 @@ export default function CreateTripPage() {
                       disabled={opt.value > maxHours}
                       aria-pressed={effectiveDuration === opt.value}
                       onClick={() => setDurationHours(opt.value)}
-                      className={`relative p-stack-md rounded-lg border-2 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${
+                      className={`relative min-h-16 min-w-0 rounded-[8px] border p-4 transition-colors motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                         effectiveDuration === opt.value
                           ? "border-primary bg-primary-container/10"
-                          : "border-surface-container-highest bg-white hover:border-primary-container"
+                          : "border-border-soft bg-white hover:border-primary"
                       }`}
                     >
                       <span
-                        className={`font-semibold text-button ${effectiveDuration === opt.value ? "text-primary" : "text-on-surface-variant"}`}
+                        className={`break-words font-semibold text-body-md ${effectiveDuration === opt.value ? "text-primary" : "text-on-surface-variant"}`}
                       >
                         {opt.label}
                       </span>
                       {effectiveDuration === opt.value && (
                         <span
-                          className="material-symbols-outlined absolute -top-2 -right-2 bg-primary text-white rounded-full text-[14px] p-0.5"
+                          aria-hidden="true"
+                          className="material-symbols-outlined absolute top-1 right-1 text-primary text-[14px]"
                           style={{ fontVariationSettings: "'FILL' 1" }}
                         >
                           check
@@ -961,26 +971,27 @@ export default function CreateTripPage() {
                 </span>
                 Ngân sách mỗi người
               </h3>
-              <div className="grid gap-stack-sm lg:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 {budgetOptions.map((opt) => (
                   <button
                     key={opt.id}
                     type="button"
                     aria-pressed={budgetPerPerson === opt.value}
                     onClick={() => setBudgetPerPerson(opt.value)}
-                    className={`w-full p-stack-md rounded-lg border-2 flex items-center justify-between text-left active:scale-[0.98] transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${
+                    className={`flex min-h-16 min-w-0 w-full items-center justify-between gap-3 rounded-[8px] border p-4 text-left transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                       budgetPerPerson === opt.value
                         ? "border-primary bg-primary-container/5"
-                        : "border-surface-container-highest bg-white"
+                        : "border-border-soft bg-white hover:border-primary"
                     }`}
                   >
                     <span
-                      className={`font-semibold text-button ${budgetPerPerson === opt.value ? "text-primary" : "text-on-surface-variant"}`}
+                      className={`min-w-0 break-words font-semibold text-body-md ${budgetPerPerson === opt.value ? "text-primary" : "text-on-surface-variant"}`}
                     >
                       {opt.label}
                     </span>
                     <div
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${budgetPerPerson === opt.value ? "border-primary bg-primary" : "border-outline-variant"}`}
+                      aria-hidden="true"
+                      className={`h-5 w-5 shrink-0 rounded-full border flex items-center justify-center ${budgetPerPerson === opt.value ? "border-primary bg-primary" : "border-outline-variant"}`}
                     >
                       {budgetPerPerson === opt.value && (
                         <span
@@ -1010,10 +1021,10 @@ export default function CreateTripPage() {
                     type="button"
                     aria-pressed={peopleCount === opt.value}
                     onClick={() => setPeopleCount(opt.value)}
-                    className={`min-h-11 px-6 py-2 rounded-full font-semibold text-button active:scale-95 transition-all ${
+                    className={`min-h-11 max-w-full break-words rounded-[8px] border px-4 py-2.5 text-body-md font-semibold transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                       peopleCount === opt.value
-                        ? "bg-primary text-on-primary shadow-md shadow-primary/20"
-                        : "border border-outline-variant text-on-surface-variant"
+                        ? "border-primary bg-primary text-on-primary"
+                        : "border-border-soft bg-white text-text-muted hover:border-primary"
                     }`}
                   >
                     {opt.label}
@@ -1026,8 +1037,8 @@ export default function CreateTripPage() {
 
         {step === 2 && (
           <div className="space-y-stack-lg">
-            <div className="mt-stack-lg">
-              <h2 ref={stepHeadingRef} tabIndex={-1} className="text-headline-lg-mobile font-bold text-on-surface focus:outline-none">
+            <div>
+              <h2 ref={stepHeadingRef} tabIndex={-1} className="break-words text-[24px] font-bold leading-8 tracking-normal text-navy-dark focus:outline-none sm:text-[28px] sm:leading-9">
                 Bạn thích gì?
               </h2>
               <p className="text-body-md text-on-surface-variant mt-1">
@@ -1042,10 +1053,10 @@ export default function CreateTripPage() {
                   type="button"
                   aria-pressed={selectedTagIds.includes(tag.id)}
                   onClick={() => toggleTag(tag.id)}
-                  className={`min-h-11 px-4 py-2 rounded-full flex items-center gap-1.5 transition-all active:scale-95 text-body-md ${
+                  className={`flex min-h-11 max-w-full items-center gap-1.5 break-words rounded-[8px] border px-4 py-2.5 text-body-md font-medium transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                     selectedTagIds.includes(tag.id)
-                      ? "bg-primary text-on-primary shadow-md"
-                      : "bg-primary-container/10 border border-primary-container/20 text-on-primary-container hover:bg-primary-container/20"
+                      ? "border-primary bg-primary text-on-primary"
+                      : "border-border-soft bg-white text-text-muted hover:border-primary hover:bg-primary/5"
                   }`}
                 >
                   {tag.name}
@@ -1070,13 +1081,13 @@ export default function CreateTripPage() {
               generateErrorCode === "generate_quota_exceeded" ? (
                 <div
                   role="alert"
-                  className="rounded-xl border border-error/20 bg-error-container/10 p-stack-md space-y-3 mt-stack-md"
+                  className="mt-4 space-y-4 rounded-[8px] border border-error/20 bg-error-container/20 p-4 sm:p-5"
                 >
                   <div className="flex items-start gap-2">
-                    <span className="material-symbols-outlined text-error text-[20px] shrink-0 mt-0.5">
+                    <span aria-hidden="true" className="material-symbols-outlined text-error text-[20px] shrink-0 mt-0.5">
                       lock
                     </span>
-                    <div className="space-y-1">
+                    <div className="min-w-0 space-y-2 break-words">
                       <p className="font-semibold text-body-md text-error">
                         {generateError}
                       </p>
@@ -1087,9 +1098,9 @@ export default function CreateTripPage() {
                   </div>
 
                   {quotaMetadata && (quotaMetadata.limit != null || quotaMetadata.resetAt) && (
-                    <div className="bg-surface rounded-lg p-3 text-body-sm space-y-1 border border-outline-variant/10">
+                    <div className="space-y-2 rounded-[8px] border border-border-soft bg-white p-3 text-body-md">
                       {quotaMetadata.limit != null && (
-                        <div className="flex justify-between text-on-surface">
+                        <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-on-surface">
                           <span>Đã sử dụng:</span>
                           <span className="font-semibold">
                             {quotaMetadata.used ?? quotaMetadata.limit} / {quotaMetadata.limit} lượt
@@ -1097,7 +1108,7 @@ export default function CreateTripPage() {
                         </div>
                       )}
                       {quotaMetadata.resetAt && (
-                        <div className="flex justify-between text-on-surface-variant">
+                        <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-on-surface-variant">
                           <span>Làm mới vào:</span>
                           <span className="font-medium">
                             {formatVnDateTime(quotaMetadata.resetAt)}
@@ -1110,9 +1121,9 @@ export default function CreateTripPage() {
                   <button
                     type="button"
                     onClick={() => navigate("/subscription")}
-                    className="w-full py-2.5 px-4 bg-primary text-on-primary rounded-full font-semibold text-label-md flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-sm"
+                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[8px] bg-primary px-4 py-3 text-body-md font-semibold text-on-primary transition-colors hover:bg-primary/90 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   >
-                    <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">workspace_premium</span>
                     Nâng cấp gói dịch vụ
                   </button>
                 </div>
@@ -1130,8 +1141,8 @@ export default function CreateTripPage() {
                 </div>
               )
             )}
-            <div className="mt-stack-lg">
-              <h2 ref={stepHeadingRef} tabIndex={-1} className="text-headline-lg-mobile font-bold text-on-surface focus:outline-none">
+            <div>
+              <h2 ref={stepHeadingRef} tabIndex={-1} className="break-words text-[24px] font-bold leading-8 tracking-normal text-navy-dark focus:outline-none sm:text-[28px] sm:leading-9">
                 Phong cách chuyến đi?
               </h2>
               <p className="text-body-md text-on-surface-variant mt-1">
@@ -1139,21 +1150,21 @@ export default function CreateTripPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-gutter lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {styleTags.map((tag) => (
                 <button
                   key={tag.id}
                   type="button"
                   aria-pressed={selectedTagIds.includes(tag.id)}
                   onClick={() => toggleTag(tag.id)}
-                  className={`p-stack-md rounded-lg border-2 flex flex-col items-start gap-1 transition-all active:scale-95 ${
+                  className={`flex min-h-16 min-w-0 flex-col items-start justify-center gap-1 rounded-[8px] border p-4 text-left transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                     selectedTagIds.includes(tag.id)
                       ? "border-primary bg-primary-container/10"
-                      : "border-surface-container-highest bg-white hover:border-primary-container"
+                      : "border-border-soft bg-white hover:border-primary"
                   }`}
                 >
                   <span
-                    className={`font-semibold text-body-md ${selectedTagIds.includes(tag.id) ? "text-primary" : "text-on-surface"}`}
+                    className={`max-w-full break-words font-semibold text-body-md ${selectedTagIds.includes(tag.id) ? "text-primary" : "text-on-surface"}`}
                   >
                     {tag.name}
                   </span>
@@ -1173,9 +1184,10 @@ export default function CreateTripPage() {
                 maxLength={NOTE_MAX_LENGTH}
                 rows={3}
                 placeholder="Ví dụ: muốn chỗ yên tĩnh, có view sông, hợp chụp ảnh"
-                className="w-full resize-none rounded-DEFAULT bg-surface-container-low p-3 text-body-md placeholder:text-outline-variant focus:outline-none focus:ring-2 focus:ring-primary-container"
+                aria-describedby="trip-note-help"
+                className="w-full min-w-0 resize-y rounded-[8px] border border-border-soft bg-white p-3 text-body-md placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary"
               />
-              <p className="flex justify-between gap-2 text-label-md text-on-surface-variant">
+              <p id="trip-note-help" className="flex flex-wrap justify-between gap-2 text-[13px] leading-5 text-text-muted">
                 <span>
                   Địa điểm hợp ghi chú sẽ được ưu tiên. Nên viết khẳng định, ví dụ "yên tĩnh" thay vì "không ồn".
                 </span>
@@ -1186,15 +1198,15 @@ export default function CreateTripPage() {
             </section>
 
             {isDemo && (
-              <p role="status" className="card text-body-md text-on-surface-variant">
+              <p role="status" className="rounded-[8px] border border-border-soft bg-white p-4 text-body-md text-text-muted">
                 Phiên demo chỉ xem được gợi ý. Hãy đăng nhập hoặc đăng ký tài khoản để tạo và lưu lịch trình.
               </p>
             )}
 
             {prefill && (
-              <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-stack-md text-body-md">
+              <div className="space-y-3 rounded-[8px] border border-primary/20 bg-primary/5 p-4 text-body-md sm:p-5">
                 <p className="font-semibold text-primary">Thay đổi so với lịch cũ</p>
-                <ul className="space-y-0.5 text-on-surface">
+                <ul className="space-y-2 break-words text-on-surface">
                   {prefill.changed.map((name) => (
                     <li key={name}>
                       {FIELD_LABELS[name] ?? name}:{" "}
@@ -1212,7 +1224,7 @@ export default function CreateTripPage() {
                     <button
                       type="button"
                       onClick={() => goToStep(1)}
-                      className="font-semibold underline"
+                      className="inline-flex min-h-11 items-center rounded-[4px] px-1 font-semibold underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-error"
                     >
                       Chọn ngày
                     </button>
@@ -1224,7 +1236,7 @@ export default function CreateTripPage() {
                     <button
                       type="button"
                       onClick={() => goToStep(1)}
-                      className="font-semibold underline"
+                      className="inline-flex min-h-11 items-center rounded-[4px] px-1 font-semibold underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-error"
                     >
                       Chọn lại
                     </button>
@@ -1236,11 +1248,11 @@ export default function CreateTripPage() {
               </div>
             )}
 
-            <div className="card space-y-2">
-              <p className="text-label-md text-on-surface-variant uppercase tracking-wider">
+            <div className="space-y-4 border-t border-border-soft pt-6">
+              <p className="text-title-md font-semibold tracking-normal text-navy-dark">
                 Tóm tắt
               </p>
-              <div className="space-y-1 text-body-md text-on-surface">
+              <div className="space-y-3 break-words text-body-md leading-6 text-on-surface">
                 <p>📍 Xuất phát: {startStationOrder != null ? `ga ${startLabel}` : startLabel}</p>
                 {startStationOrder == null && feasibility?.nearestStation && (
                   <p>
@@ -1274,14 +1286,14 @@ export default function CreateTripPage() {
         )}
       </main>
 
-      <nav aria-label="Điều hướng các bước" className="app-footer flex items-center justify-between gap-2 border-t border-outline-variant/30 px-container-margin py-stack-md shadow-lg lg:px-8">
+      <nav aria-label="Điều hướng các bước" className="app-footer flex min-h-20 items-center justify-between gap-3 border-t border-border-soft !bg-white px-4 py-3 sm:px-6 lg:px-8">
         {step > 0 ? (
           <button
             type="button"
             onClick={() => setStep((s) => s - 1)}
-            className="flex min-h-12 shrink-0 items-center whitespace-nowrap text-primary border border-primary rounded-full px-4 py-3 font-semibold text-button active:scale-95 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary sm:px-8"
+            className="flex min-h-12 shrink-0 items-center whitespace-nowrap rounded-[8px] border border-border-soft bg-white px-4 py-3 text-body-md font-semibold text-primary transition-colors hover:bg-primary/5 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-6"
           >
-            <span className="material-symbols-outlined mr-2 hidden min-[360px]:inline">chevron_left</span>
+            <span aria-hidden="true" className="material-symbols-outlined mr-2 hidden min-[360px]:inline">chevron_left</span>
             Quay lại
           </button>
         ) : (
@@ -1293,10 +1305,10 @@ export default function CreateTripPage() {
             type="button"
             onClick={handleNextStep}
             disabled={!canContinue || checking}
-            className="flex min-h-12 shrink-0 items-center whitespace-nowrap bg-primary text-on-primary rounded-full px-4 py-3 font-semibold text-button active:scale-95 transition-all shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary sm:px-8"
+            className="flex min-h-12 shrink-0 items-center whitespace-nowrap rounded-[8px] bg-primary px-4 py-3 text-body-md font-semibold text-on-primary transition-colors hover:bg-navy-dark disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-6"
           >
             {checking ? "Đang kiểm tra..." : "Tiếp tục"}
-            <span className="material-symbols-outlined ml-2 hidden min-[360px]:inline">
+            <span aria-hidden="true" className="material-symbols-outlined ml-2 hidden min-[360px]:inline">
               chevron_right
             </span>
           </button>
@@ -1304,19 +1316,19 @@ export default function CreateTripPage() {
           <button
             type="button"
             onClick={() => navigate("/login")}
-            className="flex min-h-12 shrink-0 items-center whitespace-nowrap bg-primary text-on-primary rounded-full px-4 py-3 font-semibold text-button active:scale-95 transition-all shadow-lg shadow-primary/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary sm:px-8"
+            className="flex min-h-12 shrink-0 items-center whitespace-nowrap rounded-[8px] bg-primary px-4 py-3 text-body-md font-semibold text-on-primary transition-colors hover:bg-navy-dark motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-6"
           >
             Đăng nhập để tạo
-            <span className="material-symbols-outlined ml-2 hidden min-[360px]:inline">login</span>
+            <span aria-hidden="true" className="material-symbols-outlined ml-2 hidden min-[360px]:inline">login</span>
           </button>
         ) : (
           <button
             type="button"
             onClick={() => handleGenerate()}
-            className="flex min-h-12 shrink-0 items-center whitespace-nowrap bg-primary text-on-primary rounded-full px-4 py-3 font-semibold text-button active:scale-95 transition-all shadow-lg shadow-primary/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary sm:px-8"
+            className="flex min-h-12 shrink-0 items-center whitespace-nowrap rounded-[8px] bg-primary px-4 py-3 text-body-md font-semibold text-on-primary transition-colors hover:bg-navy-dark motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-6"
           >
             {prefill ? "Tạo lịch mới" : "Tạo lịch trình"}
-            <span className="material-symbols-outlined ml-2 hidden min-[360px]:inline">auto_awesome</span>
+            <span aria-hidden="true" className="material-symbols-outlined ml-2 hidden min-[360px]:inline">auto_awesome</span>
           </button>
         )}
       </nav>

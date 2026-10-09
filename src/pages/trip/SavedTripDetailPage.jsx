@@ -125,7 +125,7 @@ export default function SavedTripDetailPage() {
   if (loadingTrip) {
     return (
       <div className="app-shell flex items-center justify-center px-container-margin">
-        <p className="text-body-lg text-on-surface-variant">Đang tải...</p>
+        <p role="status" className="text-body-lg text-on-surface-variant">Đang tải...</p>
       </div>
     );
   }
@@ -255,14 +255,15 @@ export default function SavedTripDetailPage() {
   };
 
   return (
-    <div className="app-shell flex flex-col">
-      <header className="app-header flex h-16 items-center justify-between border-b border-outline-variant/20 px-container-margin py-stack-sm shadow-sm lg:px-8">
+    <div className="app-shell flex min-w-0 flex-col [&_button]:focus-visible:outline [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-offset-2 [&_button]:focus-visible:outline-primary [&_a]:focus-visible:outline [&_a]:focus-visible:outline-2 [&_a]:focus-visible:outline-primary [&_button]:motion-reduce:transition-none [&_a]:motion-reduce:transition-none">
+      <header className="app-header flex h-16 items-center justify-between gap-3 border-b border-border-soft !bg-white px-container-margin py-2 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <button
+            aria-label="Về lịch trình cá nhân"
             onClick={() => navigate("/trips")}
-            className="flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-surface-container-high"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] transition-colors hover:bg-primary/5"
           >
-            <span className="material-symbols-outlined text-primary">
+            <span aria-hidden="true" className="material-symbols-outlined text-primary">
               arrow_back
             </span>
           </button>
@@ -273,35 +274,35 @@ export default function SavedTripDetailPage() {
         </div>
 
         <button
-          className="flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-3 text-label-md font-bold text-on-primary transition-transform active:scale-95"
+          aria-label="Xuất lịch trình"
+          className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-primary px-3 text-label-md font-bold text-on-primary hover:bg-navy-dark"
           onClick={() => setExportModalOpen(true)}
           type="button"
         >
-          <span className="material-symbols-outlined text-[19px]">download</span>
-          <span>Xuất lịch trình</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-[19px]">download</span>
+          <span className="hidden sm:inline">Xuất lịch trình</span>
         </button>
       </header>
 
-      <main className="content-shell flex-1 pb-10 pt-16">
-        <section className="relative h-[265px] overflow-hidden md:h-[400px] lg:rounded-b-lg">
+      <main className="content-shell !max-w-none min-w-0 flex-1 pb-12 pt-16">
+        <section className="border-b border-border-soft">
           <img
             src={firstItem?.placeImageUrl ?? HERO_IMAGE}
-            alt="Ho Chi Minh City skyline"
-            className="h-full w-full object-cover"
+            alt="Ảnh minh hoạ lịch trình"
+            className="h-[180px] w-full object-cover sm:h-[240px] xl:h-[280px]"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
-          <div className="absolute bottom-0 left-0 p-container-margin lg:p-8">
-            <span className="mb-2 inline-flex rounded-full bg-tertiary-container/30 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-tertiary">
+          <div className="min-w-0 p-container-margin sm:py-6 lg:px-8">
+            <span className="mb-3 inline-flex rounded-[6px] bg-primary/10 px-3 py-1 text-label-md font-bold text-primary">
               {STATUS_LABEL[trip.status] ?? trip.status}
             </span>
-            <h2 className="max-w-3xl text-headline-lg-mobile font-bold text-on-surface md:text-headline-lg">
+            <h2 className="max-w-3xl break-words [overflow-wrap:anywhere] text-[24px] leading-8 font-bold text-on-surface sm:text-[28px] sm:leading-9">
               {trip.title}
             </h2>
             <p className="mt-1 flex flex-wrap items-center gap-2 text-body-md text-on-surface-variant">
               <span className="material-symbols-outlined text-[18px]">
                 calendar_today
               </span>
-              {formatDate(trip.finalizedAt ?? trip.createdAt)}
+              Ngày ghi nhận: {formatDate(trip.finalizedAt ?? trip.createdAt)}
               <span>•</span>
               <span>
                 {trip.items.length} địa điểm
@@ -314,11 +315,11 @@ export default function SavedTripDetailPage() {
           </div>
         </section>
 
-        <div className="grid gap-stack-lg px-container-margin pt-stack-lg lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8">
-          <section>
-            <h3 className="mb-stack-md text-headline-md font-bold text-on-background">
+        <div className="grid min-w-0 gap-8 px-container-margin pt-6 lg:px-8 xl:grid-cols-[minmax(0,1fr)_300px]">
+          <section className="min-w-0">
+            <h2 className="mb-5 text-title-lg font-bold text-on-background">
               Lịch trình chi tiết
-            </h3>
+            </h2>
             {visitError && <p role="alert" className="mb-stack-md text-label-md text-error">{visitError}</p>}
 
             <div className="space-y-gutter">
@@ -326,7 +327,7 @@ export default function SavedTripDetailPage() {
                 const isLast = idx === trip.items.length - 1;
 
                 return (
-                  <div key={item.id} className="flex gap-4">
+                  <div key={item.id} className="flex min-w-0 gap-3 sm:gap-4">
                     <div className="flex flex-col items-center">
                       <div
                         className={`z-10 flex h-6 w-6 items-center justify-center rounded-full ${
@@ -352,12 +353,12 @@ export default function SavedTripDetailPage() {
                     </div>
 
                     <div
-                      className={`flex-1 pb-stack-lg ${
+                      className={`min-w-0 flex-1 pb-stack-lg ${
                         item.isVisited ? "" : "opacity-85"
                       }`}
                     >
                       <article
-                        className={`rounded-lg border bg-surface-container-lowest/80 p-stack-md shadow-sm backdrop-blur ${
+                        className={`min-w-0 rounded-[8px] border bg-white p-4 sm:p-5 ${
                           item.isVisited
                             ? "border-tertiary/30 shadow-tertiary/10"
                             : "border-outline-variant/30"
@@ -381,9 +382,9 @@ export default function SavedTripDetailPage() {
                           )}
                         </div>
 
-                        <h4 className="mb-1 text-body-lg font-bold text-on-surface">
+                        <h3 className="mb-2 break-words [overflow-wrap:anywhere] text-title-md leading-7 font-bold text-on-surface">
                           {item.placeName}
-                        </h4>
+                        </h3>
                         {item.placeImageUrl && (
                           <img
                             src={item.placeImageUrl}
@@ -391,7 +392,7 @@ export default function SavedTripDetailPage() {
                             className="mb-stack-md h-40 w-full rounded-lg object-cover"
                           />
                         )}
-                        <p className="mb-stack-md text-body-md text-on-surface-variant">
+                        <p className="mb-stack-md break-words [overflow-wrap:anywhere] text-body-md leading-6 text-on-surface-variant">
                           {item.reason}
                         </p>
 
@@ -418,7 +419,7 @@ export default function SavedTripDetailPage() {
                           )}
                         </div>
 
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap gap-3 [&_button]:min-h-11 [&_a]:min-h-11 [&_button]:min-w-0 [&_a]:min-w-0">
                           {item.latitude && item.longitude && (
                             <a
                               href={toDirectionsUrl(item)}
@@ -443,7 +444,7 @@ export default function SavedTripDetailPage() {
                                 type="button"
                                 aria-label={`Xoá đánh giá ${item.placeName}`}
                                 onClick={() => { setDeleteError(""); setDeleteTarget(item); }}
-                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-outline-variant text-on-surface-variant transition-colors hover:border-error hover:text-error"
+                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-outline-variant text-on-surface-variant transition-colors hover:border-error hover:text-error"
                               >
                                 <span className="material-symbols-outlined text-[18px]">delete</span>
                               </button>
@@ -493,7 +494,7 @@ export default function SavedTripDetailPage() {
             </div>
           </section>
 
-          <aside className="space-y-stack-md">
+          <aside className="min-w-0 space-y-5">
             <section className="grid grid-cols-2 gap-4">
               <div className="rounded-lg border border-primary-container/40 bg-primary-container/20 p-4">
                 <span className="material-symbols-outlined mb-2 text-primary">
@@ -502,7 +503,7 @@ export default function SavedTripDetailPage() {
                 <p className="text-label-md font-bold uppercase text-on-primary-container">
                   Điểm đã ghé
                 </p>
-                <p className="text-headline-md font-bold text-primary">
+                <p className="text-title-lg font-bold text-primary">
                   {visitedCount}/{trip.items.length}
                 </p>
               </div>
@@ -512,9 +513,9 @@ export default function SavedTripDetailPage() {
                   timer
                 </span>
                 <p className="text-label-md font-bold uppercase text-on-secondary-container">
-                  Thời gian
+                  Thời gian tại các điểm
                 </p>
-                <p className="text-headline-md font-bold text-secondary">
+                <p className="text-title-lg font-bold text-secondary">
                   {formatDuration(totalDuration)}
                 </p>
               </div>
@@ -524,7 +525,7 @@ export default function SavedTripDetailPage() {
               <h3 className="mb-2 text-title-md font-bold text-on-surface">
                 Tóm tắt
               </h3>
-              <p className="text-body-md text-on-surface-variant">
+              <p className="break-words [overflow-wrap:anywhere] text-body-md leading-6 text-on-surface-variant">
                 {trip.summary}
               </p>
               <div className="mt-stack-md flex flex-wrap gap-2">
@@ -550,7 +551,7 @@ export default function SavedTripDetailPage() {
             <section className="relative h-40 overflow-hidden rounded-lg border border-outline-variant/30 shadow-sm">
               <img
                 src={MAP_IMAGE}
-                alt="Ho Chi Minh City map preview"
+                alt="Ảnh minh hoạ bản đồ TP.HCM"
                 className="h-full w-full object-cover"
               />
               <div className="absolute inset-0 flex items-center justify-center bg-black/10">
@@ -561,7 +562,7 @@ export default function SavedTripDetailPage() {
                   className="flex items-center gap-2 rounded-full bg-white/90 px-6 py-2 text-label-md font-bold text-primary shadow-lg backdrop-blur transition-transform active:scale-95"
                 >
                   <span className="material-symbols-outlined">map</span>
-                  Xem trên bản đồ
+                  Mở Google Maps
                 </a>
               </div>
             </section>
@@ -590,7 +591,7 @@ export default function SavedTripDetailPage() {
 
       {deleteTarget && (
         <div role="dialog" aria-modal="true" aria-labelledby="delete-review-title" className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 lg:items-center">
-          <div className="w-full max-w-md space-y-stack-md rounded-t-lg bg-surface p-stack-lg animate-fade-in-up lg:rounded-lg">
+          <div className="max-h-[calc(100dvh-32px)] w-full max-w-md overflow-y-auto space-y-stack-md rounded-t-lg bg-white p-6 motion-reduce:animate-none lg:rounded-lg [&_button]:min-h-11">
             <h3 id="delete-review-title" className="text-title-md font-bold text-on-surface">Xoá đánh giá?</h3>
             <p className="text-body-md text-on-surface-variant">
               Đánh giá của bạn cho <strong>{deleteTarget.placeName}</strong> sẽ bị xoá hẳn và không còn hiện trên trang địa điểm. Bạn có thể đánh giá lại sau.
@@ -612,7 +613,7 @@ export default function SavedTripDetailPage() {
 
       {reviewModal && (
         <div role="dialog" aria-modal="true" aria-labelledby="quick-review-title" className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 lg:items-center">
-          <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-lg bg-surface p-stack-lg space-y-stack-md animate-fade-in-up lg:rounded-lg">
+          <div className="max-h-[calc(100dvh-32px)] w-full max-w-md overflow-y-auto rounded-t-lg bg-white p-6 space-y-stack-md motion-reduce:animate-none lg:rounded-lg [&_button]:min-h-11">
             <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-outline-variant" />
 
             {!reviewDone ? (

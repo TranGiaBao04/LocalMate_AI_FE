@@ -41,9 +41,9 @@ export default function TripRequestAssistant({ title, placeholder, submitLabel, 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="card space-y-2">
-      <label htmlFor={inputId} className="flex items-center gap-1.5 text-title-md font-semibold text-on-surface">
-        <span className="material-symbols-outlined text-[20px] text-primary">auto_awesome</span>
+    <form onSubmit={handleSubmit} aria-busy={loading} className="space-y-3 rounded-[8px] border border-primary/20 bg-white p-4 sm:p-5">
+      <label htmlFor={inputId} className="flex items-start gap-2 text-body-lg font-semibold leading-6 text-navy-dark">
+        <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[22px] text-primary">auto_awesome</span>
         {title}
       </label>
       <textarea
@@ -57,20 +57,21 @@ export default function TripRequestAssistant({ title, placeholder, submitLabel, 
         maxLength={MAX_TEXT_LENGTH}
         rows={2}
         placeholder={placeholder}
-        className="w-full resize-none rounded-DEFAULT bg-surface-container-low p-3 text-body-md placeholder:text-outline-variant focus:outline-none focus:ring-2 focus:ring-primary-container"
+        aria-describedby={`${inputId}-usage`}
+        className="min-h-24 w-full min-w-0 resize-y rounded-[8px] border border-border-soft bg-surface-container-low/40 p-3 text-body-md leading-6 placeholder:text-text-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary"
       />
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-label-md text-on-surface-variant">Mỗi lần gửi tính 1 lượt AI trong ngày.</span>
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+        <span id={`${inputId}-usage`} className="text-[13px] leading-5 text-text-muted">Mỗi lần gửi tính 1 lượt AI trong ngày.</span>
         <button
           type="submit"
           disabled={!canSubmit}
-          className="min-h-10 shrink-0 rounded-full bg-primary px-4 py-2 text-label-md font-bold text-on-primary transition-all active:scale-95 disabled:opacity-50"
+          className="min-h-11 w-full shrink-0 rounded-[8px] bg-primary px-4 py-2.5 text-body-md font-semibold text-on-primary transition-colors hover:bg-navy-dark disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
         >
           {loading ? "AI đang đọc…" : submitLabel}
         </button>
       </div>
-      {message && <p role="status" className="text-label-md text-on-surface-variant">{message}</p>}
-      {error && <p role="alert" className="text-label-md text-error">{error}</p>}
+      {message && <p role="status" className="break-words border-t border-border-soft pt-3 text-body-md leading-6 text-text-muted">{message}</p>}
+      {error && <p role="alert" className="break-words rounded-[8px] border border-error/20 bg-error-container/20 p-3 text-body-md leading-6 text-error">{error}</p>}
     </form>
   );
 }

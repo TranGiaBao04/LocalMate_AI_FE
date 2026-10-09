@@ -57,17 +57,17 @@ function ScheduleNotices({ data }) {
   return (
     <>
       {data.notice && (
-        <p role="status" className="rounded-lg bg-tertiary-container/30 px-4 py-3 text-body-md text-on-surface">
+        <p role="status" className="break-words rounded-[8px] border border-tertiary-container/50 bg-tertiary-container/10 px-4 py-3 text-sm leading-6 text-on-surface">
           📢 {data.notice}
         </p>
       )}
       {!data.isWithinEffectivePeriod && (
-        <p role="status" className="rounded-lg bg-error-container/20 px-4 py-3 text-body-md text-error">
+        <p role="status" className="break-words rounded-[8px] border border-error/20 bg-error-container/20 px-4 py-3 text-sm leading-6 text-error">
           Lịch có thể đã thay đổi, hãy kiểm tra lại với thông báo chính thức.
         </p>
       )}
       {data.precision === "Headway" && (
-        <p className="text-label-md text-on-surface-variant">
+        <p className="text-sm leading-6 text-text-muted">
           Giờ ước tính theo tần suất chạy tàu, có thể lệch thực tế vài phút.
         </p>
       )}
@@ -77,12 +77,12 @@ function ScheduleNotices({ data }) {
 
 function RequestState({ request }) {
   if (request.loading) {
-    return <p role="status" className="text-body-md text-on-surface-variant">Đang tải lịch tàu...</p>;
+    return <p role="status" className="border-y border-border-soft py-6 text-sm text-text-muted">Đang tải lịch tàu...</p>;
   }
   return (
-    <div role="alert" className="flex items-center gap-3 text-body-md text-error">
-      <span>{request.error}</span>
-      <button type="button" onClick={request.retry} className="font-bold underline">
+    <div role="alert" className="flex flex-wrap items-center gap-3 border-y border-border-soft py-4 text-sm text-error">
+      <span className="min-w-0 break-words">{request.error}</span>
+      <button type="button" onClick={request.retry} className="min-h-11 rounded-[8px] px-3 font-semibold underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy">
         Thử lại
       </button>
     </div>
@@ -91,8 +91,8 @@ function RequestState({ request }) {
 
 function StationSelect({ id, label, icon, value, onChange, stations, excludeOrder }) {
   return (
-    <div className="min-w-0 flex-1">
-      <label htmlFor={id} className="mb-1.5 ml-1 block text-label-md font-semibold text-on-surface">
+    <div className="w-full min-w-0 flex-1">
+      <label htmlFor={id} className="mb-2 block text-sm font-medium text-navy-dark">
         {label}
       </label>
       <div className="relative">
@@ -106,7 +106,7 @@ function StationSelect({ id, label, icon, value, onChange, stations, excludeOrde
           id={id}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="w-full cursor-pointer appearance-none truncate rounded-[14px] border-2 border-outline-variant/60 bg-white py-3 pl-11 pr-10 text-body-md font-semibold text-on-surface transition-colors hover:border-primary focus:border-primary focus:outline-none"
+          className="min-h-11 w-full min-w-0 cursor-pointer appearance-none truncate rounded-[8px] border border-border-soft bg-white py-3 pl-11 pr-10 text-sm font-medium text-navy-dark transition-colors hover:border-primary focus:border-primary focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-navy motion-reduce:transition-none"
         >
           {stations
             .filter((s) => s.order !== excludeOrder)
@@ -153,8 +153,8 @@ function JourneyPanel({ stations, today, tomorrowDate, nowMinutes }) {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="card flex items-end gap-3 shadow-md">
+    <div className="space-y-5">
+      <div className="flex flex-col items-start gap-3 border-b border-border-soft pb-5 sm:flex-row sm:items-end">
         <StationSelect
           id="metro-from"
           label="Ga đi"
@@ -168,7 +168,7 @@ function JourneyPanel({ stations, today, tomorrowDate, nowMinutes }) {
           onClick={swap}
           aria-label="Đổi chiều ga đi và ga đến"
           title="Đổi chiều"
-          className="mb-0.5 flex h-12 w-12 flex-none items-center justify-center rounded-full bg-primary text-on-primary shadow-md transition-transform hover:opacity-90 active:scale-95"
+          className="flex h-11 w-11 flex-none self-center items-center justify-center rounded-[8px] border border-border-soft bg-white text-navy hover:bg-chip-bg-alt focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy sm:self-auto"
         >
           <span className="material-symbols-outlined" aria-hidden="true">swap_horiz</span>
         </button>
@@ -186,20 +186,20 @@ function JourneyPanel({ stations, today, tomorrowDate, nowMinutes }) {
       {!data ? (
         <RequestState request={journey} />
       ) : (
-        <section className="card space-y-2">
-          <h2 className="text-title-md font-bold text-on-surface">
+        <section className="min-w-0 space-y-4 rounded-[8px] border border-border-soft bg-white p-5 sm:p-6">
+          <h2 className="break-words text-xl font-bold leading-7 text-navy-dark">
             {data.from.name} → {data.to.name}
           </h2>
-          <p className="flex items-center gap-1.5 text-body-md text-on-surface-variant">
+          <p className="flex flex-wrap items-center gap-1.5 text-sm leading-6 text-text-muted">
             <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">train</span>
             Lên tàu hướng <strong className="text-on-surface">{data.towardStationName}</strong>
           </p>
 
           {ended ? (
             <>
-              <p className="text-body-lg font-semibold text-primary">Đã hết chuyến hôm nay</p>
+              <p className="text-base font-semibold leading-7 text-primary">Đã hết chuyến hôm nay</p>
               {firstTomorrow && (
-                <p className="text-body-md text-on-surface-variant">
+                <p className="break-words text-sm leading-6 text-text-muted">
                   Chuyến đầu ngày mai {toHHmm(firstTomorrow.departure)} → {toHHmm(firstTomorrow.arrival)} (dự kiến)
                 </p>
               )}
@@ -207,12 +207,12 @@ function JourneyPanel({ stations, today, tomorrowDate, nowMinutes }) {
           ) : (
             upcoming.length > 0 && (
               <>
-                <p className="text-body-lg font-semibold text-primary">
+                <p className="break-words text-base font-semibold leading-7 text-primary">
                   {notStarted ? "Chuyến đầu" : "Chuyến kế"} {upcoming[0].departure} → tới {upcoming[0].arrival} (dự kiến)
                   {!notStarted && ` · ${leftText(upcoming[0].minutesLeft)}`}
                 </p>
                 {upcoming.length > 1 && (
-                  <p className="text-body-md text-on-surface-variant">
+                  <p className="break-words text-sm leading-6 text-text-muted">
                     Tiếp theo: {upcoming.slice(1).map((t) => `${t.departure} → ${t.arrival}`).join(" · ")}
                   </p>
                 )}
@@ -220,12 +220,12 @@ function JourneyPanel({ stations, today, tomorrowDate, nowMinutes }) {
             )
           )}
 
-          <p className="text-body-md text-on-surface-variant">
+          <p className="border-t border-border-soft pt-4 text-sm leading-6 text-text-muted">
             {data.stopCount} ga · khoảng {data.travelMinutes} phút
             {headway != null && ` · khoảng ${headway} phút/chuyến`}
           </p>
           {trips.length > 0 && (
-            <p className="text-label-md text-on-surface-variant">
+            <p className="text-xs leading-5 text-text-muted">
               Chuyến đầu {toHHmm(trips[0].departure)} · chuyến cuối {toHHmm(trips.at(-1).departure)} (dự kiến)
             </p>
           )}
@@ -261,12 +261,12 @@ function StationPanel({ stations, today, tomorrowDate, nowMinutes, initialOrder 
     tomorrow.data?.directions.find((d) => d.direction === direction)?.departures[0];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Mobile: vuốt ngang. Desktop: xuống dòng cho đủ 14 ga (chuột không cuộn ngang được khi ẩn thanh cuộn) */}
       <div
         role="group"
         aria-label="Chọn ga Metro"
-        className="hide-scrollbar flex w-full min-w-0 gap-2 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible"
+        className="flex w-full min-w-0 gap-2 overflow-x-auto px-1 pb-3 pt-1 lg:flex-wrap lg:overflow-visible"
       >
         {stations.map((station) => (
           <button
@@ -274,10 +274,10 @@ function StationPanel({ stations, today, tomorrowDate, nowMinutes, initialOrder 
             type="button"
             aria-pressed={station.order === stationOrder}
             onClick={() => setStationOrder(station.order)}
-            className={`flex-none whitespace-nowrap rounded-full px-3.5 py-2 text-label-md font-semibold transition-colors ${
+            className={`min-h-11 flex-none whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy motion-reduce:transition-none ${
               station.order === stationOrder
-                ? "bg-primary text-on-primary"
-                : "border border-outline-variant text-on-surface-variant hover:border-primary"
+                ? "border-navy bg-navy text-white"
+                : "border-border-soft bg-white text-text-muted hover:border-primary"
             }`}
           >
             {String(station.order).padStart(2, "0")} · {station.name}
@@ -290,18 +290,18 @@ function StationPanel({ stations, today, tomorrowDate, nowMinutes, initialOrder 
       ) : (
         <>
           <ScheduleNotices data={data} />
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-5 xl:grid-cols-2">
             {directions.map((d) => (
-              <section key={d.direction} className="card space-y-2">
-                <h2 className="flex items-center gap-2 text-title-md font-bold text-on-surface">
-                  <span className="material-symbols-outlined text-primary" aria-hidden="true">train</span>
+              <section key={d.direction} className="min-w-0 space-y-4 rounded-[8px] border border-border-soft bg-white p-5 sm:p-6">
+                <h2 className="flex items-start gap-2 break-words text-lg font-bold leading-7 text-navy-dark">
+                  <span className="material-symbols-outlined flex-none text-primary" aria-hidden="true">train</span>
                   Hướng {d.towardStationName}
                 </h2>
                 {d.ended ? (
                   <>
-                    <p className="text-body-lg font-semibold text-primary">Đã hết chuyến hôm nay</p>
+                    <p className="text-base font-semibold leading-7 text-primary">Đã hết chuyến hôm nay</p>
                     {firstTomorrow(d.direction) && (
-                      <p className="text-body-md text-on-surface-variant">
+                      <p className="break-words text-sm leading-6 text-text-muted">
                         Chuyến đầu ngày mai lúc {toHHmm(firstTomorrow(d.direction))} (dự kiến)
                       </p>
                     )}
@@ -309,12 +309,12 @@ function StationPanel({ stations, today, tomorrowDate, nowMinutes, initialOrder 
                 ) : (
                   d.upcoming.length > 0 && (
                     <>
-                      <p className="text-body-lg font-semibold text-primary">
+                      <p className="break-words text-base font-semibold leading-7 text-primary">
                         {d.notStarted ? "Chuyến đầu" : "Chuyến kế"} {d.upcoming[0].departure} (dự kiến)
                         {!d.notStarted && ` · ${leftText(d.upcoming[0].minutesLeft)}`}
                       </p>
                       {d.upcoming.length > 1 && (
-                        <p className="text-body-md text-on-surface-variant">
+                        <p className="break-words text-sm leading-6 text-text-muted">
                           Tiếp theo: {d.upcoming.slice(1).map((t) => t.departure).join(" · ")}
                         </p>
                       )}
@@ -322,10 +322,10 @@ function StationPanel({ stations, today, tomorrowDate, nowMinutes, initialOrder 
                   )
                 )}
                 {d.headway != null && (
-                  <p className="text-body-md text-on-surface-variant">Khoảng {d.headway} phút/chuyến</p>
+                  <p className="text-sm leading-6 text-text-muted">Khoảng {d.headway} phút/chuyến</p>
                 )}
                 {d.departures.length > 0 && (
-                  <p className="text-label-md text-on-surface-variant">
+                  <p className="border-t border-border-soft pt-4 text-xs leading-5 text-text-muted">
                     Chuyến đầu {toHHmm(d.departures[0])} · chuyến cuối {toHHmm(d.departures.at(-1))} (dự kiến)
                   </p>
                 )}
@@ -364,15 +364,15 @@ export default function MetroStationsPage() {
     <MobileLayout>
       <PageHeader title="Lịch tàu Metro số 1" />
 
-      <main className="content-shell flex flex-1 flex-col gap-5 px-container-margin pb-28 pt-20 lg:px-8 lg:pb-12">
-        <p className="text-body-md text-on-surface-variant">
+      <main className="content-shell min-w-0 max-w-none flex flex-1 flex-col gap-6 px-container-margin pb-28 pt-20 lg:px-8 lg:pb-12 2xl:max-w-[1680px]">
+        <p className="max-w-[720px] text-sm leading-6 text-text-muted">
           Giờ tàu dự kiến, theo giờ Việt Nam. Lịch ước tính, không phải giờ tàu chạy thật.
         </p>
 
         <div
           role="tablist"
           aria-label="Cách xem lịch tàu"
-          className="flex w-fit gap-1 rounded-full bg-surface-container-high p-1"
+          className="flex w-fit max-w-full gap-1 rounded-[8px] border border-border-soft bg-chip-bg-alt p-1"
         >
           {MODES.map((m) => (
             <button
@@ -381,8 +381,8 @@ export default function MetroStationsPage() {
               role="tab"
               aria-selected={mode === m.id}
               onClick={() => setMode(m.id)}
-              className={`rounded-full px-4 py-2 text-label-md font-semibold transition-colors ${
-                mode === m.id ? "bg-primary text-on-primary" : "text-on-surface-variant"
+              className={`min-h-11 rounded-[8px] px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy motion-reduce:transition-none ${
+                mode === m.id ? "bg-white text-navy" : "text-text-muted hover:bg-white/60"
               }`}
             >
               {m.label}
@@ -391,9 +391,9 @@ export default function MetroStationsPage() {
         </div>
 
         {stationsError ? (
-          <p role="alert" className="text-body-md text-error">Không tải được danh sách ga.</p>
+          <p role="alert" className="border-y border-border-soft py-6 text-sm text-error">Không tải được danh sách ga.</p>
         ) : stations.length === 0 ? (
-          <p role="status" className="text-body-md text-on-surface-variant">Đang tải danh sách ga...</p>
+          <p role="status" className="border-y border-border-soft py-6 text-sm text-text-muted">Đang tải danh sách ga...</p>
         ) : mode === "journey" ? (
           <JourneyPanel stations={stations} {...panelProps} />
         ) : (

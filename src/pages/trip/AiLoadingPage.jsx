@@ -21,40 +21,40 @@ export default function AiLoadingPage() {
   }, []);
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center bg-background px-container-margin">
-      <div className="relative mb-10 flex items-center justify-center">
-        <div className="absolute w-32 h-32 bg-primary-container/30 blur-3xl rounded-full animate-pulse" />
-        <div className="w-28 h-28 rounded-full bg-surface-container-lowest soft-shadow flex items-center justify-center relative z-10">
+    <div aria-labelledby="ai-loading-title" className="mx-auto flex min-h-screen w-full max-w-xl flex-col items-center justify-center bg-background px-4 py-10 sm:px-8">
+      <div aria-hidden="true" className="relative mb-6 flex items-center justify-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-[8px] border border-primary/20 bg-white">
           <span
-            className="material-symbols-outlined text-primary animate-spin-slow"
-            style={{ fontSize: 56, fontVariationSettings: "'FILL' 1" }}
+            className="material-symbols-outlined text-primary animate-spin-slow motion-reduce:animate-none"
+            style={{ fontSize: 40, fontVariationSettings: "'FILL' 1" }}
           >
             auto_awesome
           </span>
         </div>
       </div>
 
-      <h2 className="text-headline-lg-mobile font-bold text-on-surface text-center mb-2">
+      <h2 id="ai-loading-title" className="mb-3 text-center text-[24px] font-bold leading-8 tracking-normal text-navy-dark sm:text-[28px] sm:leading-9">
         LocalMate đang tạo lịch trình...
       </h2>
-      <p className="text-body-md text-on-surface-variant text-center mb-10 max-w-xs">
+      <p className="mb-8 max-w-sm text-center text-body-md leading-6 text-text-muted">
         AI đang phân tích sở thích và tìm những địa điểm phù hợp nhất cho bạn.
       </p>
 
-      <div className="w-full space-y-3">
+      <div aria-label="Các bước xử lý minh hoạ" className="w-full space-y-2">
         {LOADING_STEPS.map((step, i) => (
           <div
             key={i}
-            className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-500 ${
-              i <= currentStep ? "opacity-100" : "opacity-30"
+            className={`flex items-center gap-3 rounded-[8px] border p-3 transition-colors duration-500 motion-reduce:transition-none ${
+              i <= currentStep ? "border-border-soft bg-white" : "border-transparent"
             }`}
           >
             <div
-              className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+              aria-hidden="true"
+              className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-colors motion-reduce:transition-none ${
                 i < currentStep
                   ? "bg-primary"
                   : i === currentStep
-                    ? "bg-primary-container animate-pulse"
+                    ? "bg-primary-container animate-pulse motion-reduce:animate-none"
                     : "bg-surface-container-high"
               }`}
             >
@@ -72,7 +72,7 @@ export default function AiLoadingPage() {
               )}
             </div>
             <span
-              className={`text-body-md ${i === currentStep ? "text-on-surface font-medium" : "text-on-surface-variant"}`}
+              className={`min-w-0 break-words text-body-md leading-6 ${i === currentStep ? "text-on-surface font-medium" : "text-text-muted"}`}
             >
               {step}
             </span>
@@ -80,18 +80,18 @@ export default function AiLoadingPage() {
         ))}
       </div>
 
-      <div className="w-full mt-8 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+      <div aria-hidden="true" className="w-full mt-6 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
         <div
-          className="h-full bg-primary rounded-full transition-all duration-700"
+          className="h-full bg-primary rounded-full transition-all duration-700 motion-reduce:transition-none"
           style={{
             width: `${((currentStep + 1) / LOADING_STEPS.length) * 100}%`,
           }}
         />
       </div>
 
-      <div className="absolute bottom-0 left-0 w-full h-1/4 pointer-events-none opacity-30">
-        <div className="w-full h-full bg-gradient-to-t from-primary-container/20 to-transparent" />
-      </div>
+      <p className="mt-4 text-center text-[13px] leading-5 text-text-muted">
+        Tiến trình minh hoạ. Vui lòng chờ kết quả lịch trình.
+      </p>
     </div>
   );
 }

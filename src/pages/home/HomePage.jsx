@@ -104,15 +104,17 @@ export default function HomePage() {
         <div className="flex flex-none items-center gap-2.5">
           <NotificationBell />
           <button
+            type="button"
+            aria-label="Xem hồ sơ"
             onClick={() => navigate("/profile")}
-            className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-full bg-navy text-sm font-bold text-white active:scale-95"
+            className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-navy text-sm font-bold text-white hover:bg-navy-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
           >
             {initial}
           </button>
         </div>
       </PageHeader>
 
-      <main className="content-shell flex flex-1 flex-col gap-6 px-container-margin pb-28 pt-20 lg:gap-7 lg:px-8 lg:pb-12">
+      <main className="content-shell flex min-w-0 max-w-none flex-1 flex-col gap-8 px-container-margin pb-28 pt-20 lg:px-8 lg:pb-12 2xl:max-w-[1680px]">
         <div className="sm:hidden">
           <HomeSearch />
         </div>
@@ -121,67 +123,60 @@ export default function HomePage() {
         {showGuestTour && <GuestTourCard onDismiss={handleDismissTour} />}
 
         {/* Hero — AI trip planner */}
-        <section className="relative flex flex-col gap-4 overflow-hidden rounded-3xl border border-slate-700/50 bg-navy-darkest p-6 shadow-2xl sm:p-8">
-          <div className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
-
-          <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide text-amber-300 backdrop-blur-md">
-              ★ AI Metro Trip Planner
-            </div>
-          </div>
-
-          <div className="relative z-10">
-            <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-              Xin chào, {firstName} <span className="text-2xl">👋</span>
+        <section aria-labelledby="home-planner-title" className="flex min-w-0 flex-col gap-6 border-b border-border-soft pb-8">
+          <div>
+            <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-navy">
+              <span aria-hidden="true" className="material-symbols-outlined text-xl text-accent-dark">auto_awesome</span>
+              AI Metro Trip Planner
+            </p>
+            <h2 id="home-planner-title" className="break-words text-2xl font-bold leading-8 text-navy-dark sm:text-3xl sm:leading-10">
+              Xin chào, {firstName}
             </h2>
-            <p className="mt-1 max-w-[520px] text-sm text-slate-300 sm:text-base">
+            <p className="mt-3 max-w-[620px] text-sm leading-6 text-text-muted sm:text-base">
               Hôm nay bạn muốn khám phá đâu quanh tuyến Metro Bến Thành – Suối
               Tiên?
             </p>
           </div>
 
-          <div className="relative z-10 grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+          <div>
+            <p className="mb-3 text-xs font-semibold text-text-muted">Ví dụ hành trình</p>
+            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
             {HERO_FIELDS.map((field) => (
               <div
                 key={field.label}
-                className="rounded-2xl border border-white/15 bg-white/10 p-3.5 transition-all hover:bg-white/15"
+                className="min-w-0 border-l-2 border-primary-container pl-3"
               >
-                <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-blue-200">
-                  <span className="material-symbols-outlined text-[16px] text-blue-300">
+                <dt className="mb-2 flex items-start gap-2 text-xs font-medium leading-5 text-text-muted">
+                  <span aria-hidden="true" className="material-symbols-outlined flex-none text-lg text-navy">
                     {field.icon}
                   </span>
                   {field.label}
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-medium text-white">
-                    {field.value}
-                  </span>
-                  <span className="material-symbols-outlined flex-none text-[16px] text-slate-400">
-                    expand_more
-                  </span>
-                </div>
+                </dt>
+                <dd className="break-words text-sm font-semibold leading-6 text-navy-dark">{field.value}</dd>
               </div>
             ))}
+            </dl>
           </div>
 
-          <div className="relative z-10 flex flex-col gap-4 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2 text-xs text-emerald-300">
-              <span className="h-2 w-2 flex-none rounded-full bg-emerald-400" />
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex items-start gap-2 text-xs leading-5 text-text-muted">
+              <span aria-hidden="true" className="material-symbols-outlined flex-none text-lg text-navy">directions_walk</span>
               Tối ưu hoá khoảng cách đi bộ &lt;500m từ ga Metro
             </div>
-            <div className="flex items-center gap-3.5">
+            <div className="flex flex-wrap items-center gap-3">
               <a
                 href="#sample-itineraries"
-                className="text-[13px] font-semibold text-slate-300 underline-offset-4 hover:text-white hover:underline"
+                className="inline-flex min-h-11 items-center rounded-[8px] px-2 text-sm font-semibold text-navy underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
               >
                 Lịch trình mẫu
               </a>
               <button
+                type="button"
                 onClick={() => navigate("/create")}
-                className="group flex items-center gap-[7px] whitespace-nowrap rounded-xl bg-white px-5 py-3 text-[13.5px] font-bold text-navy-darkest shadow-lg transition-all hover:bg-slate-100 hover:shadow-xl active:scale-95"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-[8px] bg-navy px-4 py-3 text-sm font-semibold text-white hover:bg-navy-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
               >
                 Thiết kế lịch trình với AI
-                <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-1">
+                <span aria-hidden="true" className="material-symbols-outlined flex-none text-lg">
                   arrow_forward
                 </span>
               </button>
@@ -190,40 +185,41 @@ export default function HomePage() {
         </section>
 
         {/* Featured experiences */}
-        <section id="sample-itineraries" className="flex scroll-mt-6 flex-col gap-4">
+        <section id="sample-itineraries" className="flex scroll-mt-20 flex-col gap-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-extrabold text-[#111726]">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-bold leading-7 text-navy-dark">
                   Trải nghiệm Metro-friendly nổi bật
                 </h3>
-                <span className="rounded-full bg-chip-bg-alt px-2.5 py-1 text-[11px] font-bold text-navy">
+                <span className="rounded-full bg-chip-bg-alt px-2.5 py-1 text-xs font-medium text-navy">
                   Tuyển chọn
                 </span>
               </div>
-              <p className="mt-1 text-[13px] text-text-muted">
+              <p className="mt-2 text-sm leading-6 text-text-muted">
                 Chọn một lịch trình mẫu để tạo bản nháp bắt đầu từ bây giờ
               </p>
             </div>
             <button
+              type="button"
               onClick={() => navigate("/create")}
-              className="whitespace-nowrap text-[13px] font-bold"
+              className="min-h-11 rounded-[8px] px-2 text-left text-sm font-semibold text-navy hover:bg-chip-bg-alt focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
             >
               Tự thiết kế lịch trình ›
             </button>
           </div>
 
           {curatedLoading ? (
-            <p role="status" className="py-6 text-[13px] text-text-muted">Đang tải lịch trình mẫu...</p>
+            <p role="status" className="border-y border-border-soft py-8 text-sm text-text-muted">Đang tải lịch trình mẫu...</p>
           ) : curatedError ? (
-            <div role="alert" className="flex items-center gap-3 py-6 text-[13px] text-text-muted">
+            <div role="alert" className="flex flex-wrap items-center gap-3 border-y border-border-soft py-6 text-sm text-text-muted">
               <span>Không thể tải lịch trình mẫu.</span>
-              <button type="button" onClick={retryCurated} className="font-bold text-navy underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy">Thử lại</button>
+              <button type="button" onClick={retryCurated} className="min-h-11 rounded-[8px] px-3 font-semibold text-navy underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy">Thử lại</button>
             </div>
           ) : curated.length === 0 ? (
-            <p className="py-6 text-[13px] text-text-muted">Chưa có lịch trình mẫu.</p>
+            <p className="border-y border-border-soft py-8 text-sm text-text-muted">Chưa có lịch trình mẫu.</p>
           ) : (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {curated.map((itinerary) => (
                 <CuratedItineraryCard
                   key={itinerary.id}
@@ -240,26 +236,26 @@ export default function HomePage() {
         {/* Near Metro Line 1 */}
         <section className="flex flex-col gap-4">
           <div>
-            <h3 className="text-lg font-extrabold text-[#111726]">
+            <h3 className="text-lg font-bold leading-7 text-navy-dark">
               Gợi ý gần tuyến Metro số 1
             </h3>
-            <p className="mt-1 text-[13px] text-text-muted">
+            <p className="mt-2 text-sm leading-6 text-text-muted">
               Địa điểm biểu tượng nằm trong bán kính đi bộ thuận tiện từ cửa
               thoát hiểm ga
             </p>
           </div>
 
-          <div role="group" aria-label="Lọc theo ga Metro" className="hide-scrollbar flex gap-2 overflow-x-auto pb-0.5">
+          <div role="group" aria-label="Lọc theo ga Metro" className="flex min-w-0 gap-2 overflow-x-auto px-1 pb-3 pt-1">
             {[{ stationId: null, stationName: "Tất cả ga" }, ...stations].map((station) => (
               <button
                 key={station.stationId ?? "all"}
                 type="button"
                 aria-pressed={station.stationId === activeStationId}
                 onClick={() => setActiveStationId(station.stationId)}
-                className={`flex-none whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-bold transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy motion-reduce:transition-none ${
+                className={`min-h-11 flex-none whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy motion-reduce:transition-none ${
                   station.stationId === activeStationId
-                    ? "bg-navy-dark text-white"
-                    : "bg-chip-bg text-[#3A4256]"
+                    ? "border-navy bg-navy text-white"
+                    : "border-border-soft bg-white text-text-muted hover:bg-chip-bg-alt"
                 }`}
               >
                 {station.stationId === null ? station.stationName : `Ga ${String(station.stationOrder).padStart(2, "0")} ${station.stationName}`}
@@ -268,34 +264,32 @@ export default function HomePage() {
           </div>
 
           {clustersLoading ? (
-            <p role="status" className="py-6 text-[13px] text-text-muted">Đang tải địa điểm gần ga...</p>
+            <p role="status" className="border-y border-border-soft py-8 text-sm text-text-muted">Đang tải địa điểm gần ga...</p>
           ) : clustersError ? (
-            <div role="alert" className="flex items-center gap-3 py-6 text-[13px] text-text-muted">
+            <div role="alert" className="flex flex-wrap items-center gap-3 border-y border-border-soft py-6 text-sm text-text-muted">
               <span>Không thể tải địa điểm gần ga.</span>
-              <button type="button" onClick={retryClusters} className="font-bold text-navy underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy">Thử lại</button>
+              <button type="button" onClick={retryClusters} className="min-h-11 rounded-[8px] px-3 font-semibold text-navy underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy">Thử lại</button>
             </div>
           ) : nearby.length === 0 ? (
-            <p className="py-6 text-[13px] text-text-muted">Chưa có địa điểm ở cụm ga này.</p>
+            <p className="border-y border-border-soft py-8 text-sm text-text-muted">Chưa có địa điểm ở cụm ga này.</p>
           ) : (
-            <div key={activeStationId ?? "all"} className="home-station-panel grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <div key={activeStationId ?? "all"} className="home-station-panel grid grid-cols-2 items-start gap-4 xl:grid-cols-4">
               {nearby.map((place) => (
                 <button
                   key={place.id}
                   type="button"
                   onClick={() => navigate(`/place/${place.id}`)}
-                  className="flex min-w-0 flex-col gap-2.5 text-left transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                  className="group flex min-w-0 flex-col gap-2.5 rounded-[8px] text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
                 >
-                  <div className="relative h-[150px] w-full overflow-hidden rounded-xl bg-surface-variant">
+                  <div className="aspect-[4/3] w-full overflow-hidden rounded-[8px] bg-surface-variant">
                     {place.imageUrl ? (
-                      <img src={place.imageUrl} alt="" className="h-full w-full object-cover" />
+                      <img src={place.imageUrl} alt="" className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none" />
                     ) : (
                       <span aria-hidden="true" className="material-symbols-outlined flex h-full items-center justify-center text-4xl text-navy/30">location_on</span>
                     )}
-                    <span className="absolute left-2 top-2 rounded-full bg-navy-dark px-2 py-[3px] text-[10.5px] font-bold text-white">
-                      Ga {place.stationName}
-                    </span>
                   </div>
-                  <span className="w-full truncate text-[13.5px] font-bold text-[#111726]">{place.name}</span>
+                  <span title={place.name} className="line-clamp-2 w-full break-words text-sm font-semibold leading-6 text-navy-dark">{place.name}</span>
+                  <span className="w-full break-words text-xs leading-5 text-text-muted">Ga {place.stationName}</span>
                 </button>
               ))}
             </div>
@@ -304,10 +298,12 @@ export default function HomePage() {
       </main>
 
       <button
+        type="button"
+        aria-label="Tạo lịch trình"
         onClick={() => navigate("/create")}
-        className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-navy text-white shadow-2xl transition-transform duration-300 active:scale-90 lg:hidden"
+        className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-navy text-white shadow-lg hover:bg-navy-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy lg:hidden"
       >
-        <span className="material-symbols-outlined text-[28px]">add</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-[28px]">add</span>
       </button>
     </MobileLayout>
   );
