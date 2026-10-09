@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { STORAGE_KEYS } from "../constants";
 import { tripService } from "../services/tripService";
 import { useAuth } from "./AuthContext";
@@ -7,23 +7,64 @@ import { useNotifications } from "./NotificationContext";
 const TripContext = createContext(null);
 
 export function TripProvider({ children }) {
-  const { isLoggedIn, isDemo } = useAuth();
+  const { user, isLoggedIn, isDemo, initializing } = useAuth();
+  const owner = !initializing && isLoggedIn && user?.id
+    ? `${isDemo ? "demo" : "user"}:${encodeURIComponent(user.id)}`
+    : null;
+  return (
+    <OwnedTripProvider key={owner ?? "unavailable"} owner={owner} persisted={Boolean(owner) && !isDemo}>
+      {children}
+    </OwnedTripProvider>
+  );
+}
+
+function OwnedTripProvider({ children, owner, persisted }) {
   const { refreshUnreadCount } = useNotifications();
-  const [request, setRequestState] = useState(() => {
+  const scope = useRef({ active: true, generation: 0 });
+  useLayoutEffect(() => {
+    const lifetime = scope.current;
+    lifetime.active = true;
+    lifetime.generation += 1;
+    return () => {
+      lifetime.active = false;
+      lifetime.generation += 1;
+    };
+  }, []);
+
+  const assertActive = (generation = scope.current.generation) => {
+    if (!owner || !scope.current.active || scope.current.generation !== generation) {
+      const error = new Error("Phiên lịch trình đã thay đổi. Vui lòng thử lại trong tài khoản hiện tại.");
+      error.code = "trip_session_changed";
+      throw error;
+    }
+  };
+  const ownedRequest = async (operation) => {
+    const generation = scope.current.generation;
+    assertActive(generation);
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.TRIP_REQUEST);
+      const result = await operation();
+      assertActive(generation);
+      return result;
+    } catch (error) {
+      assertActive(generation);
+      throw error;
+    }
+  };
+  const storageKey = (key) => `${key}:owner:${owner?.slice("user:".length)}`;
+  const readOwned = (key) => {
+    if (!persisted) return null;
+    try {
+      const stored = localStorage.getItem(storageKey(key));
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
     }
+  };
+  const [request, setRequestState] = useState(() => {
+    return readOwned(STORAGE_KEYS.TRIP_REQUEST);
   });
   const [currentTrip, setCurrentTripState] = useState(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.TRIP_DRAFT);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
+    return readOwned(STORAGE_KEYS.TRIP_DRAFT);
   });
   const [savedTrips, setSavedTrips] = useState([]);
   const [tripsLoading, setTripsLoading] = useState(false);
@@ -36,7 +77,7 @@ export function TripProvider({ children }) {
 
   useEffect(() => {
     let active = true;
-    if (!isLoggedIn || isDemo) {
+    if (!persisted) {
       queueMicrotask(() => {
         if (!active) return;
         setSavedTrips([]);
@@ -65,20 +106,25 @@ export function TripProvider({ children }) {
         if (active) setTripsLoaded(true);
       });
     return () => { active = false; };
-  }, [isLoggedIn, isDemo, tripsReloadKey]);
+  }, [persisted, tripsReloadKey]);
 
   const setRequest = (r) => {
+    assertActive();
     setRequestState(r);
-    localStorage.setItem(STORAGE_KEYS.TRIP_REQUEST, JSON.stringify(r));
+    if (persisted) localStorage.setItem(storageKey(STORAGE_KEYS.TRIP_REQUEST), JSON.stringify(r));
   };
 
   const setCurrentTrip = (t) => {
+    assertActive();
     setCurrentTripState(t);
-    if (t) localStorage.setItem(STORAGE_KEYS.TRIP_DRAFT, JSON.stringify(t));
-    else localStorage.removeItem(STORAGE_KEYS.TRIP_DRAFT);
+    if (persisted) {
+      if (t) localStorage.setItem(storageKey(STORAGE_KEYS.TRIP_DRAFT), JSON.stringify(t));
+      else localStorage.removeItem(storageKey(STORAGE_KEYS.TRIP_DRAFT));
+    }
   };
 
   const upsertSavedTrip = (trip) => {
+    assertActive();
     setSavedTrips((prev) => {
       const existing = prev.findIndex((t) => t.id === trip.id);
       if (existing >= 0) {
@@ -90,35 +136,40 @@ export function TripProvider({ children }) {
 
   // Cập nhật trip mới nhất từ server vào currentTrip; chỉ cập nhật savedTrips nếu trip đã có sẵn trong đó
   const syncTrip = (trip) => {
+    assertActive();
     if (currentTrip?.id === trip.id) setCurrentTrip(trip);
     setSavedTrips((prev) => prev.map((t) => (t.id === trip.id ? trip : t)));
     return trip;
   };
 
   const refreshTrip = async (tripId) =>
-    syncTrip(await tripService.getTripById(tripId));
+    syncTrip(await ownedRequest(() => tripService.getTripById(tripId)));
 
   const fetchTrip = async (tripId) => {
-    const trip = await tripService.getTripById(tripId);
+    const trip = await ownedRequest(() => tripService.getTripById(tripId));
     upsertSavedTrip(trip);
     return trip;
   };
 
-  const generateTrip = async (req) => tripService.generateTrip(req);
+  const generateTrip = async (req) => ownedRequest(() => tripService.generateTrip(req));
 
   // AI chỉ đổi câu lý do. Gọi lại GET /trips/{id} để không ghi đè thay đổi người dùng làm trong lúc chờ.
   // Mỗi trip chỉ một lần gọi cùng lúc: BE tính lần đang chờ là 1 lượt của trip, lần gọi chồng lên sẽ nhận
   // 429 ai_trip_limit_reached dù trip chưa hết lượt. Gọi lại khi đang chờ thì nhận đúng promise cũ.
   const explainTrip = (tripId) => {
+    assertActive();
+    const generation = scope.current.generation;
     const pending = explainRequests.current.get(tripId);
     if (pending) return pending;
     const request = (async () => {
       try {
-        await tripService.explainTrip(tripId);
+        await ownedRequest(() => tripService.explainTrip(tripId));
         return await refreshTrip(tripId);
       } finally {
         explainRequests.current.delete(tripId);
-        setExplainingTripIds((ids) => ids.filter((id) => id !== tripId));
+        if (scope.current.active && scope.current.generation === generation) {
+          setExplainingTripIds((ids) => ids.filter((id) => id !== tripId));
+        }
       }
     })();
     explainRequests.current.set(tripId, request);
@@ -127,19 +178,19 @@ export function TripProvider({ children }) {
   };
 
   const saveTrip = async (trip) => {
-    const saved = await tripService.saveTrip(trip.id);
+    const saved = await ownedRequest(() => tripService.saveTrip(trip.id));
     if (currentTrip?.id === saved.id) setCurrentTrip(saved);
     upsertSavedTrip(saved);
     return saved;
   };
 
   const deleteTrip = async (id) => {
-    await tripService.deleteTrip(id);
+    await ownedRequest(() => tripService.deleteTrip(id));
     setSavedTrips((prev) => prev.filter((t) => t.id !== id));
   };
 
   const finalizeTrip = async (tripId, funding = null) => {
-    const updated = await tripService.finalizeTrip(tripId, funding);
+    const updated = await ownedRequest(() => tripService.finalizeTrip(tripId, funding));
     syncTrip(updated);
     upsertSavedTrip(updated);
     // BE tạo thông báo "đã chốt lịch trình"
@@ -148,19 +199,19 @@ export function TripProvider({ children }) {
   };
 
   const replaceItem = async (tripId, itemId, newPlaceId) => {
-    const result = await tripService.replaceItem(tripId, itemId, newPlaceId);
+    const result = await ownedRequest(() => tripService.replaceItem(tripId, itemId, newPlaceId));
     await refreshTrip(tripId);
     return result;
   };
 
   const deleteItem = async (tripId, itemId) => {
-    await tripService.deleteItem(tripId, itemId);
+    await ownedRequest(() => tripService.deleteItem(tripId, itemId));
     const updated = await refreshTrip(tripId);
     return updated.items;
   };
 
   const markVisited = async (tripId, itemId) => {
-    await tripService.markVisited(itemId);
+    await ownedRequest(() => tripService.markVisited(itemId));
     return refreshTrip(tripId);
   };
 
