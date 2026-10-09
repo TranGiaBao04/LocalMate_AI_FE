@@ -592,6 +592,7 @@ export default function CreateTripPage() {
       // Thay /loading trong lịch sử, để nút back ở trang Nháp về wizard chứ không kẹt ở màn hình chờ
       navigate("/draft", { replace: true });
     } catch (err) {
+      if (err?.code === "trip_session_changed") return;
       navigate("/create", {
         replace: true,
         state: {
