@@ -4,6 +4,7 @@ import { useTrip } from "../../context/TripContext";
 import { useAuth } from "../../context/AuthContext";
 import MobileLayout from "../../components/layout/MobileLayout";
 import PageHeader from "../../components/layout/PageHeader";
+import useTripDialogFocus from "../../hooks/useTripDialogFocus";
 import {
   formatCurrencyShort,
   formatRelativeTime,
@@ -23,6 +24,8 @@ export default function MyTripsPage() {
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const deletePending = useRef(false);
+  const createButtonRef = useRef(null);
+  const deleteDialogRef = useTripDialogFocus(Boolean(tripToDelete), createButtonRef);
 
   const confirmDelete = async () => {
     if (!tripToDelete || deletePending.current) return;
@@ -48,6 +51,7 @@ export default function MyTripsPage() {
     <MobileLayout>
       <PageHeader title="Lịch trình cá nhân">
         <button
+          ref={createButtonRef}
           onClick={() => navigate("/create")}
           className="flex min-h-11 shrink-0 items-center gap-1 rounded-[8px] bg-primary px-3 py-2 text-label-md font-bold text-on-primary hover:bg-navy-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-4"
         >
@@ -178,6 +182,8 @@ export default function MyTripsPage() {
       {tripToDelete && (
         <div
           role="dialog"
+          ref={deleteDialogRef}
+          tabIndex={-1}
           aria-modal="true"
           aria-labelledby="delete-trip-title"
           onKeyDown={(event) => {
@@ -191,7 +197,7 @@ export default function MyTripsPage() {
             <p className="break-words text-body-md font-semibold text-on-surface">{tripToDelete.title}</p>
             {deleteError && <p role="alert" className="text-label-md text-error">{deleteError}</p>}
             <div className="flex gap-3">
-              <button type="button" autoFocus disabled={deleting} onClick={() => setTripToDelete(null)} className="flex-1 rounded-full border border-outline-variant py-3 font-semibold text-on-surface-variant disabled:opacity-50">Huỷ</button>
+              <button type="button" data-dialog-initial disabled={deleting} onClick={() => setTripToDelete(null)} className="flex-1 rounded-full border border-outline-variant py-3 font-semibold text-on-surface-variant disabled:opacity-50">Huỷ</button>
               <button type="button" disabled={deleting} onClick={confirmDelete} className="flex-1 rounded-full bg-error py-3 font-semibold text-on-error disabled:opacity-50">{deleting ? "Đang xoá..." : "Xoá lịch trình"}</button>
             </div>
           </div>
