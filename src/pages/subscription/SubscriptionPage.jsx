@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useSubscription } from "../../context/SubscriptionContext";
@@ -24,6 +24,11 @@ import {
 } from "../../utils/subscriptionPaymentSession";
 
 export default function SubscriptionPage() {
+  const { user, isDemo, isLoggedIn, initializing } = useAuth();
+  return <SubscriptionPageSession key={JSON.stringify([user?.id, isDemo, isLoggedIn, initializing])} />;
+}
+
+function SubscriptionPageSession() {
   const navigate = useNavigate();
   const { user, isDemo, isLoggedIn } = useAuth();
   const {
@@ -39,6 +44,12 @@ export default function SubscriptionPage() {
   } = useSubscription();
 
   const [actionLoading, setActionLoading] = useState(false);
+  const activeRef = useRef(false);
+  const checkoutLock = useRef(false);
+  useLayoutEffect(() => {
+    activeRef.current = true;
+    return () => { activeRef.current = false; };
+  }, []);
   const [pageError, setPageError] = useState("");
   const [pageSuccess, setPageSuccess] = useState("");
 
@@ -96,7 +107,7 @@ export default function SubscriptionPage() {
 
       try {
         const order = await subscriptionService.getOrder(session.orderId);
-        if (!active) return;
+        if (!active || !activeRef.current) return;
 
         if (order?.status === PAYMENT_ORDER_STATUS.PENDING) {
           const resumedIntent = {
@@ -145,7 +156,7 @@ export default function SubscriptionPage() {
           clearSubscriptionPaymentSession(user.id);
         }
       } catch (err) {
-        if (!active) return;
+        if (!active || !activeRef.current) return;
         // 404: đơn hàng không tồn tại hoặc khác chủ sở hữu -> xoá session an toàn
         if (err?.status === 404 || err?.code === "payment_order_not_found") {
           clearSubscriptionPaymentSession(user.id);
@@ -179,7 +190,8 @@ export default function SubscriptionPage() {
 
   // Xác nhận tạo đơn hàng thanh toán sau khi người dùng đồng ý với báo giá hiển thị
   const handleConfirmQuote = async (planCode) => {
-    if (isDemo || !planCode) return;
+    if (isDemo || !planCode || checkoutLock.current || !activeRef.current) return;
+    checkoutLock.current = true;
     setPageError("");
     setPageSuccess("");
     setActionLoading(true);
@@ -187,6 +199,7 @@ export default function SubscriptionPage() {
     try {
       // Backend POST /subscription/checkout: chỉ gửi { planCode }
       const response = await subscriptionService.checkout(planCode);
+      if (!activeRef.current) return;
       clearQuote();
 
       // Dữ liệu từ phản hồi checkout là authoritative - bảo lưu toàn bộ các trường server trả về
@@ -215,6 +228,7 @@ export default function SubscriptionPage() {
         setIsPaymentModalOpen(true);
       }
     } catch (err) {
+      if (!activeRef.current) return;
       const code = extractErrorCode(err);
 
       // Xử lý 409 Conflict: pending_order_exists, another_pending_order, payment_review_required
@@ -233,6 +247,8 @@ export default function SubscriptionPage() {
           } catch {
             // Bỏ qua lỗi mạng tức thời để hiển thị modal tra cứu an toàn
           }
+
+          if (!activeRef.current) return;
 
           if (order?.status === PAYMENT_ORDER_STATUS.PAID) {
             clearSubscriptionPaymentSession(user?.id);
@@ -293,13 +309,15 @@ export default function SubscriptionPage() {
         setPageError(err.message || "Không thể khởi tạo giao dịch thanh toán.");
       }
     } finally {
-      setActionLoading(false);
+      checkoutLock.current = false;
+      if (activeRef.current) setActionLoading(false);
     }
   };
 
   // Xử lý gia hạn gói hiện tại
   const handleRenew = async () => {
-    if (isDemo || !isPaidSubscription(subscription)) return;
+    if (isDemo || !isPaidSubscription(subscription) || checkoutLock.current || !activeRef.current) return;
+    checkoutLock.current = true;
     setPageError("");
     setPageSuccess("");
     setActionLoading(true);
@@ -307,6 +325,7 @@ export default function SubscriptionPage() {
     try {
       // Backend trả về HTTP 201 Created kèm CreatePaymentResponseDto
       const response = await subscriptionService.renew();
+      if (!activeRef.current) return;
       const intent = {
         orderId: response.orderId,
         planCode: subscription?.plan,
@@ -332,6 +351,7 @@ export default function SubscriptionPage() {
         setIsPaymentModalOpen(true);
       }
     } catch (err) {
+      if (!activeRef.current) return;
       const code = extractErrorCode(err);
 
       if (
@@ -347,6 +367,8 @@ export default function SubscriptionPage() {
           } catch {
             // Bỏ qua lỗi mạng tức thời để hiển thị modal tra cứu an toàn
           }
+
+          if (!activeRef.current) return;
 
           if (order?.status === PAYMENT_ORDER_STATUS.PAID) {
             clearSubscriptionPaymentSession(user?.id);
@@ -396,7 +418,8 @@ export default function SubscriptionPage() {
         setPageError(err.message || "Không thể thực hiện gia hạn lúc này.");
       }
     } finally {
-      setActionLoading(false);
+      checkoutLock.current = false;
+      if (activeRef.current) setActionLoading(false);
     }
   };
 
@@ -443,7 +466,7 @@ export default function SubscriptionPage() {
       </PageHeader>
 
       {/* Main Content */}
-      <main className="content-shell flex-1 px-container-margin pt-20 lg:px-8 max-w-5xl mx-auto w-full space-y-8 pb-28 lg:pb-12">
+      <main className="content-shell flex-1 px-container-margin pt-24 lg:px-8 max-w-6xl mx-auto w-full min-w-0 space-y-8 pb-28 lg:pb-12 [&_button]:min-h-11 [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-primary">
         {/* Demo Account Banner */}
         {isDemo && (
           <div className="card border border-amber-300 bg-amber-50/80 p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -482,7 +505,7 @@ export default function SubscriptionPage() {
 
         {/* Global Page Error */}
         {(subscriptionError || pageError || (plansError && plans.length > 0)) && !isDemo && (
-          <div className="card border border-error/30 bg-error/5 p-4 rounded-xl flex items-center justify-between gap-3 text-body-md text-error">
+          <div role="alert" className="border border-error/30 bg-error/5 p-4 rounded-[8px] flex flex-wrap items-center justify-between gap-3 text-body-md text-error">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-[20px]">
                 error
@@ -504,7 +527,7 @@ export default function SubscriptionPage() {
 
         {/* Global Page Success */}
         {pageSuccess && (
-          <div className="card border border-emerald-300 bg-emerald-50 p-4 rounded-xl flex items-center justify-between gap-3 text-body-md text-emerald-800">
+          <div role="status" className="border border-emerald-300 bg-emerald-50 p-4 rounded-[8px] flex flex-wrap items-center justify-between gap-3 text-body-md text-emerald-800">
             <div className="flex items-center gap-2">
               <span
                 className="material-symbols-outlined text-[20px] text-emerald-600"
@@ -556,11 +579,11 @@ export default function SubscriptionPage() {
           </div>
 
           {plansLoading && plans.length === 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div role="status" aria-label="Đang tải gói cước" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
               {[1, 2, 3].map((n) => (
                 <div
                   key={n}
-                  className="card h-80 animate-pulse bg-surface-container-high rounded-3xl"
+                  className="h-80 animate-pulse bg-surface-container-high rounded-[8px]"
                 />
               ))}
             </div>
@@ -589,8 +612,16 @@ export default function SubscriptionPage() {
                 Thử lại
               </button>
             </div>
+          ) : !plansLoading && plans.length === 0 ? (
+            <div role="status" className="border-y border-outline-variant/40 py-8 text-center space-y-3">
+              <p className="text-body-md text-on-surface-variant">Chưa có gói cước khả dụng.</p>
+              <button type="button" onClick={refreshPlans} className="inline-flex items-center gap-2 text-primary font-semibold">
+                <span aria-hidden="true" className="material-symbols-outlined text-[20px]">refresh</span>
+                Tải lại danh sách gói
+              </button>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-stretch">
               {plans.map((plan) => (
                 <PlanCard
                   key={plan.code}
@@ -607,7 +638,7 @@ export default function SubscriptionPage() {
         </section>
 
         {/* Support & Notes Info */}
-        <section className="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-5 text-body-md text-on-surface-variant space-y-2">
+        <section className="border-t border-outline-variant/40 pt-5 text-body-md text-on-surface-variant space-y-2">
           <div className="flex items-center gap-2 font-semibold text-on-surface">
             <span className="material-symbols-outlined text-primary text-[20px]">
               help_outline

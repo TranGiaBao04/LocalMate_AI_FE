@@ -72,8 +72,8 @@ function SinglePaymentReturn({ ownerId, orderId, attemptId, draftTripId, openChe
     state === "EXPIRED" ? "Giao dịch mua lịch trình đã hết hạn" :
     state === "PAYMENT_READY" || state === "PREPARING" ? "Giao dịch đang chờ thanh toán" :
     reading ? "Đang kiểm tra đơn hàng đã sở hữu..." : "Thông tin thanh toán lịch trình";
-  return <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
-    <div className="w-full max-w-md rounded-lg bg-surface p-6 border border-outline-variant/30 shadow-xl text-center space-y-5">
+  return <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 [&_button]:min-h-11 [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-primary">
+    <div aria-live="polite" className="w-full max-w-lg rounded-[8px] bg-surface p-5 sm:p-8 border border-outline-variant/40 shadow-sm text-center space-y-5 break-words">
       <span className={`material-symbols-outlined text-[40px] ${state === "ENTITLEMENT_GRANTED" ? "text-emerald-600" : "text-primary"}`}>
         {state === "ENTITLEMENT_GRANTED" ? "check_circle" : reading ? "progress_activity" : "info"}
       </span>
@@ -153,6 +153,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
     setPrevTargetScope(targetScope);
     setOrder(null);
     setError("");
+    setLoading(Boolean(targetOrderId));
   }
 
   // Luôn tra cứu đơn hàng từ server cho cả luồng return và cancel
@@ -167,6 +168,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
         const data = await subscriptionService.getOrder(orderId);
         if (!active) return;
         setOrder(data);
+        setError("");
 
         if (data?.status === PAYMENT_ORDER_STATUS.PAID) {
           refreshSubscription();
@@ -195,6 +197,8 @@ export default function PaymentReturnPage({ mode = "success" }) {
   }, [targetOrderId, flow, user?.id, refreshSubscription, stopPolling, retryTrigger]);
 
   const handleRetryLookup = () => {
+    setLoading(true);
+    setError("");
     setRetryTrigger((prev) => prev + 1);
   };
 
@@ -210,8 +214,8 @@ export default function PaymentReturnPage({ mode = "success" }) {
   />;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-md rounded-3xl bg-surface p-8 border border-outline-variant/30 shadow-xl text-center space-y-6">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 [&_button]:rounded-[8px] [&_button]:min-h-11 [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-primary">
+      <div aria-live="polite" className="w-full max-w-lg rounded-[8px] bg-surface p-5 sm:p-8 border border-outline-variant/40 shadow-sm text-center space-y-6 break-words">
         {loading ? (
           <div className="py-12 space-y-4">
             <span className="material-symbols-outlined text-primary text-[48px] animate-spin">
