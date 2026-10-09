@@ -3,7 +3,7 @@ export default function MobileLayout({
   className = "",
 }) {
   return (
-    <div className={`app-shell flex flex-col ${className}`}>
+    <div className={`app-shell flex min-w-0 flex-col ${className}`}>
       {children}
     </div>
   );

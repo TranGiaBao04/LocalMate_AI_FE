@@ -58,8 +58,8 @@ function LegInfo({ leg, fromOrigin }) {
   if (leg.mode !== "Metro") {
     const mode = LEG_MODES[leg.mode] ?? LEG_MODES.Motorbike;
     return (
-      <p className="mb-1 text-label-md text-on-surface-variant flex items-center gap-1">
-        <span className="material-symbols-outlined text-[14px]">{mode.icon}</span>
+      <p className="mb-3 flex flex-wrap items-center gap-1.5 break-words text-[13px] leading-5 text-text-muted">
+        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{mode.icon}</span>
         {mode.label} {leg.totalMinutes} phút{suffix}
         {leg.fallback === "metro_unavailable" && " · đã hết chuyến tàu nên tính theo xe máy"}
       </p>
@@ -74,9 +74,9 @@ function LegInfo({ leg, fromOrigin }) {
     leg.walkMinutes > 0 && `đi bộ ${leg.walkMinutes} phút`,
   ].filter(Boolean);
   return (
-    <div className="mb-1 rounded bg-secondary/5 px-2 py-1 text-label-md">
-      <p className="flex items-center gap-1 font-medium text-secondary">
-        <span className="material-symbols-outlined text-[14px]">train</span>
+    <div className="mb-3 space-y-2 break-words rounded-[8px] border border-secondary/20 bg-secondary/5 p-3 text-[13px] leading-5">
+      <p className="flex flex-wrap items-center gap-1.5 font-semibold text-secondary">
+        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">train</span>
         Metro {leg.boardStation.name} → {leg.alightStation.name} · {leg.totalMinutes} phút{suffix}
       </p>
       <p className="text-on-surface-variant">Gồm: {parts.join(" · ")}. Giờ tàu là dự kiến.</p>
@@ -296,10 +296,11 @@ function DraftItineraryPageInner() {
 
   if (!currentTrip) {
     return (
-      <div className="app-shell flex flex-col items-center justify-center gap-4 px-container-margin">
+      <div className="app-shell flex min-w-0 flex-col items-center justify-center gap-5 px-4 text-center">
         <span
           className="material-symbols-outlined text-primary"
-          style={{ fontSize: 64 }}
+          aria-hidden="true"
+          style={{ fontSize: 40 }}
         >
           map_search
         </span>
@@ -310,7 +311,7 @@ function DraftItineraryPageInner() {
         </p>
         <button
           onClick={() => navigate("/create")}
-          className="btn-primary w-auto px-8"
+          className="min-h-11 rounded-[8px] bg-primary px-6 py-3 font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           Tạo lịch trình
         </button>
@@ -319,34 +320,35 @@ function DraftItineraryPageInner() {
   }
 
   return (
-    <div className="app-shell flex flex-col">
-      <header className="app-header flex h-16 items-center justify-between border-b border-outline-variant/20 px-container-margin py-stack-sm lg:px-8">
+    <div className="app-shell flex min-w-0 flex-col">
+      <header className="app-header flex h-16 items-center justify-between gap-3 border-b border-border-soft !bg-white px-4 py-2 sm:px-6 lg:px-8">
         <button
+          aria-label="Quay lại"
           onClick={() => navigate(-1)}
-          className="w-9 h-9 rounded-full hover:bg-surface-container-high flex items-center justify-center"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] hover:bg-primary/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
         >
           <span className="material-symbols-outlined text-on-surface-variant">
             arrow_back
           </span>
         </button>
-        <h1 className="text-title-md font-semibold text-on-surface">
+        <h1 className="min-w-0 text-body-md font-semibold leading-5 text-navy-dark sm:text-title-md">
           Lịch trình đề xuất
         </h1>
-        <div className="px-3 py-1 bg-tertiary-container/30 text-tertiary rounded-full">
+        <div className="shrink-0 rounded-[4px] border border-tertiary/20 bg-tertiary-container/20 px-2.5 py-1 text-tertiary">
           <span className="text-label-md font-bold">Nháp</span>
         </div>
       </header>
 
-      <main className="content-shell flex-1 space-y-stack-md px-container-margin pb-32 pt-20 lg:px-8">
-        <div className="card bg-gradient-to-br from-primary/5 to-primary-container/10 border-primary/20">
-          <h2 className="text-title-md font-bold text-on-surface mb-1">
+      <main className="content-shell !mx-auto !max-w-[960px] min-w-0 flex-1 space-y-6 px-4 pb-36 pt-24 sm:px-6 lg:px-8">
+        <div className="space-y-3 border-b border-border-soft pb-6">
+          <h2 className="break-words text-[24px] font-bold leading-8 tracking-normal text-navy-dark sm:text-[28px] sm:leading-9">
             {currentTrip.title}
           </h2>
-          <p className="text-body-md text-on-surface-variant mb-stack-md">
+          <p className="break-words text-body-md leading-6 text-text-muted">
             {currentTrip.summary}
           </p>
 
-          <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="grid grid-cols-3 gap-2 border-y border-border-soft py-4 sm:gap-4">
             {[
               { icon: "schedule", label: `${currentTrip.durationHours} tiếng` },
               {
@@ -357,12 +359,12 @@ function DraftItineraryPageInner() {
             ].map((item) => (
               <div
                 key={item.icon}
-                className="bg-surface-container-lowest rounded-DEFAULT p-2"
+                className="min-w-0 space-y-1"
               >
-                <span className="material-symbols-outlined text-primary text-[18px]">
+                <span aria-hidden="true" className="material-symbols-outlined text-primary text-[20px]">
                   {item.icon}
                 </span>
-                <p className="text-label-md font-bold text-on-surface mt-0.5">
+                <p className="break-words text-[13px] font-semibold leading-5 text-navy-dark sm:text-body-md">
                   {item.label}
                 </p>
               </div>
@@ -419,9 +421,9 @@ function DraftItineraryPageInner() {
               type="button"
               onClick={handleExplain}
               disabled={explaining || explainLocked}
-              className="flex min-h-10 items-center gap-1 rounded-full border border-primary px-4 py-2 text-label-md font-bold text-primary transition-all active:scale-95 disabled:opacity-60"
+              className="flex min-h-11 max-w-full items-center gap-2 rounded-[8px] border border-primary bg-white px-4 py-2.5 text-body-md font-semibold text-primary transition-colors hover:bg-primary/5 disabled:opacity-60 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">auto_awesome</span>
               {explaining
                 ? "AI đang viết…"
                 : currentTrip.aiExplainedAt
@@ -432,16 +434,16 @@ function DraftItineraryPageInner() {
               {currentTrip.aiExplainedAt ? "Lý do do AI viết. " : ""}Mỗi lần tính 1 lượt AI trong ngày.
             </span>
             {explainError && (
-              <p role="alert" className="w-full text-label-md text-error">{explainError}</p>
+              <p role="alert" className="w-full break-words text-body-md leading-6 text-error">{explainError}</p>
             )}
           </div>
         )}
 
         <div className="space-y-0">
           {currentTrip.items.map((item, idx) => (
-            <div key={item.id} className="flex gap-3">
+            <div key={item.id} className="flex min-w-0 gap-3 sm:gap-4">
               <div className="flex flex-col items-center">
-                <div className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-1">
+                <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-semibold text-on-primary">
                   {idx + 1}
                 </div>
                 {idx < currentTrip.items.length - 1 && (
@@ -449,7 +451,7 @@ function DraftItineraryPageInner() {
                 )}
               </div>
 
-              <div className="flex-1 mb-4">
+              <div className="mb-6 min-w-0 flex-1">
                 {item.leg ? (
                   <LegInfo leg={item.leg} fromOrigin={idx === 0} />
                 ) : (
@@ -473,22 +475,22 @@ function DraftItineraryPageInner() {
                     )}
                   </>
                 )}
-                <div className="card space-y-2">
-                  <div className="flex items-start justify-between">
-                    <div>
+                <div className="space-y-3 rounded-[8px] border border-border-soft bg-white p-4 sm:p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1 basis-40">
                       <span className="text-label-md text-primary font-bold">
                         {item.time}
                       </span>
-                      <h3 className="text-body-md font-bold text-on-surface leading-tight">
+                      <h3 className="mt-1 break-words text-body-lg font-semibold leading-6 text-navy-dark">
                         {item.placeName}
                       </h3>
                     </div>
-                    <span className="px-2 py-0.5 bg-primary-container/15 text-on-primary-container text-[10px] rounded-full font-bold ml-2 flex-shrink-0">
+                    <span className="max-w-full break-words rounded-[4px] bg-primary/5 px-2 py-1 text-[12px] font-medium leading-5 text-primary">
                       {item.placeCategory}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-3 text-on-surface-variant">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-on-surface-variant">
                     <span className="flex items-center gap-1 text-label-md">
                       <span className="material-symbols-outlined text-[14px]">
                         schedule
@@ -508,7 +510,7 @@ function DraftItineraryPageInner() {
                     <p className="text-label-md text-on-surface-variant italic">AI đang viết…</p>
                   ) : (
                     item.reason && (
-                      <p className="text-label-md text-on-surface-variant italic">
+                      <p className="break-words border-l-2 border-primary/20 pl-3 text-[13px] leading-6 text-text-muted">
                         "{item.reason}"
                       </p>
                     )
@@ -527,23 +529,24 @@ function DraftItineraryPageInner() {
                     }
                     currentStop={item}
                     travelMode={mapsTravelMode(currentTrip, item)}
+                    className="!flex-wrap !gap-2 !space-x-0 [&>div]:min-w-0 [&>div]:break-words [&_button]:min-h-11 [&_button]:focus-visible:outline [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-primary"
                   />
 
                   {item.travelNote && (
-                    <div className="flex items-center gap-1.5 bg-secondary/5 rounded px-2 py-1">
+                    <div className="flex items-start gap-2 rounded-[8px] bg-secondary/5 p-3">
                       <span className="material-symbols-outlined text-secondary text-[14px]">
                         train
                       </span>
-                      <span className="text-label-md text-secondary">
+                      <span className="min-w-0 break-words text-[13px] leading-5 text-secondary">
                         {item.travelNote}
                       </span>
                     </div>
                   )}
 
-                  <div className="flex gap-2 pt-1">
+                  <div className="flex flex-wrap gap-2 border-t border-border-soft pt-3">
                     <button
                       onClick={() => navigate(`/place/${item.placeId}`)}
-                      className="flex-1 py-2 bg-primary text-on-primary rounded-full text-label-md font-bold flex items-center justify-center gap-1 active:scale-95 transition-all"
+                      className="flex min-h-11 min-w-0 flex-1 basis-28 items-center justify-center gap-1 rounded-[8px] bg-primary px-2 py-2 text-[13px] font-semibold text-on-primary transition-colors hover:bg-navy-dark motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                     >
                       <span className="material-symbols-outlined text-[14px]">
                         info
@@ -552,7 +555,7 @@ function DraftItineraryPageInner() {
                     </button>
                     <button
                       onClick={() => navigate(`/replace/${item.id}`)}
-                      className="flex-1 py-2 border border-outline-variant text-on-surface-variant rounded-full text-label-md font-bold flex items-center justify-center gap-1 active:scale-95 transition-all hover:border-primary hover:text-primary"
+                      className="flex min-h-11 min-w-0 flex-1 basis-20 items-center justify-center gap-1 rounded-[8px] border border-border-soft px-2 py-2 text-[13px] font-semibold text-primary transition-colors hover:border-primary motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                     >
                       <span className="material-symbols-outlined text-[14px]">
                         swap_horiz
@@ -563,7 +566,7 @@ function DraftItineraryPageInner() {
                       onClick={() => handleDeleteItem(item.id)}
                       disabled={deletingItemId === item.id}
                       aria-label="Xoá địa điểm"
-                      className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full border border-error/40 text-error active:scale-95 transition-all disabled:opacity-60"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] border border-error/30 text-error transition-colors hover:bg-error/5 disabled:opacity-60 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-error"
                     >
                       <span className="material-symbols-outlined text-[18px]">
                         delete
@@ -577,7 +580,7 @@ function DraftItineraryPageInner() {
         </div>
 
         {deleteError && (
-          <p className="text-label-md text-error bg-error-container/10 rounded-lg px-3 py-2">
+          <p role="alert" className="break-words rounded-[8px] border border-error/20 bg-error-container/10 px-4 py-3 text-body-md leading-6 text-error">
             {deleteError}
           </p>
         )}
@@ -593,17 +596,17 @@ function DraftItineraryPageInner() {
         )}
       </main>
 
-      <div className="app-footer flex gap-3 border-t border-outline-variant/20 px-container-margin py-stack-md lg:px-8">
+      <div className="app-footer flex min-h-20 gap-3 border-t border-border-soft !bg-white px-4 py-3 sm:px-6 lg:px-8">
         <button
           onClick={() => navigate("/create")}
-          className="flex-1 py-3 border border-primary text-primary rounded-full font-semibold text-button active:scale-95 transition-all flex items-center justify-center gap-1"
+          className="flex min-h-12 min-w-0 flex-1 items-center justify-center gap-1 rounded-[8px] border border-border-soft px-2 py-3 text-body-md font-semibold text-primary transition-colors hover:bg-primary/5 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
         >
           <span className="material-symbols-outlined text-[18px]">refresh</span>
           Tạo lại
         </button>
         <button
           onClick={handleOpenFinalizeModal}
-          className="flex-1 py-3 bg-primary text-on-primary rounded-full font-semibold text-button active:scale-95 transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-1"
+          className="flex min-h-12 min-w-0 flex-1 items-center justify-center gap-1 rounded-[8px] bg-primary px-2 py-3 text-body-md font-semibold text-on-primary transition-colors hover:bg-navy-dark motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
         >
           Chốt lịch trình
           <span className="material-symbols-outlined text-[18px]">
@@ -613,11 +616,11 @@ function DraftItineraryPageInner() {
       </div>
 
       {toastMessage && (
-        <div className="fixed bottom-24 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-3 rounded-full bg-inverse-surface px-6 py-3 text-inverse-on-surface shadow-2xl">
+        <div role="status" className="fixed bottom-24 left-1/2 z-[60] flex w-max max-w-[calc(100%-32px)] -translate-x-1/2 items-center gap-3 rounded-[8px] bg-inverse-surface px-4 py-3 text-inverse-on-surface shadow-sm">
           <span className="material-symbols-outlined text-primary-container">
             check_circle
           </span>
-          <span className="text-label-md font-medium">{toastMessage}</span>
+          <span className="min-w-0 break-words text-[13px] font-medium leading-5">{toastMessage}</span>
         </div>
       )}
 
@@ -633,13 +636,13 @@ function DraftItineraryPageInner() {
             : null;
 
         return (
-          <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">
-            <div role="dialog" aria-label="Chốt lịch trình" className="w-full max-w-md bg-surface rounded-t-lg p-stack-lg space-y-stack-md animate-fade-in-up lg:rounded-lg max-h-[92vh] overflow-y-auto">
-              <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6">
+            <div role="dialog" aria-label="Chốt lịch trình" className="max-h-[92dvh] w-full max-w-lg space-y-5 overflow-y-auto overscroll-contain rounded-t-[8px] border border-border-soft bg-white p-5 text-body-md leading-6 shadow-lg animate-fade-in-up motion-reduce:animate-none sm:rounded-[8px] sm:p-6 [&_button]:min-h-11 [&_button]:min-w-0 [&_button]:break-words [&_button]:rounded-[8px] [&_button]:focus-visible:outline [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-offset-2 [&_button]:focus-visible:outline-primary [&_button]:motion-reduce:transition-none">
+              <div aria-hidden="true" className="mx-auto mb-2 h-1 w-10 rounded-full bg-border-soft sm:hidden" />
 
               {(loadingAvailability || !availability) && <div role="status" className="space-y-2 text-center">
                 <p>{loadingAvailability ? "Đang kiểm tra hạn mức và lượt mua lẻ..." : "Chưa thể tải thông tin khả dụng."}</p>
-                {!loadingAvailability && <button type="button" onClick={fetchAvailability} className="rounded-lg border px-4 py-2">Tải lại thông tin khả dụng</button>}
+                {!loadingAvailability && <button type="button" onClick={fetchAvailability} className="rounded-[8px] border border-border-soft px-4 py-2 text-primary">Tải lại thông tin khả dụng</button>}
               </div>}
 
               {isExhausted && unusedCount > 0 ? (
@@ -652,7 +655,7 @@ function DraftItineraryPageInner() {
                     Lịch trình này sẽ được lưu vĩnh viễn và không bị tính vào giới hạn gói.
                   </p>
 
-                  <div className="card space-y-1">
+                  <div className="space-y-2 break-words border-y border-border-soft py-4">
                     <p className="text-body-md text-on-surface">
                       📍 {currentTrip.mainArea}
                     </p>
@@ -665,8 +668,8 @@ function DraftItineraryPageInner() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-1.5 text-left">
-                    <div className="flex items-center gap-2 text-primary font-semibold text-body-sm">
+                  <div className="space-y-3 rounded-[8px] border border-primary/20 bg-primary/5 p-4 text-left">
+                    <div className="flex items-start gap-2 text-primary font-semibold text-body-md">
                       <span className="material-symbols-outlined text-[20px]">
                         confirmation_number
                       </span>
@@ -674,24 +677,24 @@ function DraftItineraryPageInner() {
                         Bạn đang có {unusedCount} lượt mua lẻ chưa sử dụng
                       </span>
                     </div>
-                    <p className="text-body-xs text-on-surface-variant leading-relaxed">
+                    <p className="break-words text-[13px] leading-6 text-text-muted">
                       Bạn đã dùng hết lượt lưu theo gói hiện tại{quotaDisplay ? ` (${quotaDisplay} lịch trình)` : ""}.
                       Bạn có thể sử dụng 1 lượt mua lẻ để chốt lịch trình này ngay.
                     </p>
                   </div>
 
                   {finalizeError && finalizeErrorCode !== "saved_trip_quota_exceeded" && (
-                    <p role="alert" className="text-label-md text-error bg-error-container/10 rounded-lg px-3 py-2">
+                    <p role="alert" className="break-words rounded-[8px] border border-error/20 bg-error-container/10 px-3 py-2 text-body-md text-error">
                       {finalizeError}
                     </p>
                   )}
 
-                  <div className="flex gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row">
                     <button
                       type="button"
                       onClick={handleCloseFinalizeModal}
                       disabled={finalizing}
-                      className="flex-1 py-3 border border-outline-variant text-on-surface-variant rounded-full font-semibold active:scale-95 transition-all disabled:opacity-50"
+                      className="flex-1 border border-border-soft px-4 py-3 font-semibold text-primary transition-colors hover:bg-primary/5 disabled:opacity-50"
                     >
                       Quay lại
                     </button>
@@ -699,7 +702,7 @@ function DraftItineraryPageInner() {
                       type="button"
                       onClick={() => handleFinalizeWithSingleEntitlement()}
                       disabled={finalizing || availableEntitlements.length === 0 || loadingAvailability}
-                      className="flex-1 py-3 bg-primary text-on-primary rounded-full font-semibold active:scale-95 transition-all shadow-lg shadow-primary/30 disabled:opacity-60 flex items-center justify-center gap-1.5"
+                      className="flex flex-1 items-center justify-center gap-1.5 bg-primary px-4 py-3 font-semibold text-on-primary transition-colors hover:bg-navy-dark disabled:opacity-60"
                     >
                       {finalizing ? "Đang chốt..." : "Dùng 1 lượt để chốt"}
                     </button>
@@ -715,7 +718,7 @@ function DraftItineraryPageInner() {
                     Gói hiện tại của bạn đã đạt giới hạn số lịch trình được lưu.
                   </p>
 
-                  <div className="card space-y-1">
+                  <div className="space-y-2 break-words border-y border-border-soft py-4">
                     <p className="text-body-md text-on-surface">
                       📍 {currentTrip.mainArea}
                     </p>
@@ -730,13 +733,13 @@ function DraftItineraryPageInner() {
 
                   <div
                     role="alert"
-                    className="rounded-xl border border-error/20 bg-error-container/10 p-stack-md space-y-3"
+                    className="space-y-4 rounded-[8px] border border-error/20 bg-error-container/10 p-4"
                   >
                     <div className="flex items-start gap-2">
                       <span className="material-symbols-outlined text-error text-[20px] shrink-0 mt-0.5">
                         folder_off
                       </span>
-                      <div className="space-y-1">
+                      <div className="min-w-0 space-y-2 break-words">
                         <p className="font-semibold text-body-md text-error">
                           {finalizeError || "Bạn đã đạt giới hạn lịch trình được lưu của gói hiện tại."}
                         </p>
@@ -747,7 +750,7 @@ function DraftItineraryPageInner() {
                     </div>
 
                     {quotaDisplay && (
-                      <div className="bg-surface rounded-lg p-3 text-body-sm border border-outline-variant/10 flex justify-between text-on-surface">
+                      <div className="flex flex-wrap justify-between gap-2 rounded-[8px] border border-border-soft bg-white p-3 text-body-md text-on-surface">
                         <span>Đã lưu:</span>
                         <span className="font-semibold">
                           {quotaDisplay} lịch trình
@@ -764,7 +767,7 @@ function DraftItineraryPageInner() {
                           setShowSinglePurchaseModal(true);
                         }}
                         disabled={loadingAvailability || !canPurchaseSingle(availability)}
-                        className="w-full py-2.5 px-4 bg-primary text-on-primary rounded-full font-semibold text-label-md flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-sm disabled:opacity-50"
+                        className="flex w-full items-center justify-center gap-2 bg-primary px-4 py-3 text-body-md font-semibold text-on-primary transition-colors hover:bg-navy-dark disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[18px]">
                           shopping_bag
@@ -779,7 +782,7 @@ function DraftItineraryPageInner() {
                           setShowFinalizeModal(false);
                           navigate("/subscription");
                         }}
-                        className="w-full py-2.5 px-4 bg-surface-container-high text-on-surface rounded-full font-semibold text-label-md flex items-center justify-center gap-2 hover:bg-surface-container-highest transition-all"
+                        className="flex w-full items-center justify-center gap-2 border border-border-soft bg-white px-4 py-3 text-body-md font-semibold text-primary transition-colors hover:bg-primary/5"
                       >
                         <span className="material-symbols-outlined text-[18px]">
                           workspace_premium
@@ -792,7 +795,7 @@ function DraftItineraryPageInner() {
                   <button
                     type="button"
                     onClick={handleCloseFinalizeModal}
-                    className="w-full py-3 border border-outline-variant text-on-surface-variant rounded-full font-semibold active:scale-95 transition-all"
+                    className="w-full border border-border-soft px-4 py-3 font-semibold text-primary transition-colors hover:bg-primary/5"
                   >
                     Quay lại
                   </button>
@@ -807,7 +810,7 @@ function DraftItineraryPageInner() {
                     Lịch trình sẽ được lưu và sẵn sàng sử dụng.
                   </p>
 
-                  <div className="card space-y-1">
+                  <div className="space-y-2 break-words border-y border-border-soft py-4">
                     <p className="text-body-md text-on-surface">
                       📍 {currentTrip.mainArea}
                     </p>
@@ -821,7 +824,7 @@ function DraftItineraryPageInner() {
                   </div>
 
                   {unusedCount > 0 && (
-                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 flex items-center gap-2.5 text-on-surface-variant text-body-sm text-left">
+                    <div className="flex items-start gap-2.5 rounded-[8px] border border-primary/20 bg-primary/5 p-4 text-left text-body-md text-on-surface-variant">
                       <span className="material-symbols-outlined text-primary text-[20px] shrink-0">
                         info
                       </span>
@@ -836,17 +839,17 @@ function DraftItineraryPageInner() {
                   )}
 
                   {finalizeError && (
-                    <p role="alert" className="text-label-md text-error bg-error-container/10 rounded-lg px-3 py-2">
+                    <p role="alert" className="break-words rounded-[8px] border border-error/20 bg-error-container/10 px-3 py-2 text-body-md text-error">
                       {finalizeError}
                     </p>
                   )}
 
-                  <div className="flex gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row">
                     <button
                       type="button"
                       onClick={handleCloseFinalizeModal}
                       disabled={finalizing}
-                      className="flex-1 py-3 border border-outline-variant text-on-surface-variant rounded-full font-semibold active:scale-95 transition-all disabled:opacity-50"
+                      className="flex-1 border border-border-soft px-4 py-3 font-semibold text-primary transition-colors hover:bg-primary/5 disabled:opacity-50"
                     >
                       Quay lại
                     </button>
@@ -854,7 +857,7 @@ function DraftItineraryPageInner() {
                       type="button"
                       onClick={handleFinalize}
                       disabled={finalizing || loadingAvailability || availability?.normalFinalizeAvailable !== true}
-                      className="flex-1 py-3 bg-primary text-on-primary rounded-full font-semibold active:scale-95 transition-all shadow-lg shadow-primary/30 disabled:opacity-60"
+                      className="flex-1 bg-primary px-4 py-3 font-semibold text-on-primary transition-colors hover:bg-navy-dark disabled:opacity-60"
                     >
                       {finalizing ? "Đang chốt..." : "Chốt lịch trình"}
                     </button>

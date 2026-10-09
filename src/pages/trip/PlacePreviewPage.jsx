@@ -31,7 +31,7 @@ function PlaceDetail({ placeId }) {
   if (loading) {
     return (
       <div className="app-shell flex items-center justify-center">
-        <p className="text-body-lg text-on-surface-variant">Đang tải...</p>
+        <p role="status" className="px-5 text-sm leading-6 text-text-muted">Đang tải...</p>
       </div>
     );
   }
@@ -39,7 +39,7 @@ function PlaceDetail({ placeId }) {
   if (!place) {
     return (
       <div className="app-shell flex items-center justify-center">
-        <p className="text-body-lg text-on-surface-variant">
+        <p className="px-5 text-sm leading-6 text-text-muted">
           Không tìm thấy địa điểm.
         </p>
       </div>
@@ -48,27 +48,31 @@ function PlaceDetail({ placeId }) {
 
   return (
     <div className="app-shell flex flex-col">
-      <header className="app-header flex h-16 items-center gap-3 border-b border-outline-variant/20 px-container-margin py-stack-sm lg:px-8">
+      <header className="app-header flex h-16 items-center gap-3 border-b border-border-soft px-container-margin lg:px-8">
         <button
+          type="button"
+          aria-label="Quay lại"
           onClick={() => navigate(-1)}
-          className="w-9 h-9 rounded-full hover:bg-surface-container-high flex items-center justify-center"
+          className="flex h-11 w-11 flex-none items-center justify-center rounded-[8px] text-navy hover:bg-chip-bg-alt focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
         >
-          <span className="material-symbols-outlined text-on-surface-variant">
+          <span aria-hidden="true" className="material-symbols-outlined">
             arrow_back
           </span>
         </button>
 
-        <h1 className="text-title-md font-semibold text-on-surface flex-1 truncate">
+        <h1 title={place.name} className="min-w-0 flex-1 truncate text-lg font-semibold leading-7 text-navy-dark">
           {place.name}
         </h1>
 
-        <span className="px-3 py-1 bg-primary-container/20 text-on-primary-container text-label-md font-bold rounded-full">
+        <span title={place.category} className="max-w-[112px] flex-none rounded-[8px] bg-chip-bg-alt px-2 py-1 text-xs font-medium leading-5 text-navy">
+          <span className="line-clamp-2 break-words">
           {place.category}
+          </span>
         </span>
       </header>
 
-      <main className="content-shell flex-1 space-y-stack-md px-container-margin pb-32 pt-20 lg:px-8">
-        <div className="relative h-48 w-full overflow-hidden rounded-lg bg-surface-container-high lg:h-80">
+      <main className="content-shell min-w-0 max-w-none flex-1 space-y-6 px-container-margin pb-60 pt-20 lg:px-8 2xl:max-w-[1680px]">
+        <div className="relative h-48 w-full overflow-hidden rounded-[8px] bg-surface-variant lg:h-80">
           {place.imageUrl ? (
             <img
               src={place.imageUrl}
@@ -78,6 +82,7 @@ function PlaceDetail({ placeId }) {
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <span
+                aria-hidden="true"
                 className="material-symbols-outlined text-primary"
                 style={{ fontSize: 72, fontVariationSettings: "'FILL' 1" }}
               >
@@ -87,16 +92,17 @@ function PlaceDetail({ placeId }) {
           )}
 
           {place.matchScore && (
-            <div className="absolute top-3 right-3 bg-primary text-on-primary px-3 py-1 rounded-full text-label-md font-bold">
+            <div className="absolute right-3 top-3 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-on-primary">
               {place.matchScore}% phù hợp
             </div>
           )}
         </div>
 
+        <h2 className="break-words text-2xl font-bold leading-8 text-navy-dark">{place.name}</h2>
         <PlaceBadges place={place} />
         <PlaceRatingSummary averageRating={place.averageRating} reviewCount={place.reviewCount} />
 
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-4 border-y border-border-soft py-5 sm:grid-cols-2 xl:grid-cols-4">
           {[
             { icon: "location_on", label: "Địa chỉ", value: place.address },
             {
@@ -124,41 +130,37 @@ function PlaceDetail({ placeId }) {
             .map((item) => (
               <div
                 key={item.label}
-                className="card flex items-center gap-2 p-3"
+                className="min-w-0"
               >
-                <span className="material-symbols-outlined text-primary text-[20px]">
-                  {item.icon}
-                </span>
-                <div>
-                  <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">
+                  <dt className="flex items-center gap-2 text-xs leading-5 text-text-muted">
+                    <span aria-hidden="true" className="material-symbols-outlined flex-none text-xl text-primary">{item.icon}</span>
                     {item.label}
-                  </p>
-                  <p className="text-body-md font-semibold text-on-surface">
+                  </dt>
+                  <dd className="mt-1 break-words text-sm font-medium leading-6 text-navy-dark">
                     {item.value}
-                  </p>
-                </div>
+                  </dd>
               </div>
             ))}
-        </div>
+        </dl>
 
         {place.description && (
-          <p className="text-body-md text-on-surface-variant">
+          <p className="whitespace-pre-line break-words text-sm leading-7 text-text-muted">
             {place.description}
           </p>
         )}
 
         <div className="flex flex-wrap gap-2">
           {place.tags.map((tag) => (
-            <span key={tag.id} className="chip text-label-md">
+            <span key={tag.id} className="max-w-full break-words rounded-full border border-border-soft bg-white px-3 py-1.5 text-xs leading-5 text-navy">
               {tag.name}
             </span>
           ))}
         </div>
 
         {place.insights?.length > 0 && (
-          <div className="card space-y-stack-sm">
-            <h3 className="text-title-md font-bold text-on-surface flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[20px]">
+          <div className="space-y-4 border-t border-border-soft pt-5">
+            <h3 className="flex items-start gap-2 text-lg font-bold leading-7 text-navy-dark">
+              <span aria-hidden="true" className="material-symbols-outlined flex-none text-xl text-primary">
                 auto_awesome
               </span>
               Vì sao LocalMate đề xuất?
@@ -168,9 +170,10 @@ function PlaceDetail({ placeId }) {
               {place.insights.map((insight, i) => (
                 <li
                   key={i}
-                  className="flex items-start gap-2 text-body-md text-on-surface-variant"
+                  className="flex items-start gap-2 break-words text-sm leading-6 text-text-muted"
                 >
                   <span
+                    aria-hidden="true"
                     className="material-symbols-outlined text-primary-container text-[16px] mt-0.5 flex-shrink-0"
                     style={{ fontVariationSettings: "'FILL' 1" }}
                   >
@@ -184,16 +187,16 @@ function PlaceDetail({ placeId }) {
         )}
 
         {place.notes?.length > 0 && (
-          <div className="card border-tertiary-container/30 bg-tertiary-container/10 space-y-2">
-            <h3 className="text-label-md font-bold text-tertiary uppercase tracking-wider flex items-center gap-1">
-              <span className="material-symbols-outlined text-[16px]">
+          <div className="space-y-3 rounded-[8px] border border-tertiary-container/40 bg-tertiary-container/10 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-on-tertiary-container">
+              <span aria-hidden="true" className="material-symbols-outlined text-lg">
                 info
               </span>
               Lưu ý
             </h3>
 
             {place.notes.map((note, i) => (
-              <p key={i} className="text-body-md text-on-surface-variant">
+              <p key={i} className="break-words text-sm leading-6 text-on-surface-variant">
                 • {note}
               </p>
             ))}
@@ -201,9 +204,9 @@ function PlaceDetail({ placeId }) {
         )}
 
         {/* SPEC-03 / FE-68: Nhúng Google Maps Preview */}
-        <div className="space-y-2">
-          <h3 className="text-title-md font-bold text-on-surface flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-[20px]">
+        <div className="min-w-0 space-y-4">
+          <h3 className="flex items-center gap-2 text-lg font-bold leading-7 text-navy-dark">
+            <span aria-hidden="true" className="material-symbols-outlined text-xl text-primary">
               map
             </span>
             Vị trí trên bản đồ
@@ -225,7 +228,7 @@ function PlaceDetail({ placeId }) {
         />
       </main>
 
-      <div className="app-footer space-y-2 border-t border-outline-variant/20 px-container-margin py-stack-md lg:px-8">
+      <div className="app-footer space-y-3 border-t border-border-soft px-container-margin py-3 lg:px-8">
         {/* SPEC-03 / FE-65 & FE-67: chỉ đường từ vị trí hiện tại của người dùng tới địa điểm */}
         <GoogleMapsButton
           destLat={place.latitude}
@@ -234,22 +237,24 @@ function PlaceDetail({ placeId }) {
           destPlaceId={place.googlePlaceId}
           variant="primary"
           size="lg"
-          className="w-full text-button"
+          className="min-h-11 w-full !rounded-[8px] text-sm !shadow-none motion-reduce:transition-none motion-reduce:transform-none"
         >
           Mở Google Maps chỉ đường
         </GoogleMapsButton>
 
-        <div className="flex gap-3">
+        <div className="flex items-stretch gap-3">
           <button
+            type="button"
             onClick={() => navigate(-1)}
-            className="flex-1 py-3 border border-primary text-primary rounded-full font-semibold text-button active:scale-95 transition-all"
+            className="min-h-11 min-w-0 flex-1 rounded-[8px] border border-border-soft bg-white px-3 py-3 text-sm font-semibold leading-5 text-navy hover:bg-chip-bg-alt focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
           >
             Giữ trong lịch trình
           </button>
 
           <button
+            type="button"
             onClick={() => navigate(-1)}
-            className="flex-1 py-3 bg-primary text-on-primary rounded-full font-semibold text-button active:scale-95 transition-all shadow-lg shadow-primary/30"
+            className="min-h-11 min-w-0 flex-1 rounded-[8px] bg-navy px-3 py-3 text-sm font-semibold leading-5 text-white hover:bg-navy-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
           >
             Quay lại timeline
           </button>

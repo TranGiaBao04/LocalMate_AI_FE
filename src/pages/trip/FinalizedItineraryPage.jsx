@@ -20,7 +20,7 @@ export default function FinalizedItineraryPage() {
 
   if (!currentTrip) {
     return (
-      <div className="app-shell flex items-center justify-center">
+      <div className="app-shell flex min-w-0 items-center justify-center px-4 text-center">
         <p className="text-body-lg text-on-surface-variant">
           Không có lịch trình.
         </p>
@@ -72,44 +72,45 @@ export default function FinalizedItineraryPage() {
   };
 
   return (
-    <div className="app-shell flex flex-col">
-      <header className="app-header flex h-16 items-center justify-between border-b border-outline-variant/20 px-container-margin py-stack-sm lg:px-8">
+    <div className="app-shell flex min-w-0 flex-col">
+      <header className="app-header flex h-16 items-center justify-between gap-3 border-b border-border-soft !bg-white px-4 py-2 sm:px-6 lg:px-8">
         <button
+          aria-label="Về trang chủ"
           onClick={() => navigate("/home")}
-          className="w-9 h-9 rounded-full hover:bg-surface-container-high flex items-center justify-center"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] hover:bg-primary/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
         >
           <span className="material-symbols-outlined text-on-surface-variant">
             home
           </span>
         </button>
-        <h1 className="text-title-md font-semibold text-on-surface">
+        <h1 className="min-w-0 text-body-md font-semibold leading-5 text-navy-dark sm:text-title-md">
           Lịch trình đã chốt
         </h1>
-        <div className="px-3 py-1 bg-primary/10 text-primary rounded-full">
+        <div className="shrink-0 rounded-[4px] border border-primary/20 bg-primary/5 px-2 py-1 text-primary">
           <span className="text-label-md font-bold">✓ Finalized</span>
         </div>
       </header>
 
-      <main className="content-shell flex-1 space-y-stack-md px-container-margin pb-36 pt-20 lg:px-8">
-        <div className="card bg-gradient-to-br from-primary to-primary-container text-on-primary">
-          <h2 className="text-title-md font-bold mb-1">{currentTrip.title}</h2>
+      <main className="content-shell !mx-auto !max-w-[960px] min-w-0 flex-1 space-y-6 px-4 pb-64 pt-24 sm:px-6 lg:px-8">
+        <div className="space-y-4 border-b border-border-soft pb-6 text-navy-dark">
+          <h2 className="break-words text-[24px] font-bold leading-8 tracking-normal sm:text-[28px] sm:leading-9">{currentTrip.title}</h2>
 
-          <div className="flex items-center gap-4 mt-2 flex-wrap">
-            <span className="flex items-center gap-1 text-label-md opacity-90">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3 text-text-muted">
+            <span className="flex max-w-full flex-wrap items-center gap-1.5 text-body-md">
               <span className="material-symbols-outlined text-[14px]">
                 schedule
               </span>
               {currentTrip.durationHours} tiếng
             </span>
 
-            <span className="flex items-center gap-1 text-label-md opacity-90">
+            <span className="flex max-w-full flex-wrap items-center gap-1.5 text-body-md">
               <span className="material-symbols-outlined text-[14px]">
                 payments
               </span>
               ~{formatCurrencyShort(currentTrip.estimatedBudget)}/người
             </span>
 
-            <span className="flex items-center gap-1 text-label-md opacity-90">
+            <span className="flex max-w-full flex-wrap items-center gap-1.5 text-body-md">
               <span className="material-symbols-outlined text-[14px]">
                 place
               </span>
@@ -117,7 +118,7 @@ export default function FinalizedItineraryPage() {
             </span>
 
             {currentTrip.metroFriendly && (
-              <span className="flex items-center gap-1 text-label-md opacity-90">
+              <span className="flex max-w-full flex-wrap items-center gap-1.5 text-body-md text-secondary">
                 <span className="material-symbols-outlined text-[14px]">
                   train
                 </span>
@@ -130,10 +131,10 @@ export default function FinalizedItineraryPage() {
         <div className="space-y-0">
           {currentTrip.items.map((item, idx) => {
             return (
-              <div key={item.id} className="flex gap-3">
+              <div key={item.id} className="flex min-w-0 gap-3 sm:gap-4">
                 <div className="flex flex-col items-center">
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-1 ${item.isVisited ? "bg-primary-container text-on-primary-container" : "bg-primary text-on-primary"}`}
+                    className={`mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${item.isVisited ? "bg-primary-container text-on-primary-container" : "bg-primary text-on-primary"}`}
                   >
                     {item.isVisited ? (
                       <span
@@ -152,24 +153,24 @@ export default function FinalizedItineraryPage() {
                   )}
                 </div>
 
-                <div className="flex-1 mb-4">
-                  <div className="card space-y-2">
-                    <div className="flex items-start justify-between">
-                      <div>
+                <div className="mb-6 min-w-0 flex-1">
+                  <div className="space-y-3 rounded-[8px] border border-border-soft bg-white p-4 sm:p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1 basis-40">
                         <span className="text-label-md text-primary font-bold">
                           {item.time}
                         </span>
-                        <h3 className="text-body-md font-bold text-on-surface">
+                        <h3 className="mt-1 break-words text-body-lg font-semibold leading-6 text-navy-dark">
                           {item.placeName}
                         </h3>
                       </div>
 
-                      <span className="px-2 py-0.5 bg-primary-container/15 text-on-primary-container text-[10px] rounded-full font-bold ml-2 flex-shrink-0">
+                      <span className="max-w-full break-words rounded-[4px] bg-primary/5 px-2 py-1 text-[12px] font-medium leading-5 text-primary">
                         {item.placeCategory}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-on-surface-variant">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-on-surface-variant">
                       <span className="flex items-center gap-1 text-label-md">
                         <span className="material-symbols-outlined text-[14px]">
                           schedule
@@ -185,7 +186,7 @@ export default function FinalizedItineraryPage() {
                       </span>
                     </div>
 
-                    <div className="flex gap-2 pt-1">
+                    <div className="flex flex-wrap gap-2 border-t border-border-soft pt-3">
                       {item.latitude && item.longitude && (
                         <a
                           href={buildDirectionsUrl({
@@ -196,7 +197,7 @@ export default function FinalizedItineraryPage() {
                           })}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex-1 py-2 bg-secondary/10 text-secondary rounded-full text-label-md font-bold flex items-center justify-center gap-1 active:scale-95 transition-all"
+                          className="flex min-h-11 min-w-0 flex-1 basis-24 items-center justify-center gap-1 rounded-[8px] border border-secondary/20 bg-secondary/5 px-2 py-2 text-[13px] font-semibold text-secondary transition-colors hover:bg-secondary/10 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-secondary"
                         >
                           <span className="material-symbols-outlined text-[14px]">
                             map
@@ -207,7 +208,7 @@ export default function FinalizedItineraryPage() {
 
                       <button
                         onClick={() => navigate(`/trips/${currentTrip.id}`)}
-                        className="flex-1 py-2 border border-outline-variant text-on-surface-variant rounded-full text-label-md font-bold flex items-center justify-center gap-1 active:scale-95 hover:border-primary hover:text-primary transition-all"
+                        className="flex min-h-11 min-w-0 flex-1 basis-24 items-center justify-center gap-1 rounded-[8px] border border-border-soft px-2 py-2 text-[13px] font-semibold text-primary transition-colors hover:border-primary motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                       >
                         <span className="material-symbols-outlined text-[14px]">
                           thumb_up
@@ -223,20 +224,20 @@ export default function FinalizedItineraryPage() {
         </div>
       </main>
 
-      <div className="app-footer space-y-2 border-t border-outline-variant/20 px-container-margin py-stack-md lg:px-8">
+      <div className="app-footer max-h-[45dvh] space-y-3 overflow-y-auto border-t border-border-soft !bg-white px-4 py-3 sm:px-6 lg:px-8">
         {saveError && (
-          <div role="alert" className="flex items-center justify-between gap-3 text-label-md text-error bg-error-container/10 p-2.5 rounded-lg">
-            <span>{saveError}</span>
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-[8px] border border-error/20 bg-error-container/10 p-3 text-[13px] leading-5 text-error">
+            <span className="min-w-0 flex-1 basis-48 break-words">{saveError}</span>
             {saveErrorCode === "saved_trip_quota_exceeded" ? (
               <button
                 type="button"
                 onClick={() => navigate("/subscription")}
-                className="shrink-0 font-bold underline text-primary"
+                className="min-h-11 shrink-0 rounded-[4px] px-2 font-semibold text-primary underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
               >
                 Nâng cấp
               </button>
             ) : isDemo ? (
-              <button type="button" onClick={() => navigate("/login")} className="shrink-0 font-bold underline">
+              <button type="button" onClick={() => navigate("/login")} className="min-h-11 shrink-0 rounded-[4px] px-2 font-semibold underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
                 Đăng nhập
               </button>
             ) : null}
@@ -245,7 +246,7 @@ export default function FinalizedItineraryPage() {
         <div className="flex gap-3">
           <button
             onClick={handleShare}
-            className="flex-1 py-3 border border-primary text-primary rounded-full font-semibold text-button active:scale-95 transition-all flex items-center justify-center gap-1"
+            className="flex min-h-12 min-w-0 flex-1 items-center justify-center gap-1 rounded-[8px] border border-border-soft px-2 py-3 text-body-md font-semibold text-primary transition-colors hover:bg-primary/5 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
           >
             <span className="material-symbols-outlined text-[18px]">
               {copied ? "check" : "share"}
@@ -256,7 +257,7 @@ export default function FinalizedItineraryPage() {
           <button
             onClick={handleSave}
             disabled={alreadySaved || saving}
-            className={`flex-1 py-3 rounded-full font-semibold text-button active:scale-95 transition-all shadow-lg flex items-center justify-center gap-1 disabled:opacity-70 ${alreadySaved ? "bg-primary-container text-on-primary-container" : "bg-primary text-on-primary shadow-primary/30"}`}
+            className={`flex min-h-12 min-w-0 flex-1 items-center justify-center gap-1 rounded-[8px] px-2 py-3 text-body-md font-semibold transition-colors disabled:opacity-70 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${alreadySaved ? "bg-primary-container text-on-primary-container" : "bg-primary text-on-primary"}`}
           >
             <span className="material-symbols-outlined text-[18px]">
               {alreadySaved ? "bookmark" : "bookmark_add"}
@@ -267,15 +268,15 @@ export default function FinalizedItineraryPage() {
       </div>
 
       {showSaveModal && (
-        <div role="dialog" aria-modal="true" aria-labelledby="save-trip-title" className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">
-          <div className="w-full max-w-md bg-surface rounded-t-lg p-stack-lg space-y-stack-md animate-fade-in-up lg:rounded-lg">
-            <div className="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-2" />
+        <div role="dialog" aria-modal="true" aria-labelledby="save-trip-title" className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6">
+          <div className="max-h-[92dvh] w-full max-w-lg space-y-5 overflow-y-auto overscroll-contain rounded-t-[8px] border border-border-soft bg-white p-5 animate-fade-in-up motion-reduce:animate-none sm:rounded-[8px] sm:p-6">
+            <div aria-hidden="true" className="mx-auto mb-2 h-1 w-10 rounded-full bg-border-soft sm:hidden" />
 
             <div className="text-center">
-              <div className="w-16 h-16 bg-primary-container/20 rounded-full flex items-center justify-center mx-auto mb-3">
+              <div aria-hidden="true" className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-[8px] border border-primary/20 bg-primary/5">
                 <span
                   className="material-symbols-outlined text-primary"
-                  style={{ fontSize: 36, fontVariationSettings: "'FILL' 1" }}
+                  style={{ fontSize: 28, fontVariationSettings: "'FILL' 1" }}
                 >
                   bookmark
                 </span>
@@ -288,10 +289,10 @@ export default function FinalizedItineraryPage() {
               </p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={() => setShowSaveModal(false)}
-                className="flex-1 py-3 border border-outline-variant text-on-surface-variant rounded-full font-semibold active:scale-95"
+                className="min-h-11 flex-1 rounded-[8px] border border-border-soft px-4 py-3 font-semibold text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
               >
                 Ở lại lịch trình
               </button>
@@ -301,7 +302,7 @@ export default function FinalizedItineraryPage() {
                   setShowSaveModal(false);
                   navigate("/trips");
                 }}
-                className="flex-1 py-3 bg-primary text-on-primary rounded-full font-semibold active:scale-95"
+                className="min-h-11 flex-1 rounded-[8px] bg-primary px-4 py-3 font-semibold text-on-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
               >
                 Xem My Trips
               </button>
