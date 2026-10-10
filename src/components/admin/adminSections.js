@@ -37,6 +37,17 @@ export const ADMIN_SECTIONS = [
     tone: "bg-teal-50 text-teal-700",
   },
   {
+    path: "curated-itineraries",
+    navLabel: "Lịch trình mẫu",
+    navGroup: "Dữ liệu Metro",
+    label: "Lịch trình mẫu",
+    group: "Dữ liệu Metro",
+    icon: "route",
+    permissions: [P.MANAGE_PLACES],
+    description: "Tạo, sửa, xoá lịch trình mẫu hiện ở trang Khám phá.",
+    tone: "bg-indigo-50 text-indigo-700",
+  },
+  {
     path: "plans",
     navLabel: "Gói thành viên",
     navGroup: "Kinh doanh",
