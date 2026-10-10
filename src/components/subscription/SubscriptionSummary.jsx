@@ -8,7 +8,7 @@ import {
 export default function SubscriptionSummary({ subscription, loading, onRenew, plans = [] }) {
   if (loading) {
     return (
-      <div className="card animate-pulse space-y-4" data-testid="subscription-summary-loading">
+      <div role="status" aria-label="Đang tải thông tin gói" className="animate-pulse space-y-4 py-5" data-testid="subscription-summary-loading">
         <div className="h-6 w-32 bg-surface-container-high rounded" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="h-20 bg-surface-container-high rounded" />
@@ -25,7 +25,8 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
   if (!isFree && !isPaid) {
     return (
       <div
-        className="card space-y-3 border border-outline-variant/30 bg-surface p-6 text-center"
+        role="status"
+        className="space-y-3 border-b border-outline-variant/30 py-6 text-center"
         data-testid="subscription-summary-unavailable"
       >
         <div className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center mx-auto text-on-surface-variant">
@@ -77,15 +78,15 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
     : "Lượt tạo lịch trình";
 
   return (
-    <div className="card space-y-5 border border-outline-variant/30 bg-gradient-to-br from-surface to-surface-container-lowest shadow-sm">
+    <div className="space-y-5 min-w-0 border-b border-outline-variant/40 pb-7">
       {/* Header & Badges */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/20 pb-4">
         <div>
-          <span className="text-label-md font-semibold text-on-surface-variant uppercase tracking-wider">
+          <span className="text-label-md font-semibold text-on-surface-variant">
             Gói của bạn
           </span>
-          <div className="flex items-center gap-2.5 mt-1">
-            <h2 className="text-headline-md font-bold text-on-surface">
+          <div className="flex flex-wrap items-center gap-2.5 mt-1">
+            <h2 className="text-2xl font-bold text-on-surface break-words">
               {planDisplayName}
             </h2>
             <span
@@ -165,7 +166,7 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
       {/* Quota Usage Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
         {/* Lượt tạo lịch trình */}
-        <div className="rounded-2xl border border-outline-variant/20 bg-surface p-4 space-y-2">
+        <div className="border-l-2 border-primary/30 pl-4 py-2 space-y-2 min-w-0">
           <div className="flex items-center justify-between text-label-md text-on-surface-variant">
             <span>{generatePeriodLabel}</span>
             <span className="material-symbols-outlined text-primary text-[18px]">
@@ -191,7 +192,7 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
         </div>
 
         {/* Lịch trình đã chốt */}
-        <div className="rounded-2xl border border-outline-variant/20 bg-surface p-4 space-y-2">
+        <div className="border-l-2 border-emerald-600/30 pl-4 py-2 space-y-2 min-w-0">
           <div className="flex items-center justify-between text-label-md text-on-surface-variant">
             <span>Lịch trình đã chốt</span>
             <span className="material-symbols-outlined text-primary text-[18px]">

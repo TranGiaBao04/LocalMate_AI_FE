@@ -20,7 +20,9 @@ export default function PlanCard({
   // Duration text
   const durationText = plan.durationDays
     ? `${plan.durationDays} ngày`
-    : "Không thời hạn";
+    : plan.durationDays === null ? "Không thời hạn" : "Chưa có thời hạn";
+  const priceText = typeof plan.price === "number" && Number.isFinite(plan.price) && plan.price >= 0
+    ? formatPlanPrice(plan.price) : "Chưa có giá";
 
   // Quota benefits
   const generateBenefit =
@@ -133,25 +135,18 @@ export default function PlanCard({
   };
 
   return (
-    <div
-      className={`rounded-3xl p-6 sm:p-7 flex flex-col justify-between transition-all relative ${
+    <article
+      className={`rounded-[8px] min-w-0 p-5 sm:p-6 flex flex-col justify-between relative [&_button]:rounded-[8px] [&_button]:min-h-11 [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-primary ${
         isMembership
-          ? "border-2 border-primary bg-gradient-to-b from-blue-50/40 via-surface to-surface shadow-lg shadow-blue-500/10"
+          ? "border-2 border-primary bg-surface shadow-sm"
           : isTripPass
             ? "border border-outline-variant/60 bg-surface shadow-sm hover:shadow-md"
             : "border border-outline-variant/40 bg-surface/90"
       }`}
     >
-      {/* Popular badge */}
-      {isMembership && (
-        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-on-primary text-xs font-black uppercase tracking-wider shadow-sm">
-          Phổ biến nhất
-        </div>
-      )}
-
       <div>
         <div className="flex items-center justify-between gap-2 mb-3">
-          <h3 className="text-title-lg font-bold text-on-surface">
+          <h3 className="text-title-lg font-bold text-on-surface min-w-0 break-words">
             {displayName}
           </h3>
           {isCurrentPlan && !isDemo && (
@@ -162,9 +157,9 @@ export default function PlanCard({
         </div>
 
         {/* Pricing */}
-        <div className="mb-5 pb-5 border-b border-outline-variant/30 flex items-baseline gap-1.5">
-          <span className="text-3xl sm:text-4xl font-black text-on-surface tracking-tight">
-            {formatPlanPrice(plan.price)}
+        <div className="mb-5 pb-5 border-b border-outline-variant/30 flex flex-wrap items-baseline gap-1.5">
+          <span className="text-3xl font-bold text-on-surface break-all">
+            {priceText}
           </span>
           <span className="text-body-md text-on-surface-variant font-medium">
             / {durationText}
@@ -206,6 +201,6 @@ export default function PlanCard({
       </div>
 
       <div className="mt-4 pt-2">{renderAction()}</div>
-    </div>
+    </article>
   );
 }

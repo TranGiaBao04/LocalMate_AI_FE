@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   CHECKOUT_QUOTE_TYPE,
   CUSTOMER_SUBSCRIPTION_ERROR_CODES,
@@ -36,10 +36,28 @@ export default function CheckoutQuoteDialog({
   confirmLoading = false,
   onRenew,
 }) {
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const previous = document.activeElement;
+    dialogRef.current?.focus();
+    return () => { if (previous?.isConnected) previous.focus(); };
+  }, [isOpen]);
   // ESC key support
   useEffect(() => {
     if (!isOpen) return undefined;
     const handleKeyDown = (e) => {
+      if (e.key === "Tab") {
+        const controls = dialogRef.current?.querySelectorAll('button:not(:disabled), a[href]');
+        const first = controls?.[0];
+        const last = controls?.[controls.length - 1];
+        if (!first) e.preventDefault();
+        else if (e.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault(); first.focus();
+        }
+      }
       if (e.key === "Escape" && !confirmLoading) {
         onClose();
       }
@@ -99,17 +117,19 @@ export default function CheckoutQuoteDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="checkout-quote-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in"
+      ref={dialogRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-sm animate-fade-in [&_button]:min-h-11 [&_button]:rounded-[8px] [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-primary"
       onClick={(e) => {
         if (e.target === e.currentTarget && !confirmLoading) {
           onClose();
         }
       }}
     >
-      <div className="w-full max-w-lg rounded-3xl bg-surface border border-outline-variant/30 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="w-full max-w-lg rounded-[8px] bg-surface border border-outline-variant/30 shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-24px)] min-w-0 break-words">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-outline-variant/20 px-6 py-4 bg-surface-container-lowest">
-          <div>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant/20 px-4 sm:px-6 py-4 bg-surface-container-lowest">
+          <div className="min-w-0">
             <h3
               id="checkout-quote-title"
               className="text-title-md font-bold text-on-surface"
@@ -126,7 +146,7 @@ export default function CheckoutQuoteDialog({
             type="button"
             onClick={onClose}
             disabled={confirmLoading}
-            className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors disabled:opacity-50"
+            className="flex shrink-0 h-11 w-11 items-center justify-center rounded-[8px] hover:bg-surface-container-high text-on-surface-variant transition-colors disabled:opacity-50"
             aria-label="Đóng"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -134,7 +154,7 @@ export default function CheckoutQuoteDialog({
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto space-y-5">
+        <div className="p-4 sm:p-6 min-h-0 overflow-y-auto space-y-5">
           {/* 1. Loading State */}
           {loading && (
             <div className="flex flex-col items-center justify-center py-10 space-y-3 text-center">
@@ -297,13 +317,13 @@ export default function CheckoutQuoteDialog({
                   </div>
                 )}
 
-                <div className="pt-2 border-t border-outline-variant/20 flex items-baseline justify-between">
+                <div className="pt-2 border-t border-outline-variant/20 flex flex-wrap gap-2 items-baseline justify-between">
                   <span className="font-bold text-on-surface text-body-md">
                     Số tiền thanh toán:
                   </span>
                   <span
                     data-testid="quote-payable-amount"
-                    className="text-2xl font-black text-primary tracking-tight"
+                    className="text-2xl font-bold text-primary break-all"
                   >
                     {formatPlanPrice(quote.amount)}
                   </span>
@@ -384,7 +404,7 @@ export default function CheckoutQuoteDialog({
         </div>
 
         {/* Dialog Footer Actions */}
-        <div className="flex items-center justify-end gap-3 p-4 border-t border-outline-variant/20 bg-surface-container-lowest">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 p-4 border-t border-outline-variant/20 bg-surface-container-lowest">
           {/* Action on plan_already_active: Renew Handoff */}
           {isPlanAlreadyActive && onRenew && (
             <button
