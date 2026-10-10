@@ -29,6 +29,12 @@ function SingleItineraryPaymentModalInner({
   const checkoutRef = useRef(false);
   const lookupRef = useRef(false);
   const timerRef = useRef(null);
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    const previous = document.activeElement;
+    dialogRef.current?.focus();
+    return () => { if (previous?.isConnected) previous.focus(); };
+  }, []);
   const purchaseAllowed = canPurchaseSingle(availability);
 
   const stopPolling = useCallback(() => {
@@ -155,6 +161,17 @@ function SingleItineraryPaymentModalInner({
 
   useEffect(() => {
     const onKeyDown = (event) => {
+      if (event.key === "Tab") {
+        const controls = dialogRef.current?.querySelectorAll('button:not(:disabled), a[href]');
+        const first = controls?.[0];
+        const last = controls?.[controls.length - 1];
+        if (!first) event.preventDefault();
+        else if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+          event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault(); first.focus();
+        }
+      }
       if (event.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKeyDown);
@@ -181,9 +198,10 @@ function SingleItineraryPaymentModalInner({
 
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="single-purchase-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-lg bg-surface border border-outline-variant/30 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        <div className="flex items-center justify-between gap-3 border-b border-outline-variant/20 px-6 py-4">
+      ref={dialogRef} tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-sm [&_button]:min-h-11 [&_button]:rounded-[8px] [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-primary [&_a:focus-visible]:outline [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-primary">
+      <div className="w-full max-w-md rounded-[8px] bg-surface border border-outline-variant/30 shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-24px)] min-w-0 break-words">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant/20 px-4 sm:px-6 py-4">
           <div className="min-w-0">
             <h3 id="single-purchase-title" className="text-title-md font-bold text-on-surface">Mua thêm 1 lịch trình</h3>
             <p className="text-label-sm text-on-surface-variant">
@@ -195,7 +213,7 @@ function SingleItineraryPaymentModalInner({
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
-        <div className="p-6 overflow-y-auto space-y-5 text-center">
+        <div className="p-4 sm:p-6 min-h-0 overflow-y-auto space-y-5 text-center" aria-live="polite">
           <p className="text-body-sm text-on-surface-variant">
             Một lượt chốt vĩnh viễn, ngoài hạn mức gói. Lượt mua chưa gắn với lịch trình và chỉ dùng khi bạn chọn chốt; có thể để dành cho sau.
           </p>

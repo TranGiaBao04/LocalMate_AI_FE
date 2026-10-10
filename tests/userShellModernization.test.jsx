@@ -51,7 +51,7 @@ function setup(element, path = "/home") {
 
 beforeEach(() => {
   state.auth = { user: { id: "existing-user", fullName: "Nguyễn Minh", permissions: [] }, isDemo: false, isLoggedIn: true, initializing: false };
-  state.trip = { savedTrips: [{ id: "one" }, { id: "two" }] };
+  state.trip = { savedTrips: [{ id: "one" }, { id: "two" }], tripsLoaded: true, tripsLoading: false, tripsError: null };
   state.plan = { subscription: { plan: PLAN_CODES.FREE } };
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false })));
   vi.stubGlobal("scrollTo", vi.fn());
@@ -151,10 +151,11 @@ describe("USER-A1 preserved navigation contracts", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/subscription");
   });
 
-  it("retains the existing Free fallback when subscription is unavailable", () => {
+  it("does not misrepresent an unresolved server subscription as Free", () => {
     state.plan.subscription = null;
     setup(<SideNavigation />);
-    expect(screen.getByText("Mặc định")).toBeInTheDocument();
+    expect(screen.queryByText("Mặc định")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Chưa xác định gói")).toHaveLength(2);
   });
 
   it("preserves Demo plan, profile and avatar fallback", () => {

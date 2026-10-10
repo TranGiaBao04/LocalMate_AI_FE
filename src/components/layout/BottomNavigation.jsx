@@ -89,19 +89,21 @@ export function SideNavigation() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user, isDemo } = useAuth();
-  const { savedTrips } = useTrip();
-  const { subscription } = useSubscription();
+  const { savedTrips, tripsLoading, tripsLoaded, tripsError } = useTrip();
+  const { subscription, subscriptionLoading } = useSubscription();
 
   const navItems = NAV_ITEMS.map((item) => ({
     ...item,
-    badge: item.badgeKey === "trips" ? `${savedTrips.length} đã lưu` : null,
+    badge: item.badgeKey === "trips" && tripsLoaded && !tripsLoading && !tripsError
+      ? `${savedTrips.length} đã lưu` : null,
   }));
 
   const displayName = user?.fullName || "Khách";
   const initial = displayName.charAt(0).toUpperCase();
 
-  const currentPlan = subscription?.plan || PLAN_CODES.FREE;
-  const planDisplayName = PLAN_DISPLAY_NAMES[currentPlan] || currentPlan;
+  const currentPlan = subscription?.plan;
+  const planDisplayName = PLAN_DISPLAY_NAMES[currentPlan] || currentPlan ||
+    (subscriptionLoading ? "Đang tải gói..." : "Chưa xác định gói");
   const isPaid = currentPlan === PLAN_CODES.TRIP_PASS || currentPlan === PLAN_CODES.MEMBERSHIP;
 
   return (
@@ -191,11 +193,11 @@ export function SideNavigation() {
                   isPaid ? "bg-primary text-white" : "bg-border-soft text-text-muted"
                 }`}
               >
-                {isPaid ? "Đang dùng" : "Mặc định"}
+                {isPaid ? "Đang dùng" : currentPlan === PLAN_CODES.FREE ? "Mặc định" : "Chưa xác nhận"}
               </span>
             </span>{" "}
             <span className="mt-2 block text-[12px] leading-5 text-text-muted">
-              {isPaid ? "Quản lý gói & gia hạn" : "Nâng cấp gói tạo không giới hạn"}
+              {isPaid ? "Quản lý gói & gia hạn" : currentPlan === PLAN_CODES.FREE ? "Nâng cấp gói tạo không giới hạn" : "Xem thông tin gói hội viên"}
             </span>
           </button>
         )}

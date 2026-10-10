@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useLayoutEffect, useState, useRef, useCallback } from "react";
 import QRCode from "react-qr-code";
 import { subscriptionService } from "../../services/subscriptionService";
 import { PLAN_DISPLAY_NAMES, formatPlanPrice } from "../../utils/subscriptionUtils";
@@ -28,6 +28,7 @@ export default function PaymentCheckoutModal({
   const isFinalCheckDoneRef = useRef(false);
   const isCheckingRef = useRef(false);
   const reqSeqRef = useRef(0);
+  const dialogRef = useRef(null);
 
   const orderId = paymentIntent?.orderId;
   const qrCode = paymentIntent?.qrCode;
@@ -41,6 +42,18 @@ export default function PaymentCheckoutModal({
   const planDisplayName = PLAN_DISPLAY_NAMES[planCode] || planCode || "Gói cước";
   const lastOrderIdRef = useRef(orderId);
   const lastOwnerIdRef = useRef(ownerId);
+
+  useLayoutEffect(() => () => {
+    reqSeqRef.current += 1;
+    isCheckingRef.current = false;
+  }, [isOpen, orderId, ownerId]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const previous = document.activeElement;
+    dialogRef.current?.focus();
+    return () => { if (previous?.isConnected) previous.focus(); };
+  }, [isOpen]);
 
   // Stop polling helper
   const stopPolling = useCallback(() => {
@@ -191,6 +204,17 @@ export default function PaymentCheckoutModal({
     if (!isOpen) return undefined;
 
     const handleKeyDown = (e) => {
+      if (e.key === "Tab") {
+        const controls = dialogRef.current?.querySelectorAll('button:not(:disabled), a[href]');
+        const first = controls?.[0];
+        const last = controls?.[controls.length - 1];
+        if (!first) e.preventDefault();
+        else if (e.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault(); first.focus();
+        }
+      }
       if (e.key === "Escape") {
         onClose();
       }
@@ -230,12 +254,14 @@ export default function PaymentCheckoutModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="payment-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in"
+      ref={dialogRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-sm animate-fade-in [&_button]:min-h-11 [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-primary [&_a:focus-visible]:outline [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-primary"
     >
-      <div className="w-full max-w-md rounded-3xl bg-surface border border-outline-variant/30 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="w-full max-w-md rounded-[8px] bg-surface border border-outline-variant/30 shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-24px)] min-w-0 break-words [&_button]:rounded-[8px]">
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-outline-variant/20 px-6 py-4 bg-surface-container-lowest">
-          <div>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant/20 px-4 sm:px-6 py-4 bg-surface-container-lowest">
+          <div className="min-w-0">
             <h3
               id="payment-modal-title"
               className="text-title-md font-bold text-on-surface"
@@ -256,7 +282,7 @@ export default function PaymentCheckoutModal({
               <p>
                 Số tiền thanh toán:{" "}
                 <strong className="text-primary font-extrabold">
-                  {formatPlanPrice(amount)}
+                  {typeof amount === "number" && Number.isFinite(amount) && amount >= 0 ? formatPlanPrice(amount) : "Chưa xác định"}
                 </strong>
               </p>
             </div>
@@ -264,7 +290,7 @@ export default function PaymentCheckoutModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
+            className="flex shrink-0 h-11 w-11 items-center justify-center rounded-[8px] hover:bg-surface-container-high text-on-surface-variant transition-colors"
             aria-label="Đóng cửa sổ thanh toán"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -272,7 +298,7 @@ export default function PaymentCheckoutModal({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-5 text-center">
+        <div className="p-4 sm:p-6 min-h-0 overflow-y-auto space-y-5 text-center" aria-live="polite">
           {/* TRẠNG THÁI: PENDING (ĐANG CHỜ) */}
           {isPending && (
             <>
