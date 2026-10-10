@@ -38,6 +38,8 @@ const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
 const AdminUserDetailPage = lazy(() => import("./pages/admin/AdminUserDetailPage"));
 const AdminRolesPage = lazy(() => import("./pages/admin/AdminRolesPage"));
 const AdminFeedbackPage = lazy(() => import("./pages/admin/AdminFeedbackPage"));
+const AdminCuratedItinerariesPage = lazy(() => import("./pages/admin/AdminCuratedItinerariesPage"));
+const AdminCuratedItineraryFormPage = lazy(() => import("./pages/admin/AdminCuratedItineraryFormPage"));
 const AdminSectionPlaceholder = lazy(() => import("./pages/admin/AdminSectionPlaceholder"));
 
 // Mục đã có trang thật; mục còn lại hiện placeholder
@@ -45,6 +47,7 @@ const ADMIN_PAGES = {
   stations: AdminStationsPage,
   places: AdminPlaceListPage,
   import: ImportStepperPage,
+  "curated-itineraries": AdminCuratedItinerariesPage,
   plans: AdminPlansPage,
   transactions: AdminTransactionsPage,
   settings: AdminSettingsPage,
@@ -159,6 +162,22 @@ export default function App() {
             element={
               <AdminRoute permissions={[ADMIN_PERMISSIONS.MANAGE_PLACES]}>
                 <ImportStepperPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="curated-itineraries/create"
+            element={
+              <AdminRoute permissions={[ADMIN_PERMISSIONS.MANAGE_PLACES]}>
+                <AdminCuratedItineraryFormPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="curated-itineraries/edit/:id"
+            element={
+              <AdminRoute permissions={[ADMIN_PERMISSIONS.MANAGE_PLACES]}>
+                <AdminCuratedItineraryFormPage />
               </AdminRoute>
             }
           />
