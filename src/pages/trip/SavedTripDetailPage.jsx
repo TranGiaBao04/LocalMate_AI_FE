@@ -12,6 +12,7 @@ import {
   formatDuration,
 } from "../../utils/formatCurrency";
 import { buildDirectionsUrl } from "../../utils/googleMaps";
+import useTripDialogFocus from "../../hooks/useTripDialogFocus";
 
 const toDirectionsUrl = (item) =>
   buildDirectionsUrl({
@@ -85,6 +86,9 @@ export default function SavedTripDetailPage() {
   const [deleteError, setDeleteError] = useState("");
   const visitPending = useRef(false);
   const reviewPending = useRef(false);
+  const backButtonRef = useRef(null);
+  const reviewDialogRef = useTripDialogFocus(Boolean(reviewModal), backButtonRef);
+  const deleteReviewDialogRef = useTripDialogFocus(Boolean(deleteTarget), backButtonRef);
   const visitedItemIds = trip?.items.filter((item) => item.isVisited).map((item) => item.id).join(",") ?? "";
 
   useEffect(() => {
@@ -259,6 +263,7 @@ export default function SavedTripDetailPage() {
       <header className="app-header flex h-16 items-center justify-between gap-3 border-b border-border-soft !bg-white px-container-margin py-2 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <button
+            ref={backButtonRef}
             aria-label="Về lịch trình cá nhân"
             onClick={() => navigate("/trips")}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[8px] transition-colors hover:bg-primary/5"
@@ -590,7 +595,7 @@ export default function SavedTripDetailPage() {
       )}
 
       {deleteTarget && (
-        <div role="dialog" aria-modal="true" aria-labelledby="delete-review-title" className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 lg:items-center">
+        <div ref={deleteReviewDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="delete-review-title" className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 lg:items-center">
           <div className="max-h-[calc(100dvh-32px)] w-full max-w-md overflow-y-auto space-y-stack-md rounded-t-lg bg-white p-6 motion-reduce:animate-none lg:rounded-lg [&_button]:min-h-11">
             <h3 id="delete-review-title" className="text-title-md font-bold text-on-surface">Xoá đánh giá?</h3>
             <p className="text-body-md text-on-surface-variant">
@@ -600,7 +605,7 @@ export default function SavedTripDetailPage() {
               <p role="alert" className="rounded-lg bg-error-container/10 px-3 py-2 text-label-md text-error">{deleteError}</p>
             )}
             <div className="flex gap-3">
-              <button type="button" disabled={deletingReview} onClick={() => setDeleteTarget(null)} className="flex-1 rounded-full border border-outline-variant py-3 font-semibold text-on-surface-variant transition-transform active:scale-95">
+              <button type="button" data-dialog-initial disabled={deletingReview} onClick={() => setDeleteTarget(null)} className="flex-1 rounded-full border border-outline-variant py-3 font-semibold text-on-surface-variant transition-transform active:scale-95">
                 Giữ lại
               </button>
               <button type="button" disabled={deletingReview} onClick={handleDeleteReview} className="flex-1 rounded-full bg-error py-3 font-semibold text-white transition-transform active:scale-95 disabled:opacity-50">
@@ -612,7 +617,7 @@ export default function SavedTripDetailPage() {
       )}
 
       {reviewModal && (
-        <div role="dialog" aria-modal="true" aria-labelledby="quick-review-title" className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 lg:items-center">
+        <div ref={reviewDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="quick-review-title" className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 lg:items-center">
           <div className="max-h-[calc(100dvh-32px)] w-full max-w-md overflow-y-auto rounded-t-lg bg-white p-6 space-y-stack-md motion-reduce:animate-none lg:rounded-lg [&_button]:min-h-11">
             <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-outline-variant" />
 

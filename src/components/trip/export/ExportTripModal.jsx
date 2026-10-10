@@ -42,6 +42,10 @@ export default function ExportTripModal({ open, onClose, trip }) {
   }, [open]);
 
   useEffect(() => {
+    if (open && isGenerating) dialogRef.current?.focus();
+  }, [open, isGenerating]);
+
+  useEffect(() => {
     if (!open) return undefined;
 
     const handleKeyDown = (event) => {
@@ -56,7 +60,11 @@ export default function ExportTripModal({ open, onClose, trip }) {
         const controls = dialogRef.current?.querySelectorAll(
           'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         );
-        if (!controls?.length) return;
+        if (!controls?.length) {
+          event.preventDefault();
+          dialogRef.current?.focus();
+          return;
+        }
         const first = controls[0];
         const last = controls[controls.length - 1];
         if (event.shiftKey && document.activeElement === first) {
@@ -220,6 +228,7 @@ export default function ExportTripModal({ open, onClose, trip }) {
         }
       }}
       role="dialog"
+      tabIndex={-1}
       ref={dialogRef}
     >
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-lg bg-surface px-container-margin pb-8 pt-3 shadow-2xl lg:rounded-lg lg:p-8">
