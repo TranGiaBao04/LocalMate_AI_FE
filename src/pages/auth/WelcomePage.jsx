@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import logo from "../../assets/logo.jpg";
 import CuratedItineraryCard from "../../components/trip/CuratedItineraryCard";
 import { masterDataService } from "../../services/masterDataService";
@@ -119,16 +119,6 @@ function scrollToSection(id) {
     ?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth" });
 }
 
-// Trượt hàng thẻ đi một đợt (bằng bề rộng khung); hết hàng thì quay vòng
-function slideTrack(track, direction) {
-  if (!track) return;
-  const maxScroll = track.scrollWidth - track.clientWidth;
-  let target = track.scrollLeft + direction * track.clientWidth;
-  if (direction > 0 && track.scrollLeft >= maxScroll - 4) target = 0;
-  if (direction < 0 && track.scrollLeft <= 4) target = maxScroll;
-  track.scrollTo({ left: target, behavior: prefersReducedMotion() ? "auto" : "smooth" });
-}
-
 function getPlanBenefits(plan) {
   const benefits = [];
   if (plan.generateLimit === null) benefits.push("Tạo lịch trình AI không giới hạn");
@@ -243,18 +233,56 @@ function Screenshot({ src, label }) {
 const GLASS_ARROW =
   "absolute top-[calc((100vw_-_2rem)_*_0.375)] z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-white/40 text-navy-darkest shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_8px_24px_rgba(15,33,72,0.2)] backdrop-blur-xl backdrop-saturate-150 transition hover:bg-white/60 active:scale-95 sm:top-[calc((100vw_-_3rem)_*_0.28125)] sm:h-14 sm:w-14 lg:top-1/2";
 
-// Mỗi lần một thẻ ga, trượt ngang từng thẻ: tự chuyển, có 2 nút mũi tên kính ở hai mép
+// Mỗi lần một thẻ ga, trượt ngang từng thẻ: tự chuyển, có 2 nút mũi tên kính ở hai mép.
+// Bên dưới là thanh tuyến: đoàn tàu đứng ở ga đang hiện, bấm tên ga thì thẻ nhảy tới ga đó.
 function StationCarousel({ clusters, onSelect }) {
   const trackRef = useRef(null);
+  const lineRef = useRef(null);
   const pausedRef = useRef(false);
+  const activeRef = useRef(0); // ga đang hiện, dùng trong các hàm xử lý
+  const targetRef = useRef(null); // ga đang được cuộn tới bằng lệnh (bấm tên ga, mũi tên, tự trượt)
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [trainMs, setTrainMs] = useState(700);
+
+  const goTo = useCallback((index) => {
+    const track = trackRef.current;
+    const card = track?.children[index];
+    if (!card) return;
+    const left = card.offsetLeft - track.children[0].offsetLeft;
+    // Tàu chạy một mạch tới đích; đi càng xa thì chạy càng lâu
+    setTrainMs(Math.min(1500, 400 + 150 * Math.abs(index - activeRef.current)));
+    targetRef.current = Math.abs(track.scrollLeft - left) < 2 ? null : index;
+    activeRef.current = index;
+    setActiveIndex(index);
+    track.scrollTo({ left, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }, []);
+
+  // Sang ga kế bên; hết tuyến thì quay vòng
+  const step = useCallback(
+    (direction) => {
+      const count = trackRef.current?.children.length ?? 0;
+      if (count > 0) goTo((activeRef.current + direction + count) % count);
+    },
+    [goTo],
+  );
 
   useEffect(() => {
     if (prefersReducedMotion()) return undefined;
     const timer = setInterval(() => {
-      if (!pausedRef.current && !document.hidden) slideTrack(trackRef.current, 1);
+      if (!pausedRef.current && !document.hidden) step(1);
     }, CAROUSEL_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, []);
+  }, [step]);
+
+  // Thanh tuyến cuộn ngang trên màn hẹp: giữ đoàn tàu nằm trong khung
+  useEffect(() => {
+    const line = lineRef.current;
+    if (!line) return;
+    line.scrollTo({
+      left: (line.scrollWidth * (activeIndex + 0.5)) / clusters.length - line.clientWidth / 2,
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    });
+  }, [activeIndex, clusters.length]);
 
   const pause = () => {
     pausedRef.current = true;
@@ -263,142 +291,210 @@ function StationCarousel({ clusters, onSelect }) {
     pausedRef.current = false;
   };
 
+  // Ga đang hiện = thẻ gần mép trái khung nhất
+  const handleScroll = () => {
+    const track = trackRef.current;
+    if (!track || track.children.length < 2) return;
+    const cardStep = track.children[1].offsetLeft - track.children[0].offsetLeft;
+    const index = Math.min(track.children.length - 1, Math.round(track.scrollLeft / cardStep));
+    // Đang cuộn tới một ga theo lệnh: bỏ qua các ga lướt ngang qua, không thì tàu khựng từng nấc
+    if (targetRef.current != null) {
+      if (index === targetRef.current) targetRef.current = null;
+      return;
+    }
+    if (index === activeRef.current) return;
+    activeRef.current = index;
+    setTrainMs(700);
+    setActiveIndex(index);
+  };
+
+  // Người dùng tự vuốt hoặc lăn chuột: tàu bám theo thẻ đang hiện
+  const followScroll = () => {
+    targetRef.current = null;
+  };
+
   return (
-    <div
-      className="relative"
-      onMouseEnter={pause}
-      onMouseLeave={resume}
-      onFocus={pause}
-      onBlur={resume}
-    >
-      <button
-        type="button"
-        aria-label="Xem ga trước"
-        onClick={() => slideTrack(trackRef.current, -1)}
-        className={`${GLASS_ARROW} left-3 lg:-left-7`}
-      >
-        <span aria-hidden="true" className="material-symbols-outlined text-[28px]">
-          chevron_left
-        </span>
-      </button>
-      <button
-        type="button"
-        aria-label="Xem ga tiếp theo"
-        onClick={() => slideTrack(trackRef.current, 1)}
-        className={`${GLASS_ARROW} right-3 lg:-right-7`}
-      >
-        <span aria-hidden="true" className="material-symbols-outlined text-[28px]">
-          chevron_right
-        </span>
-      </button>
+    <div onMouseEnter={pause} onMouseLeave={resume} onFocus={pause} onBlur={resume}>
+      <div className="relative">
+        <button
+          type="button"
+          aria-label="Xem ga trước"
+          onClick={() => step(-1)}
+          className={`${GLASS_ARROW} left-3 lg:-left-7`}
+        >
+          <span aria-hidden="true" className="material-symbols-outlined text-[28px]">
+            chevron_left
+          </span>
+        </button>
+        <button
+          type="button"
+          aria-label="Xem ga tiếp theo"
+          onClick={() => step(1)}
+          className={`${GLASS_ARROW} right-3 lg:-right-7`}
+        >
+          <span aria-hidden="true" className="material-symbols-outlined text-[28px]">
+            chevron_right
+          </span>
+        </button>
 
-      <div
-        ref={trackRef}
-        onTouchStart={pause}
-        onTouchEnd={resume}
-        className="hide-scrollbar flex snap-x snap-mandatory gap-5 overflow-x-auto rounded-3xl"
-      >
-        {clusters.map((cluster) => {
-          const order = String(cluster.stationOrder).padStart(2, "0");
-          const total = cluster.placeCount ?? cluster.places.length;
-          const nearest = cluster.places.slice(0, 3);
-          const more = total - nearest.length;
-          return (
-            <button
-              key={cluster.stationId}
-              type="button"
-              onClick={() => onSelect(cluster.stationOrder)}
-              className="group flex shrink-0 basis-full snap-start flex-col overflow-hidden rounded-3xl bg-white text-left"
-            >
-              <div className="grid w-full lg:grid-cols-[55%_1fr] 2xl:grid-cols-[800px_1fr]">
-                {/* Từ lg: cột chữ cao hơn khung 4:3 thì ảnh kéo cao theo, không để hở nền trắng dưới ảnh */}
-                <div className="hero-gradient relative aspect-[4/3] w-full self-stretch overflow-hidden sm:aspect-[16/9] lg:aspect-[4/3]">
-                  <img
-                    src={stationCover(cluster.stationOrder)}
-                    alt=""
-                    loading="lazy"
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                </div>
-                <div className="relative flex min-w-0 flex-col justify-center overflow-hidden p-6 sm:p-8 xl:p-10">
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -top-4 right-4 select-none text-[120px] font-extrabold leading-none text-chip-bg lg:text-[160px]"
-                  >
-                    {order}
-                  </span>
-                  <div className="relative">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-navy px-3 py-1 text-xs font-bold text-white">
-                      <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
-                        train
-                      </span>
-                      Ga {order}
+        <div
+          ref={trackRef}
+          onScroll={handleScroll}
+          onWheel={followScroll}
+          onTouchStart={() => {
+            pause();
+            followScroll();
+          }}
+          onTouchEnd={resume}
+          className="hide-scrollbar flex snap-x snap-mandatory gap-5 overflow-x-auto rounded-3xl"
+        >
+          {clusters.map((cluster) => {
+            const order = String(cluster.stationOrder).padStart(2, "0");
+            const total = cluster.placeCount ?? cluster.places.length;
+            const nearest = cluster.places.slice(0, 3);
+            const more = total - nearest.length;
+            return (
+              <button
+                key={cluster.stationId}
+                type="button"
+                onClick={() => onSelect(cluster.stationOrder)}
+                className="group flex shrink-0 basis-full snap-start flex-col overflow-hidden rounded-3xl bg-white text-left"
+              >
+                <div className="grid w-full lg:grid-cols-[55%_1fr] 2xl:grid-cols-[800px_1fr]">
+                  {/* Từ lg: cột chữ cao hơn khung 4:3 thì ảnh kéo cao theo, không để hở nền trắng dưới ảnh */}
+                  <div className="hero-gradient relative aspect-[4/3] w-full self-stretch overflow-hidden sm:aspect-[16/9] lg:aspect-[4/3]">
+                    <img
+                      src={stationCover(cluster.stationOrder)}
+                      alt=""
+                      loading="lazy"
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                  </div>
+                  <div className="relative flex min-w-0 flex-col justify-center overflow-hidden p-6 sm:p-8 xl:p-10">
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute -top-4 right-4 select-none text-[120px] font-extrabold leading-none text-chip-bg lg:text-[160px]"
+                    >
+                      {order}
                     </span>
-                    <h3 className="mt-3 text-2xl font-extrabold text-navy-darkest lg:text-3xl xl:text-4xl">
-                      Ga {cluster.stationName}
-                    </h3>
-                    <p className="mt-1 text-sm text-text-muted">{total} địa điểm gợi ý</p>
-
-                    <ul className="mt-4 flex flex-wrap gap-2">
-                      {countByCategory(cluster.places).map(({ code, count }) => (
-                        <li
-                          key={code}
-                          className="inline-flex items-center gap-1 rounded-full bg-chip-bg px-3 py-1 text-xs font-semibold text-navy-dark"
-                        >
-                          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
-                            {CATEGORY_ICONS[code]}
-                          </span>
-                          {PLACE_CATEGORY_LABELS[code]} · {count}
-                        </li>
-                      ))}
-                    </ul>
-
-                    <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-text-faint">
-                      Gần ga nhất
-                    </p>
-                    <ul className="mt-1 divide-y divide-border-soft">
-                      {nearest.map((place) => (
-                        <li key={place.id} className="flex items-center gap-3 py-2.5">
-                          <span
-                            aria-hidden="true"
-                            className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-container-low text-[20px] text-navy"
-                          >
-                            {CATEGORY_ICONS[place.category] ?? "place"}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-semibold text-navy-darkest">
-                              {place.name}
-                            </span>
-                            <span className="block text-xs text-text-muted">
-                              {PLACE_CATEGORY_LABELS[place.category] ?? place.category}
-                            </span>
-                          </span>
-                          <span className="shrink-0 rounded-full bg-chip-bg px-2.5 py-1 text-xs font-bold text-navy-dark">
-                            {formatDistance(place.distanceFromStationMeters)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <div className="mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                      <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-navy-darkest transition group-hover:bg-accent-dark">
-                        Tạo lịch trình quanh ga này
-                        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
-                          arrow_forward
+                    <div className="relative">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-navy px-3 py-1 text-xs font-bold text-white">
+                        <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
+                          train
                         </span>
+                        Ga {order}
                       </span>
-                      {more > 0 && (
-                        <span className="text-xs font-semibold text-text-muted">
-                          +{more} địa điểm khác
-                        </span>
+                      <h3 className="mt-3 text-2xl font-extrabold text-navy-darkest lg:text-3xl xl:text-4xl">
+                        Ga {cluster.stationName}
+                      </h3>
+                      <p className="mt-1 text-sm text-text-muted">
+                        {total > 0
+                          ? `${total} địa điểm gợi ý`
+                          : "Đang cập nhật địa điểm quanh ga này."}
+                      </p>
+
+                      {total > 0 && (
+                        <>
+                          <ul className="mt-4 flex flex-wrap gap-2">
+                            {countByCategory(cluster.places).map(({ code, count }) => (
+                              <li
+                                key={code}
+                                className="inline-flex items-center gap-1 rounded-full bg-chip-bg px-3 py-1 text-xs font-semibold text-navy-dark"
+                              >
+                                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
+                                  {CATEGORY_ICONS[code]}
+                                </span>
+                                {PLACE_CATEGORY_LABELS[code]} · {count}
+                              </li>
+                            ))}
+                          </ul>
+
+                          <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-text-faint">
+                            Gần ga nhất
+                          </p>
+                          <ul className="mt-1 divide-y divide-border-soft">
+                            {nearest.map((place) => (
+                              <li key={place.id} className="flex items-center gap-3 py-2.5">
+                                <span
+                                  aria-hidden="true"
+                                  className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-container-low text-[20px] text-navy"
+                                >
+                                  {CATEGORY_ICONS[place.category] ?? "place"}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-sm font-semibold text-navy-darkest">
+                                    {place.name}
+                                  </span>
+                                  <span className="block text-xs text-text-muted">
+                                    {PLACE_CATEGORY_LABELS[place.category] ?? place.category}
+                                  </span>
+                                </span>
+                                <span className="shrink-0 rounded-full bg-chip-bg px-2.5 py-1 text-xs font-bold text-navy-dark">
+                                  {formatDistance(place.distanceFromStationMeters)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
                       )}
+
+                      <div className="mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-navy-darkest transition group-hover:bg-accent-dark">
+                          Tạo lịch trình quanh ga này
+                          <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
+                            arrow_forward
+                          </span>
+                        </span>
+                        {more > 0 && (
+                          <span className="text-xs font-semibold text-text-muted">
+                            +{more} địa điểm khác
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </button>
-          );
-        })}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div ref={lineRef} className="hide-scrollbar mt-10 overflow-x-auto rounded-3xl bg-white p-6">
+        <div className="min-w-[900px]">
+          <div className="mb-2 flex items-start text-[11px] font-bold text-navy">
+            {clusters.map((cluster, index) => (
+              <button
+                key={cluster.stationId}
+                type="button"
+                onClick={() => goTo(index)}
+                aria-current={index === activeIndex ? "true" : undefined}
+                className="flex-1 text-center transition hover:text-navy-mid"
+              >
+                {String(cluster.stationOrder).padStart(2, "0")}
+                <br />
+                {cluster.stationName}
+              </button>
+            ))}
+          </div>
+          <div className="relative flex h-2.5 items-center rounded-full bg-chip-bg">
+            {clusters.map((cluster) => (
+              <span key={cluster.stationId} className="flex flex-1 justify-center">
+                <span className="relative z-10 h-4 w-4 rounded-full border-2 border-white bg-navy" />
+              </span>
+            ))}
+            <span
+              aria-hidden="true"
+              style={{
+                left: `${((activeIndex + 0.5) / clusters.length) * 100}%`,
+                transitionDuration: `${trainMs}ms`,
+              }}
+              className="material-symbols-outlined absolute top-1/2 z-20 flex h-8 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-accent text-[20px] text-navy-darkest shadow-[0_4px_12px_rgba(15,33,72,0.25)] transition-[left] ease-in-out motion-reduce:transition-none"
+            >
+              train
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -482,9 +578,21 @@ export default function WelcomePage() {
   );
   const stationsWithPlaces = stations.filter((st) => placeCountByStation.get(st.id) > 0);
   const totalPlaces = clusters.reduce((sum, c) => sum + (c.placeCount ?? c.places.length), 0);
-  const stationCards = [...clusters]
-    .filter((c) => c.places.length > 0)
-    .sort((a, b) => a.stationOrder - b.stationOrder);
+  // Thẻ ga hiện đủ mọi ga trong master-data; ga không có trong metro-clusters là ga chưa có địa điểm
+  const clusterByStation = new Map(clusters.map((c) => [c.stationId, c]));
+  const stationCards =
+    stations.length > 0
+      ? stations.map(
+          (st) =>
+            clusterByStation.get(st.id) ?? {
+              stationId: st.id,
+              stationName: st.name,
+              stationOrder: st.order,
+              places: [],
+              placeCount: 0,
+            },
+        )
+      : [...clusters].sort((a, b) => a.stationOrder - b.stationOrder);
   // Đang tải hoặc API lỗi (đếm ra 0) thì hiện "–" thay vì số 0
   const stat = (count, format = String) => (count > 0 ? format(count) : "–");
   const stats = [
@@ -750,33 +858,6 @@ export default function WelcomePage() {
                   }
                 />
               </Reveal>
-            )}
-
-            {stations.length > 0 && (
-              <div className="mt-10 overflow-x-auto rounded-3xl bg-white p-6">
-                <div className="min-w-[900px]">
-                  <div className="mb-2 flex items-start justify-between gap-1 text-[11px] font-semibold text-text-muted">
-                    {stations.map((st) => (
-                      <span
-                        key={st.id}
-                        className={`flex-1 text-center ${placeCountByStation.get(st.id) > 0 ? "font-bold text-navy" : ""}`}
-                      >
-                        {String(st.order).padStart(2, "0")}
-                        <br />
-                        {st.name}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="relative flex h-2.5 items-center justify-around rounded-full bg-chip-bg">
-                    {stations.map((st) => (
-                      <span
-                        key={st.id}
-                        className={`${placeCountByStation.get(st.id) > 0 ? "h-4 w-4 bg-navy" : "h-3 w-3 bg-accent"} relative z-10 rounded-full border-2 border-white`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
             )}
           </div>
         </section>
