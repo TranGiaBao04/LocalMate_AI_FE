@@ -16,6 +16,7 @@ import {
   formatPlanPrice,
   getPlanDisplayName,
 } from "../../utils/subscriptionUtils";
+import { PLACE_CATEGORY_LABELS } from "../../constants";
 import { formatDistance } from "../../utils/formatCurrency";
 import { scrollToTop } from "../../utils/scrollToTop";
 
@@ -40,19 +41,19 @@ const STEPS = [
 // Ảnh chụp sản phẩm đặt trong public/landing/. Thiếu file nào thì hiện ô giữ chỗ.
 const FEATURES = [
   {
-    image: "/landing/feature-timeline.jpg",
+    image: "/landing/feature-timeline.png",
     placeholder: "Ảnh chụp màn hình lịch trình nháp",
     title: "Cả lịch trình trong một màn hình",
     desc: "Giờ đến từng điểm, thời gian di chuyển giữa các chặng và chi phí ước tính cho mỗi người.",
   },
   {
-    image: "/landing/feature-replace.jpg",
+    image: "/landing/feature-replace.png",
     placeholder: "Ảnh chụp màn hình thay địa điểm",
     title: "Chưa ưng điểm nào thì đổi điểm đó",
     desc: "Gợi ý thay thế quanh cùng cụm ga. Lịch trình luôn là bản nháp cho tới khi bạn chốt.",
   },
   {
-    image: "/landing/feature-directions.jpg",
+    image: "/landing/feature-directions.png",
     placeholder: "Ảnh chụp màn hình một chặng có nút chỉ đường",
     title: "Biết rõ chặng nào đi bằng gì",
     desc: "Mỗi chặng ghi cách đi và thời gian, bấm một lần là mở chỉ đường trên Google Maps.",
@@ -61,6 +62,26 @@ const FEATURES = [
 
 // Video nền của phần mở đầu, đặt trong public/landing/
 const HERO_VIDEO = "/landing/hero.mp4";
+
+// Ảnh riêng của từng ga: public/landing/stations/station-01.webp … station-14.webp, đặt tên theo thứ tự ga.
+// Ảnh nhỏ nhất là 749×562 (4:3) nên khung ảnh giữ tỉ lệ 4:3 và không rộng quá 800px.
+const stationCover = (order) =>
+  `/landing/stations/station-${String(order).padStart(2, "0")}.webp`;
+
+// Biểu tượng theo loại địa điểm ở thẻ ga (chỉ theo loại, không dùng ảnh của địa điểm)
+const CATEGORY_ICONS = {
+  Cafe: "local_cafe",
+  Food: "restaurant",
+  Culture: "museum",
+  CheckIn: "photo_camera",
+};
+
+// Đếm địa điểm theo loại, giữ thứ tự loại như PLACE_CATEGORY_LABELS
+function countByCategory(places) {
+  return Object.keys(PLACE_CATEGORY_LABELS)
+    .map((code) => ({ code, count: places.filter((pl) => pl.category === code).length }))
+    .filter((item) => item.count > 0);
+}
 
 const NAV_LINKS = [
   { id: "tinh-nang", label: "Tính năng AI" },
@@ -217,10 +238,12 @@ function Screenshot({ src, label }) {
   );
 }
 
+// Dưới lg thẻ ga xếp dọc (ảnh trên, chữ dưới) nên mũi tên canh theo giữa ảnh: ảnh rộng hết thẻ,
+// tỉ lệ 4:3 (dưới sm) rồi 16:9 (sm đến lg). Từ lg thẻ chia hai cột, mũi tên canh giữa thẻ.
 const GLASS_ARROW =
-  "absolute top-[30%] z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-white/40 text-navy-darkest shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_8px_24px_rgba(15,33,72,0.2)] backdrop-blur-xl backdrop-saturate-150 transition hover:bg-white/60 active:scale-95 sm:top-1/2 sm:h-14 sm:w-14";
+  "absolute top-[calc((100vw_-_2rem)_*_0.375)] z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-white/40 text-navy-darkest shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_8px_24px_rgba(15,33,72,0.2)] backdrop-blur-xl backdrop-saturate-150 transition hover:bg-white/60 active:scale-95 sm:top-[calc((100vw_-_3rem)_*_0.28125)] sm:h-14 sm:w-14 lg:top-1/2";
 
-// Thẻ ga chiếm trọn khung, trượt ngang từng thẻ: tự chuyển, có 2 nút mũi tên kính ở hai mép
+// Mỗi lần một thẻ ga, trượt ngang từng thẻ: tự chuyển, có 2 nút mũi tên kính ở hai mép
 function StationCarousel({ clusters, onSelect }) {
   const trackRef = useRef(null);
   const pausedRef = useRef(false);
@@ -276,46 +299,102 @@ function StationCarousel({ clusters, onSelect }) {
         className="hide-scrollbar flex snap-x snap-mandatory gap-5 overflow-x-auto rounded-3xl"
       >
         {clusters.map((cluster) => {
-          const cover = cluster.places.find((pl) => pl.imageUrl)?.imageUrl;
+          const order = String(cluster.stationOrder).padStart(2, "0");
+          const total = cluster.placeCount ?? cluster.places.length;
+          const nearest = cluster.places.slice(0, 3);
+          const more = total - nearest.length;
           return (
             <button
               key={cluster.stationId}
               type="button"
-              onClick={onSelect}
-              className="hero-gradient group relative aspect-[4/5] shrink-0 basis-full snap-start overflow-hidden rounded-3xl text-left sm:aspect-[16/9] lg:aspect-[21/9] 2xl:aspect-auto 2xl:h-[600px]"
+              onClick={() => onSelect(cluster.stationOrder)}
+              className="group flex shrink-0 basis-full snap-start flex-col overflow-hidden rounded-3xl bg-white text-left"
             >
-              {cover ? (
-                <img
-                  src={cover}
-                  alt=""
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className="material-symbols-outlined absolute inset-0 flex items-center justify-center text-[120px] text-white/15"
-                >
-                  train
-                </span>
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-navy-darkest/70 via-navy-darkest/10 to-transparent" />
+              <div className="grid w-full lg:grid-cols-[55%_1fr] 2xl:grid-cols-[800px_1fr]">
+                {/* Từ lg: cột chữ cao hơn khung 4:3 thì ảnh kéo cao theo, không để hở nền trắng dưới ảnh */}
+                <div className="hero-gradient relative aspect-[4/3] w-full self-stretch overflow-hidden sm:aspect-[16/9] lg:aspect-[4/3]">
+                  <img
+                    src={stationCover(cluster.stationOrder)}
+                    alt=""
+                    loading="lazy"
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                </div>
+                <div className="relative flex min-w-0 flex-col justify-center overflow-hidden p-6 sm:p-8 xl:p-10">
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -top-4 right-4 select-none text-[120px] font-extrabold leading-none text-chip-bg lg:text-[160px]"
+                  >
+                    {order}
+                  </span>
+                  <div className="relative">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-navy px-3 py-1 text-xs font-bold text-white">
+                      <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
+                        train
+                      </span>
+                      Ga {order}
+                    </span>
+                    <h3 className="mt-3 text-2xl font-extrabold text-navy-darkest lg:text-3xl xl:text-4xl">
+                      Ga {cluster.stationName}
+                    </h3>
+                    <p className="mt-1 text-sm text-text-muted">{total} địa điểm gợi ý</p>
 
-              <div className="absolute inset-x-4 bottom-4 rounded-3xl border border-white/30 bg-white/15 p-5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_12px_40px_rgba(0,0,0,0.25)] backdrop-blur-xl backdrop-saturate-150 sm:inset-x-auto sm:bottom-6 sm:left-20 sm:w-[380px] lg:left-10">
-                <p className="text-xs font-semibold uppercase tracking-wider text-white/80">
-                  Ga {String(cluster.stationOrder).padStart(2, "0")}
-                </p>
-                <h3 className="mt-1 text-2xl font-extrabold">Ga {cluster.stationName}</h3>
-                <p className="mt-0.5 text-sm text-white/80">
-                  {cluster.placeCount ?? cluster.places.length} địa điểm gợi ý
-                </p>
-                <ul className="mt-3 space-y-1 text-sm text-white/90">
-                  {cluster.places.slice(0, 3).map((place) => (
-                    <li key={place.id} className="truncate">
-                      {place.name} · {formatDistance(place.distanceFromStationMeters)}
-                    </li>
-                  ))}
-                </ul>
+                    <ul className="mt-4 flex flex-wrap gap-2">
+                      {countByCategory(cluster.places).map(({ code, count }) => (
+                        <li
+                          key={code}
+                          className="inline-flex items-center gap-1 rounded-full bg-chip-bg px-3 py-1 text-xs font-semibold text-navy-dark"
+                        >
+                          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
+                            {CATEGORY_ICONS[code]}
+                          </span>
+                          {PLACE_CATEGORY_LABELS[code]} · {count}
+                        </li>
+                      ))}
+                    </ul>
+
+                    <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-text-faint">
+                      Gần ga nhất
+                    </p>
+                    <ul className="mt-1 divide-y divide-border-soft">
+                      {nearest.map((place) => (
+                        <li key={place.id} className="flex items-center gap-3 py-2.5">
+                          <span
+                            aria-hidden="true"
+                            className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-container-low text-[20px] text-navy"
+                          >
+                            {CATEGORY_ICONS[place.category] ?? "place"}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold text-navy-darkest">
+                              {place.name}
+                            </span>
+                            <span className="block text-xs text-text-muted">
+                              {PLACE_CATEGORY_LABELS[place.category] ?? place.category}
+                            </span>
+                          </span>
+                          <span className="shrink-0 rounded-full bg-chip-bg px-2.5 py-1 text-xs font-bold text-navy-dark">
+                            {formatDistance(place.distanceFromStationMeters)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                      <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-navy-darkest transition group-hover:bg-accent-dark">
+                        Tạo lịch trình quanh ga này
+                        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
+                          arrow_forward
+                        </span>
+                      </span>
+                      {more > 0 && (
+                        <span className="text-xs font-semibold text-text-muted">
+                          +{more} địa điểm khác
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </button>
           );
@@ -664,7 +743,11 @@ export default function WelcomePage() {
               <Reveal>
                 <StationCarousel
                   clusters={stationCards}
-                  onSelect={() => navigate(isLoggedIn ? "/metro" : "/login")}
+                  onSelect={(stationOrder) =>
+                    isLoggedIn
+                      ? navigate("/create", { state: { destinationStationOrder: stationOrder } })
+                      : navigate("/login")
+                  }
                 />
               </Reveal>
             )}
@@ -936,22 +1019,22 @@ export default function WelcomePage() {
               >
                 localmateai@gmail.com
               </a>
+              <a
+                className="text-blue-400 hover:underline font-medium block mb-2"
+                href="https://www.facebook.com/profile.php?id=61594108001496"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Facebook
+              </a>
               <span className="inline-block px-2.5 py-1 rounded bg-slate-800 text-slate-300 text-[11px]">
                 TP. Hồ Chí Minh, Việt Nam
               </span>
             </div>
           </div>
 
-          <div className="pt-8 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="pt-8 border-t border-slate-800/80 text-center sm:text-left">
             <p className="text-[11px] text-slate-500">© 2026 LocalMate AI.</p>
-            <div className="flex items-center gap-6 text-[11px]">
-              <a className="hover:text-slate-300" href="#">
-                Điều khoản sử dụng
-              </a>
-              <a className="hover:text-slate-300" href="#">
-                Chính sách bảo mật
-              </a>
-            </div>
           </div>
         </div>
       </footer>

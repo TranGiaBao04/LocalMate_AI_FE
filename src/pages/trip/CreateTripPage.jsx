@@ -271,9 +271,9 @@ export default function CreateTripPage() {
       ? { latitude: initial.startLatitude, longitude: initial.startLongitude }
       : null,
   );
-  // null = "Gần tôi"
+  // null = "Gần tôi". Mở từ thẻ ga ở trang đích thì ga đó được chọn sẵn (location.state.destinationStationOrder)
   const [destinationStationOrder, setDestinationStationOrder] = useState(
-    () => initial?.destinationStationOrder ?? null,
+    () => location.state?.destinationStationOrder ?? initial?.destinationStationOrder ?? null,
   );
   const [travelMode, setTravelMode] = useState(() => initial?.travelMode ?? DEFAULT_TRAVEL_MODE);
   const [travelModes, setTravelModes] = useState([]);
