@@ -6,6 +6,7 @@ import TripRequestAssistant from "../src/components/trip/TripRequestAssistant";
 import AiLoadingPage from "../src/pages/trip/AiLoadingPage";
 import * as Auth from "../src/context/AuthContext";
 import * as Trip from "../src/context/TripContext";
+import * as Subscription from "../src/context/SubscriptionContext";
 import { masterDataService } from "../src/services/masterDataService";
 import { tagService } from "../src/services/tagService";
 import { placeService } from "../src/services/placeService";
@@ -24,6 +25,7 @@ const master = {
 const fields = { durationHours: 4, budgetMax: 300000, tagIds: ["coffee"], travelMode: "Auto", startStationOrder: 1, destinationStationOrder: null, plannedDate: "2026-10-09", startTime: "09:30:00", note: "Yên tĩnh" };
 let context;
 let demo;
+let plan;
 const flush = async () => { await act(async () => {}); };
 const tick = async (ms) => { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); };
 const click = async (name) => { fireEvent.click(screen.getByRole("button", { name })); await flush(); };
@@ -46,6 +48,8 @@ beforeEach(() => {
   context = { request: null, setRequest: vi.fn(), generateTrip: vi.fn().mockResolvedValue({ id: "new-trip" }), setCurrentTrip: vi.fn() };
   vi.spyOn(Auth, "useAuth").mockImplementation(() => ({ isDemo: demo }));
   vi.spyOn(Trip, "useTrip").mockImplementation(() => context);
+  plan = { subscription: null, refreshSubscription: vi.fn().mockResolvedValue(null) };
+  vi.spyOn(Subscription, "useSubscription").mockImplementation(() => plan);
   vi.spyOn(masterDataService, "getMasterData").mockResolvedValue(master);
   vi.spyOn(tagService, "getTags").mockResolvedValue(tags);
   vi.spyOn(placeService, "getMetroClusters").mockResolvedValue([{ stationId: "s1", placeCount: 4 }, { stationId: "s2", placeCount: 0 }]);
@@ -170,6 +174,24 @@ describe("USER-A4.2 preferences, feasibility, generation and prefill", () => {
     await click(new RegExp(action)); expect(tripService.checkFeasibility).toHaveBeenCalledTimes(2);
     expect(tripService.checkFeasibility).toHaveBeenLastCalledWith(expect.objectContaining(changed));
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "4");
+  });
+  it("suggests another travel mode when walking leaves no time, and retries with it", async () => {
+    tripService.checkFeasibility.mockResolvedValueOnce({ isFeasible: false, reason: "DurationTooShort" });
+    await mount(); fireEvent.click(origin().getByRole("button", { name: "Bến Thành" })); await click("Đi bộ");
+    await click("Tiếp tục"); await click("Tiếp tục"); await click("Cà phê"); await click("Tiếp tục");
+    expect(tripService.checkFeasibility).toHaveBeenLastCalledWith(expect.objectContaining({ travelMode: "Walking" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Đi bộ tới khu này mất gần hết thời gian bạn chọn.");
+    expect(screen.getByRole("button", { name: "Chỉnh thời lượng" })).toBeInTheDocument();
+    await click("Đổi sang Xe máy");
+    expect(tripService.checkFeasibility).toHaveBeenCalledTimes(2);
+    expect(tripService.checkFeasibility).toHaveBeenLastCalledWith(expect.objectContaining({ travelMode: "Motorbike" }));
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "4");
+  });
+  it("keeps the generic too-short message without mode suggestions for other travel modes", async () => {
+    tripService.checkFeasibility.mockResolvedValue({ isFeasible: false, reason: "DurationTooShort" });
+    await interestsStep(); await click("Cà phê"); await click("Tiếp tục");
+    expect(screen.getByRole("alert")).toHaveTextContent("Số giờ chưa đủ để tới và tham quan địa điểm nào.");
+    expect(screen.queryByRole("button", { name: /Đổi sang/ })).not.toBeInTheDocument();
   });
   it("preserves feasibility loading lock, unknown reason fallback and network error retry", async () => {
     let resolve; tripService.checkFeasibility.mockReturnValueOnce(new Promise((r) => { resolve = r; }));
@@ -331,5 +353,61 @@ describe("USER-A4.3 assistant and illustrative loading contracts", () => {
     await tick(3000); expect(navigation).not.toHaveBeenCalled(); expect(globalThis.fetch).not.toHaveBeenCalled();
     expect(context.generateTrip).not.toHaveBeenCalled(); expect(screen.getByText(/Tiến trình minh hoạ/)).toBeInTheDocument();
     view.unmount(); expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe("generate quota and daily AI quota from the current plan", () => {
+  const resetAt = "2026-11-01T00:00:00Z";
+  const usedUp = { plan: "Free", usage: { generateUsed: 1, generateLimit: 1, resetAt }, ai: { dailyUsed: 0, dailyLimit: 3, resetAt } };
+  const quota = (remaining) => ({ used: 3 - remaining, limit: 3, remaining, resetAt });
+  it("reloads the plan on open and stays quiet while generate quota remains", async () => {
+    plan.subscription = { ...usedUp, usage: { generateUsed: 0, generateLimit: 1, resetAt } };
+    await mount();
+    expect(plan.refreshSubscription).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /Kể cho LocalMate/ })).toBeEnabled();
+    expect(screen.getByRole("textbox", { name: /Kể cho LocalMate/ })).toHaveAccessibleDescription("Mỗi lần tính 1 lượt AI. Còn 3/3 lượt hôm nay.");
+  });
+  it("warns up front and locks the AI box when generate quota is used up", async () => {
+    plan.subscription = usedUp;
+    await mount();
+    const notice = screen.getByRole("alert");
+    expect(notice).toHaveTextContent("Bạn đã dùng hết lượt tạo lịch trình của gói hiện tại.");
+    expect(notice).toHaveTextContent("1 / 1 lượt");
+    const box = screen.getByRole("textbox", { name: /Kể cho LocalMate/ });
+    expect(box).toBeDisabled();
+    expect(box).toHaveAccessibleDescription("Bạn đã hết lượt tạo lịch trình nên ô này tạm khoá.");
+    await click("Xem lịch trình mẫu"); expect(navigation).toHaveBeenCalledWith("/explore");
+    expect(screen.queryByRole("button", { name: "Kiểm tra lại" })).not.toBeInTheDocument();
+    expect(tripService.parseTripRequest).not.toHaveBeenCalled();
+  });
+  it("locks Continue and the final CTA when generate quota is used up", async () => {
+    plan.subscription = usedUp;
+    const view = await mount();
+    fireEvent.click(origin().getByRole("button", { name: "Bến Thành" }));
+    expect(screen.getByRole("button", { name: "Tiếp tục" })).toBeDisabled();
+    view.unmount();
+    await mount({ prefill: { fields, changed: [], missing: [], base: fields, origin: {} } });
+    expect(screen.getByRole("button", { name: /Tạo lịch mới/ })).toBeDisabled();
+    expect(tripService.checkFeasibility).not.toHaveBeenCalled();
+    expect(context.generateTrip).not.toHaveBeenCalled();
+  });
+  it("ignores a generate counter whose reset time has passed", async () => {
+    plan.subscription = { ...usedUp, usage: { generateUsed: 1, generateLimit: 1, resetAt: "2026-10-01T00:00:00Z" } };
+    await mount();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+  it("assistant shows remaining AI calls, locks at zero and reports every settled call", async () => {
+    tripService.parseTripRequest.mockRejectedValue({ code: "ai_unavailable" });
+    const onSettled = vi.fn();
+    const props = { title: "Yêu cầu AI", placeholder: "Nhập yêu cầu", submitLabel: "Điền giúp tôi", onParsed: vi.fn(), onSettled };
+    const view = render(<TripRequestAssistant {...props} aiQuota={quota(2)} />);
+    expect(screen.getByRole("textbox")).toHaveAccessibleDescription("Mỗi lần tính 1 lượt AI. Còn 2/3 lượt hôm nay.");
+    typeAI("Đi cà phê chiều mai"); await click("Điền giúp tôi");
+    expect(onSettled).toHaveBeenCalledTimes(1);
+    view.rerender(<TripRequestAssistant {...props} aiQuota={quota(0)} />);
+    expect(screen.getByRole("textbox")).toBeDisabled();
+    expect(screen.getByRole("textbox")).toHaveAccessibleDescription(/Bạn đã dùng hết lượt AI hôm nay\. Lượt mới có từ/);
+    expect(screen.getByRole("button", { name: "Điền giúp tôi" })).toBeDisabled();
   });
 });

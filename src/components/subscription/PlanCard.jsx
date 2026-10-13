@@ -186,6 +186,17 @@ export default function PlanCard({
             </span>
             <span className="leading-snug">{savedTripsBenefit}</span>
           </li>
+          {typeof plan.aiDailyCallLimit === "number" && plan.aiDailyCallLimit > 0 && (
+            <li className="flex items-start gap-2.5">
+              <span
+                className="material-symbols-outlined text-[20px] text-emerald-600 flex-shrink-0 mt-0.5"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                check_circle
+              </span>
+              <span className="leading-snug">{plan.aiDailyCallLimit} lượt trợ lý AI mỗi ngày</span>
+            </li>
+          )}
           <li className="flex items-start gap-2.5">
             <span
               className="material-symbols-outlined text-[20px] text-emerald-600 flex-shrink-0 mt-0.5"

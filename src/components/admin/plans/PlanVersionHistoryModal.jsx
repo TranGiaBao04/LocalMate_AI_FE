@@ -57,6 +57,8 @@ function PlanVersionHistoryContent({ plan, onClose }) {
                   <div><dt className="text-xs text-[#5C6B8A]">Thời hạn</dt><dd className="mt-1">{ver.durationDays != null ? `${ver.durationDays} ngày` : plan.code === "FREE" ? "Không áp dụng" : "Không có thời hạn mua"}</dd></div>
                   <div><dt className="text-xs text-[#5C6B8A]">Lượt tạo lịch trình</dt><dd className="mt-1">{ver.generateLimit == null ? "Không giới hạn (∞)" : `${ver.generateLimit} lượt`}</dd></div>
                   <div><dt className="text-xs text-[#5C6B8A]">Lượt lưu chuyến</dt><dd className="mt-1">{ver.savedTripLimit == null ? "Không giới hạn (∞)" : `${ver.savedTripLimit} chuyến`}</dd></div>
+                  <div><dt className="text-xs text-[#5C6B8A]">Lượt AI mỗi ngày</dt><dd className="mt-1">{ver.aiDailyCallLimit == null ? "Theo cấu hình hệ thống" : `${ver.aiDailyCallLimit} lượt`}</dd></div>
+                  <div><dt className="text-xs text-[#5C6B8A]">AI viết lý do mỗi lịch trình</dt><dd className="mt-1">{ver.aiExplainCallsPerTripLimit == null ? "Theo cấu hình hệ thống" : `${ver.aiExplainCallsPerTripLimit} lần`}</dd></div>
                 </dl>
                 {Array.isArray(ver.features) && ver.features.length > 0 && <div className="mt-4"><p className="text-xs text-[#5C6B8A]">Quyền lợi bao gồm ({ver.features.length})</p><ul className="mt-2 space-y-1">{ver.features.map(feat => <li key={feat.id || feat.code} title={feat.description || feat.name} className="flex items-start gap-2 text-sm"><span className="material-symbols-outlined text-[18px] text-green-700" aria-hidden="true">check</span>{feat.name}</li>)}</ul></div>}
               </li>

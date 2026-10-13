@@ -120,6 +120,47 @@ export function isFreeSubscription(sub) {
 }
 
 /**
+ * Lượt AI trong ngày từ GET /subscription/me (`ai`). Trả null khi chưa có số hoặc đã qua resetAt
+ * (00:00 giờ Việt Nam hôm sau), để giao diện không hiện lượt của hôm qua.
+ */
+export function getAiQuota(sub, now = Date.now()) {
+  const ai = sub?.ai;
+  if (!ai || typeof ai.dailyUsed !== "number" || typeof ai.dailyLimit !== "number") return null;
+  const resetTime = ai.resetAt ? new Date(ai.resetAt).getTime() : NaN;
+  if (Number.isFinite(resetTime) && now >= resetTime) return null;
+  return {
+    used: ai.dailyUsed,
+    limit: ai.dailyLimit,
+    remaining: Math.max(0, ai.dailyLimit - ai.dailyUsed),
+    resetAt: ai.resetAt ?? null,
+  };
+}
+
+/**
+ * Câu nhắc cạnh nút AI khi đã có số lượt (aiQuota khác null).
+ */
+export function getAiQuotaHint(aiQuota) {
+  if (aiQuota.limit === 0) return "Gói hiện tại không có lượt AI.";
+  if (aiQuota.remaining === 0) {
+    const resetAt = formatVnDateTime(aiQuota.resetAt);
+    return `Bạn đã dùng hết lượt AI hôm nay.${resetAt ? ` Lượt mới có từ ${resetAt}.` : ""}`;
+  }
+  return `Mỗi lần tính 1 lượt AI. Còn ${aiQuota.remaining}/${aiQuota.limit} lượt hôm nay.`;
+}
+
+/**
+ * Hết lượt tạo lịch trình theo yêu cầu, cùng điều kiện với BE: used >= limit, limit null là không giới hạn.
+ * Áp dụng lịch mẫu và nhân bản lịch không tính vào lượt này.
+ */
+export function isGenerateQuotaExhausted(sub, now = Date.now()) {
+  const usage = sub?.usage;
+  if (typeof usage?.generateLimit !== "number" || typeof usage?.generateUsed !== "number") return false;
+  const resetTime = usage.resetAt ? new Date(usage.resetAt).getTime() : NaN;
+  if (Number.isFinite(resetTime) && now >= resetTime) return false;
+  return usage.generateUsed >= usage.generateLimit;
+}
+
+/**
  * Resolves a presentation-safe display name for a plan code.
  * Preferred order: catalog name -> known display name mapping -> raw plan code.
  */

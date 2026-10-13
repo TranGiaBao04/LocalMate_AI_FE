@@ -484,6 +484,16 @@ function UserDetail({ userId }) {
                 {formatLimit(subscription.savedTrips.used, subscription.savedTrips.limit)}
               </InfoRow>
             )}
+            {subscription?.ai && (
+              <InfoRow label="Lượt AI hôm nay">
+                {subscription.ai.dailyUsed}/{subscription.ai.dailyLimit}
+                {subscription.ai.resetAt && (
+                  <span className="block text-xs font-normal text-[#5C6B8A]">
+                    Làm mới {formatVnDateTime(subscription.ai.resetAt)}
+                  </span>
+                )}
+              </InfoRow>
+            )}
           </dl>
         </section>
       </div>

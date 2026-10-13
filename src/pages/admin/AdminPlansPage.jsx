@@ -281,20 +281,30 @@ export default function AdminPlansPage() {
       },
       {
         key: "limits",
-        header: "Hạn mức (Tạo lịch / Lưu)",
+        header: "Hạn mức",
         render: (row) => {
           const cv = row.currentVersion;
           const gen = cv?.generateLimit == null ? "∞" : `${cv.generateLimit} lượt`;
           const save = cv?.savedTripLimit == null ? "∞" : `${cv.savedTripLimit} chuyến`;
+          // Phiên bản cũ chưa có số AI riêng thì BE dùng số ở Cấu hình hệ thống
+          const ai = cv?.aiDailyCallLimit == null ? "theo cấu hình" : `${cv.aiDailyCallLimit}/ngày`;
+          const explain = cv?.aiExplainCallsPerTripLimit == null ? "theo cấu hình" : `${cv.aiExplainCallsPerTripLimit}/lịch`;
           return (
-            <div className="text-xs">
-              <span className="font-medium text-slate-700" title="Lượt tạo lịch trình">
-                Tạo lịch: {gen}
-              </span>
-              <span className="mx-1 text-slate-300">·</span>
-              <span className="font-medium text-slate-700" title="Lượt lưu chuyến">
-                Lưu: {save}
-              </span>
+            <div className="space-y-0.5 text-xs">
+              <div>
+                <span className="font-medium text-slate-700" title="Lượt tạo lịch trình">
+                  Tạo lịch: {gen}
+                </span>
+                <span className="mx-1 text-slate-300">·</span>
+                <span className="font-medium text-slate-700" title="Lượt lưu chuyến">
+                  Lưu: {save}
+                </span>
+              </div>
+              <div className="text-slate-500">
+                <span title="Lượt AI mỗi ngày">AI: {ai}</span>
+                <span className="mx-1 text-slate-300">·</span>
+                <span title="Số lần AI viết lý do mỗi lịch trình">Viết lý do: {explain}</span>
+              </div>
             </div>
           );
         },

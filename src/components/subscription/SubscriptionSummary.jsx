@@ -3,6 +3,7 @@ import {
   isPaidSubscription,
   isFreeSubscription,
   getPlanDisplayName,
+  getAiQuota,
 } from "../../utils/subscriptionUtils";
 
 export default function SubscriptionSummary({ subscription, loading, onRenew, plans = [] }) {
@@ -72,6 +73,8 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
     typeof savedTripsLimit === "number" &&
     typeof savedTripsUsed === "number" &&
     savedTripsUsed > savedTripsLimit;
+
+  const aiQuota = getAiQuota(subscription);
 
   const generatePeriodLabel = isFree
     ? "Lượt tạo lịch trình tháng này"
@@ -164,7 +167,7 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
       )}
 
       {/* Quota Usage Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 ${aiQuota ? "lg:grid-cols-3" : ""}`}>
         {/* Lượt tạo lịch trình */}
         <div className="border-l-2 border-primary/30 pl-4 py-2 space-y-2 min-w-0">
           <div className="flex items-center justify-between text-label-md text-on-surface-variant">
@@ -220,6 +223,28 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
             </p>
           )}
         </div>
+
+        {/* Lượt AI hôm nay */}
+        {aiQuota && (
+          <div className="border-l-2 border-accent/40 pl-4 py-2 space-y-2 min-w-0">
+            <div className="flex items-center justify-between text-label-md text-on-surface-variant">
+              <span>Lượt AI hôm nay</span>
+              <span className="material-symbols-outlined text-primary text-[18px]">
+                smart_toy
+              </span>
+            </div>
+            <div className="text-title-lg font-bold text-on-surface">
+              <span>
+                {aiQuota.used} / {aiQuota.limit}
+              </span>
+            </div>
+            <p className="text-label-sm text-text-muted">
+              {aiQuota.limit === 0
+                ? "Gói hiện tại không có lượt AI"
+                : `Tính chung AI điền form và AI viết lý do. Làm mới vào ${formatVnDateTime(aiQuota.resetAt)}`}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

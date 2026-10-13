@@ -215,7 +215,7 @@ describe("USER-A2.3 Search presentation with frozen request contracts", () => {
 describe("USER-A2 integrates the untouched curated hook", () => {
   beforeEach(() => {
     Curated.useCuratedItineraries.mockRestore();
-    vi.spyOn(Trip, "useTrip").mockReturnValue({ setCurrentTrip: vi.fn() });
+    vi.spyOn(Trip, "useTrip").mockReturnValue({ openDraft: vi.fn() });
     vi.spyOn(itineraryService, "getCuratedItineraries").mockResolvedValue([itinerary()]);
     vi.spyOn(itineraryService, "applyCuratedItinerary").mockResolvedValue({ id: "server-draft" });
     vi.spyOn(VietnamTime, "minutesNowInVietnam").mockReturnValue(607);
@@ -225,7 +225,7 @@ describe("USER-A2 integrates the untouched curated hook", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Lịch trình curated-a/ }));
     await waitFor(() => expect(screen.getByLabelText("current route")).toHaveTextContent("/draft|"));
     expect(itineraryService.applyCuratedItinerary).toHaveBeenCalledExactlyOnceWith("curated-a", { startTime: "10:15" });
-    expect(Trip.useTrip().setCurrentTrip).toHaveBeenCalledExactlyOnceWith({ id: "server-draft" });
+    expect(Trip.useTrip().openDraft).toHaveBeenCalledExactlyOnceWith({ id: "server-draft" });
     expect(itineraryService.getCuratedItineraries).toHaveBeenCalledTimes(1);
     expect(placeService.getMetroClusters).toHaveBeenCalledTimes(page === "Home" ? 1 : 0);
   });
@@ -234,7 +234,7 @@ describe("USER-A2 integrates the untouched curated hook", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Lịch trình curated-a/ }));
     expect(screen.getByRole("alert")).toHaveTextContent("Đăng nhập bằng tài khoản đã đăng ký để dùng lịch trình mẫu.");
     expect(itineraryService.applyCuratedItinerary).not.toHaveBeenCalled();
-    expect(Trip.useTrip().setCurrentTrip).not.toHaveBeenCalled();
+    expect(Trip.useTrip().openDraft).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Đăng nhập", exact: true }));
     expect(screen.getByLabelText("current route")).toHaveTextContent("/login|");
   });
@@ -245,7 +245,7 @@ describe("USER-A2 integrates the untouched curated hook", () => {
     await act(async () => pending.reject({ code: "curated_itinerary_unavailable", message: "server" }));
     expect(screen.getByRole("alert")).toHaveTextContent("Các địa điểm của lịch trình này đã ngừng hoạt động.");
     expect(button).not.toBeDisabled(); expect(button).toHaveAttribute("aria-busy", "false");
-    expect(Trip.useTrip().setCurrentTrip).not.toHaveBeenCalled();
+    expect(Trip.useTrip().openDraft).not.toHaveBeenCalled();
   });
 });
 

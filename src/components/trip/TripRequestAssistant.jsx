@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { tripService } from "../../services/tripService";
 import { getAiErrorMessage } from "../../utils/aiErrors";
+import { getAiQuotaHint } from "../../utils/subscriptionUtils";
 
 // Khớp TripRequestParsingPrompt của BE
 const MIN_TEXT_LENGTH = 5;
@@ -8,7 +9,9 @@ const MAX_TEXT_LENGTH = 500;
 
 // Ô nhập tự do: AI đọc câu thành tiêu chí tạo lịch. Chỉ gọi khi bấm gửi/Enter vì mỗi lần tính 1 lượt AI,
 // kể cả khi lỗi. base: tiêu chí của lịch đang xem, có thì câu được hiểu là yêu cầu thay đổi lịch đó.
-export default function TripRequestAssistant({ title, placeholder, submitLabel, base, onParsed }) {
+// aiQuota: kết quả getAiQuota (null khi chưa có số). blockedReason: câu giải thích khi trang muốn khoá ô này.
+// onSettled: gọi sau mỗi lần gửi, kể cả lỗi, để trang tải lại số lượt.
+export default function TripRequestAssistant({ title, placeholder, submitLabel, base, onParsed, aiQuota = null, blockedReason = "", onSettled }) {
   const inputId = useId();
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -16,7 +19,10 @@ export default function TripRequestAssistant({ title, placeholder, submitLabel, 
   const [error, setError] = useState("");
 
   const trimmed = text.trim();
-  const canSubmit = trimmed.length >= MIN_TEXT_LENGTH && !loading;
+  const blocked = Boolean(blockedReason) || aiQuota?.remaining === 0;
+  const canSubmit = trimmed.length >= MIN_TEXT_LENGTH && !loading && !blocked;
+  const usageText =
+    blockedReason || (aiQuota ? getAiQuotaHint(aiQuota) : "Mỗi lần gửi tính 1 lượt AI trong ngày.");
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -37,6 +43,7 @@ export default function TripRequestAssistant({ title, placeholder, submitLabel, 
       );
     } finally {
       setLoading(false);
+      onSettled?.();
     }
   };
 
@@ -55,13 +62,14 @@ export default function TripRequestAssistant({ title, placeholder, submitLabel, 
           if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) handleSubmit(e);
         }}
         maxLength={MAX_TEXT_LENGTH}
+        disabled={blocked}
         rows={2}
         placeholder={placeholder}
         aria-describedby={`${inputId}-usage`}
         className="min-h-24 w-full min-w-0 resize-y rounded-[8px] border border-border-soft bg-surface-container-low/40 p-3 text-body-md leading-6 placeholder:text-text-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary"
       />
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-        <span id={`${inputId}-usage`} className="text-[13px] leading-5 text-text-muted">Mỗi lần gửi tính 1 lượt AI trong ngày.</span>
+        <span id={`${inputId}-usage`} className="text-[13px] leading-5 text-text-muted">{usageText}</span>
         <button
           type="submit"
           disabled={!canSubmit}

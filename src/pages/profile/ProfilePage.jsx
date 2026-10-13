@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTrip } from "../../context/TripContext";
 import { useSubscription } from "../../context/SubscriptionContext";
-import { formatVnDateTime, isPaidSubscription, isFreeSubscription, getPlanDisplayName } from "../../utils/subscriptionUtils";
+import { formatVnDateTime, isPaidSubscription, isFreeSubscription, getPlanDisplayName, getAiQuota } from "../../utils/subscriptionUtils";
 import MobileLayout from "../../components/layout/MobileLayout";
 import PageHeader from "../../components/layout/PageHeader";
 import { tagService } from "../../services/tagService";
@@ -151,6 +151,7 @@ function OwnedProfilePage({ auth }) {
     { label: "Bản nháp", name: "Số lịch trình nháp", value: savedTrips.filter((trip) => trip.status === "draft").length },
   ];
   const validSubscription = subscription && (isFreeSubscription(subscription) || isPaidSubscription(subscription));
+  const aiQuota = getAiQuota(subscription);
   const effectiveDate = formatVnDateTime(subscription?.effectiveUntil);
   const endDate = formatVnDateTime(subscription?.endsAt);
 
@@ -275,6 +276,7 @@ function OwnedProfilePage({ auth }) {
                       <dl className="divide-y divide-border-soft border-y border-border-soft">
                         <div className="flex flex-wrap items-baseline justify-between gap-2 py-3"><dt className="text-xs text-on-surface-variant">{isFreeSubscription(subscription) ? "Lượt tạo lịch trình tháng này" : "Lượt tạo lịch trình"}</dt><dd className="text-sm font-bold text-on-surface">{usageText(subscription.usage?.generateUsed, subscription.usage?.generateLimit)}</dd></div>
                         <div className="flex flex-wrap items-baseline justify-between gap-2 py-3"><dt className="text-xs text-on-surface-variant">Lịch trình đã chốt</dt><dd className="text-sm font-bold text-on-surface">{usageText(subscription.savedTrips?.used, subscription.savedTrips?.limit)}</dd></div>
+                        {aiQuota && <div className="flex flex-wrap items-baseline justify-between gap-2 py-3"><dt className="text-xs text-on-surface-variant">Lượt AI hôm nay</dt><dd className="text-sm font-bold text-on-surface">{aiQuota.used} / {aiQuota.limit}</dd></div>}
                       </dl>
                     </div>}
               <Link to="/subscription" className={action + " mt-4 w-full border border-outline-variant bg-white text-primary"}>Quản lý gói<Icon>arrow_forward</Icon></Link>

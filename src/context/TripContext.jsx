@@ -151,7 +151,18 @@ function OwnedTripProvider({ children, owner, persisted }) {
     return trip;
   };
 
-  const generateTrip = async (req) => ownedRequest(() => tripService.generateTrip(req));
+  const generateTrip = async (req) => {
+    const trip = await ownedRequest(() => tripService.generateTrip(req));
+    // BE đã lưu lịch nháp ngay lúc tạo: đưa vào danh sách để trang Lịch trình thấy mà không cần tải lại
+    upsertSavedTrip(trip);
+    return trip;
+  };
+
+  // Mở một lịch nháp ở trang /draft: lịch vừa áp dụng từ lịch mẫu, hoặc lịch nháp cũ mở lại từ danh sách
+  const openDraft = (trip) => {
+    setCurrentTrip(trip);
+    upsertSavedTrip(trip);
+  };
 
   // AI chỉ đổi câu lý do. Gọi lại GET /trips/{id} để không ghi đè thay đổi người dùng làm trong lúc chờ.
   // Mỗi trip chỉ một lần gọi cùng lúc: BE tính lần đang chờ là 1 lượt của trip, lần gọi chồng lên sẽ nhận
@@ -230,6 +241,7 @@ function OwnedTripProvider({ children, owner, persisted }) {
         saveTrip,
         deleteTrip,
         generateTrip,
+        openDraft,
         explainTrip,
         explainingTripIds,
         finalizeTrip,

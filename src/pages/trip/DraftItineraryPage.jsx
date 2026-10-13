@@ -11,7 +11,12 @@ import { formatPlannedDate } from "../../utils/vnTime";
 import TimelineItemDirections from "../../components/TimelineItemDirections";
 import { itineraryPurchaseService, canPurchaseSingle, isAvailableSingleEntitlement } from "../../services/itineraryPurchaseService";
 import SingleItineraryPaymentModal from "../../components/itineraryPurchase/SingleItineraryPaymentModal";
-import { formatPlanPrice } from "../../utils/subscriptionUtils";
+import {
+  formatPlanPrice,
+  getAiQuota,
+  getAiQuotaHint,
+  isGenerateQuotaExhausted,
+} from "../../utils/subscriptionUtils";
 import TripRequestAssistant from "../../components/trip/TripRequestAssistant";
 import { toParseBase } from "../../services/tripService";
 import { getAiErrorMessage } from "../../utils/aiErrors";
@@ -104,7 +109,9 @@ function DraftItineraryPageInner() {
   const location = useLocation();
   const { currentTrip, finalizeTrip, deleteItem, explainTrip, explainingTripIds } = useTrip();
   const { isDemo } = useAuth();
-  const { refreshSubscription } = useSubscription();
+  const { subscription, refreshSubscription } = useSubscription();
+  const aiQuota = getAiQuota(subscription);
+  const generateExhausted = isGenerateQuotaExhausted(subscription);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [showSinglePurchaseModal, setShowSinglePurchaseModal] = useState(false);
   const [availability, setAvailability] = useState(null);
@@ -267,6 +274,9 @@ function DraftItineraryPageInner() {
       if (err.code === "ai_trip_limit_reached") setExplainLocked(true);
       // AI lỗi thì các câu lý do đang có vẫn giữ nguyên
       setExplainError(getAiErrorMessage(err));
+    } finally {
+      // Lượt AI trong ngày tính cả lần lỗi
+      refreshSubscription();
     }
   };
 
@@ -393,7 +403,7 @@ function DraftItineraryPageInner() {
               Ghi chú: "{currentTrip.note}".{" "}
               {currentTrip.noteApplied
                 ? "Đã ưu tiên theo ghi chú của bạn."
-                : "Chưa tìm được địa điểm khớp với ghi chú của bạn, lịch được tạo theo sở thích và vị trí."}
+                : "Lần này lịch được tạo theo sở thích và vị trí, chưa áp dụng được ghi chú."}
             </p>
           )}
           {currentTrip.totalMinutes != null &&
@@ -420,7 +430,7 @@ function DraftItineraryPageInner() {
             <button
               type="button"
               onClick={handleExplain}
-              disabled={explaining || explainLocked}
+              disabled={explaining || explainLocked || aiQuota?.remaining === 0}
               className="flex min-h-11 max-w-full items-center gap-2 rounded-[8px] border border-primary bg-white px-4 py-2.5 text-body-md font-semibold text-primary transition-colors hover:bg-primary/5 disabled:opacity-60 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[20px]">auto_awesome</span>
@@ -431,7 +441,8 @@ function DraftItineraryPageInner() {
                   : "Nhờ AI viết lý do"}
             </button>
             <span className="text-label-md text-on-surface-variant">
-              {currentTrip.aiExplainedAt ? "Lý do do AI viết. " : ""}Mỗi lần tính 1 lượt AI trong ngày.
+              {currentTrip.aiExplainedAt ? "Lý do do AI viết. " : ""}
+              {aiQuota ? getAiQuotaHint(aiQuota) : "Mỗi lần tính 1 lượt AI trong ngày."}
             </span>
             {explainError && (
               <p role="alert" className="w-full break-words text-body-md leading-6 text-error">{explainError}</p>
@@ -592,6 +603,9 @@ function DraftItineraryPageInner() {
             submitLabel="Xem thay đổi"
             base={toParseBase(currentTrip)}
             onParsed={handleChangeParsed}
+            aiQuota={aiQuota}
+            onSettled={refreshSubscription}
+            blockedReason={generateExhausted ? "Bạn đã hết lượt tạo lịch trình nên chưa tạo được lịch mới từ thay đổi này." : ""}
           />
         )}
       </main>

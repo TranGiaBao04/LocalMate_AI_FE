@@ -53,6 +53,13 @@ describe("A5 Plans preservation and responsive interactions", () => {
     expect(desktop().getByText("Hoạt động")).toBeInTheDocument();
     expect(desktop().getByText("Tạm dừng")).toBeInTheDocument();
   });
+  it("list shows AI limits of the current version, or the system fallback", async () => {
+    await list([plan, { ...plan, id: "old", name: "Legacy", code: "LEGACY", currentVersion: { ...plan.currentVersion, aiDailyCallLimit: null, aiExplainCallsPerTripLimit: null } }]);
+    const rows = desktop().getAllByRole("row").slice(1);
+    expect(within(rows[0]).getByTitle("Lượt AI mỗi ngày")).toHaveTextContent("AI: 15/ngày");
+    expect(within(rows[0]).getByTitle("Số lần AI viết lý do mỗi lịch trình")).toHaveTextContent("Viết lý do: 3/lịch");
+    expect(within(rows[1]).getByTitle("Lượt AI mỗi ngày")).toHaveTextContent("AI: theo cấu hình");
+  });
   it("Free remains protected from deactivation/deletion", async () => {
     await list([{ ...plan, code: "FREE", name: "Free" }]);
     expect(desktop().getByRole("button", { name: "Tạm dừng gói" })).toBeDisabled();
@@ -189,7 +196,9 @@ describe("A5 Plans preservation and responsive interactions", () => {
     expect(records[1]).toHaveTextContent("v7");
     expect(records[1]).toHaveTextContent("Phiên bản hiện tại");
     expect(adminPlanService.getPlanVersions).toHaveBeenCalledExactlyOnceWith("pass", { page: 1, pageSize: 10 });
-    expect(screen.queryByText(/LLM|Explain|hàng ngày/)).not.toBeInTheDocument();
+    expect(within(records[0]).getByText("Lượt AI mỗi ngày").nextSibling).toHaveTextContent("Theo cấu hình hệ thống");
+    expect(within(records[1]).getByText("Lượt AI mỗi ngày").nextSibling).toHaveTextContent("0 lượt");
+    expect(within(records[1]).getByText("AI viết lý do mỗi lịch trình").nextSibling).toHaveTextContent("Theo cấu hình hệ thống");
   });
   it("300ms search debounce remains unchanged", async () => {
     vi.useFakeTimers();

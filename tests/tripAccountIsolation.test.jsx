@@ -135,6 +135,18 @@ describe("owner generations, storage and normal Trip contracts", () => {
     act(() => current.setCurrentTrip(null));
     await view.switchTo(A); expect(state().current).toBe(tripA.id);
   });
+  it("generated and reopened drafts join the saved list once, for their owner only", async () => {
+    mock.service.generateTrip.mockResolvedValue({ ...tripB, id: "new-draft" });
+    const view = mount(); await settled();
+    await act(async () => { await current.generateTrip({}); });
+    expect(state()).toMatchObject({ saved: ["new-draft", tripA.id], current: null });
+    act(() => current.openDraft(tripB));
+    expect(state()).toMatchObject({ saved: [tripB.id, "new-draft", tripA.id], current: tripB.id });
+    act(() => current.openDraft(tripB));
+    expect(state().saved).toEqual([tripB.id, "new-draft", tripA.id]);
+    expect(mock.service.getTrips).toHaveBeenCalledTimes(1);
+    await view.switchTo(B); expect(state()).toMatchObject({ saved: [tripB.id], current: null });
+  });
   it("same-owner rerender does not reset currentTrip/request or refetch list", async () => {
     const view = mount(); await settled();
     act(() => { current.setCurrentTrip(tripA); current.setRequest(requestA); });
