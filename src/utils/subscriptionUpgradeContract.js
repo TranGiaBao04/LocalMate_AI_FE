@@ -207,7 +207,7 @@ export const ADMIN_ERROR_CODES = ADMIN_SUBSCRIPTION_ERROR_CODES;
 /**
  * Daily AI counters within MySubscription DTO.
  * @typedef {Object} SubscriptionAi
- * @property {number} dailyUsed AI calls counted today (Vietnam date), failed calls included
+ * @property {number} dailyUsed AI calls counted today (Vietnam date); provider failures the backend waives are not counted
  * @property {number} dailyLimit Daily limit (0 means the plan has no AI)
  * @property {string} resetAt Reset UTC timestamp (00:00 Vietnam time, next day)
  */

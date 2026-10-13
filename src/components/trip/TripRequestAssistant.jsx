@@ -7,11 +7,13 @@ import { getAiQuotaHint } from "../../utils/subscriptionUtils";
 const MIN_TEXT_LENGTH = 5;
 const MAX_TEXT_LENGTH = 500;
 
-// Ô nhập tự do: AI đọc câu thành tiêu chí tạo lịch. Chỉ gọi khi bấm gửi/Enter vì mỗi lần tính 1 lượt AI,
-// kể cả khi lỗi. base: tiêu chí của lịch đang xem, có thì câu được hiểu là yêu cầu thay đổi lịch đó.
+// Ô nhập tự do: AI đọc câu thành tiêu chí tạo lịch. Chỉ gọi khi bấm gửi/Enter vì mỗi lần tính 1 lượt AI
+// (lần AI lỗi có tính hay không do BE báo qua charged). base: tiêu chí của lịch đang xem, có thì câu được hiểu
+// là yêu cầu thay đổi lịch đó.
 // aiQuota: kết quả getAiQuota (null khi chưa có số). blockedReason: câu giải thích khi trang muốn khoá ô này.
-// onSettled: gọi sau mỗi lần gửi, kể cả lỗi, để trang tải lại số lượt.
-export default function TripRequestAssistant({ title, placeholder, submitLabel, base, onParsed, aiQuota = null, blockedReason = "", onSettled }) {
+// cooldownSeconds: số giây còn phải chờ sau một lần AI lỗi; chỉ khoá nút gửi, vẫn cho gõ.
+// onSettled(err): gọi sau mỗi lần gửi để trang tải lại số lượt; err là lỗi của lần gửi đó, nếu có.
+export default function TripRequestAssistant({ title, placeholder, submitLabel, base, onParsed, aiQuota = null, blockedReason = "", cooldownSeconds = 0, onSettled }) {
   const inputId = useId();
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,7 +22,8 @@ export default function TripRequestAssistant({ title, placeholder, submitLabel, 
 
   const trimmed = text.trim();
   const blocked = Boolean(blockedReason) || aiQuota?.remaining === 0;
-  const canSubmit = trimmed.length >= MIN_TEXT_LENGTH && !loading && !blocked;
+  const coolingDown = cooldownSeconds > 0;
+  const canSubmit = trimmed.length >= MIN_TEXT_LENGTH && !loading && !blocked && !coolingDown;
   const usageText =
     blockedReason || (aiQuota ? getAiQuotaHint(aiQuota) : "Mỗi lần gửi tính 1 lượt AI trong ngày.");
 
@@ -30,20 +33,18 @@ export default function TripRequestAssistant({ title, placeholder, submitLabel, 
     setLoading(true);
     setMessage("");
     setError("");
+    let failure;
     try {
       const result = await tripService.parseTripRequest(trimmed, base);
       // message là câu tiếng Việt BE viết sẵn: câu không phải yêu cầu đi chơi, thiếu chi tiết, hoặc không đổi gì
       setMessage(result.message ?? "");
       onParsed(result);
     } catch (err) {
-      setError(
-        err.code === "ai_unavailable"
-          ? "AI đang bận, bạn điền form giúp nhé."
-          : getAiErrorMessage(err),
-      );
+      failure = err;
+      setError(getAiErrorMessage(err));
     } finally {
       setLoading(false);
-      onSettled?.();
+      onSettled?.(failure);
     }
   };
 
@@ -75,7 +76,7 @@ export default function TripRequestAssistant({ title, placeholder, submitLabel, 
           disabled={!canSubmit}
           className="min-h-11 w-full shrink-0 rounded-[8px] bg-primary px-4 py-2.5 text-body-md font-semibold text-on-primary transition-colors hover:bg-navy-dark disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
         >
-          {loading ? "AI đang đọc…" : submitLabel}
+          {loading ? "AI đang đọc…" : coolingDown ? `Thử lại sau ${cooldownSeconds} giây` : submitLabel}
         </button>
       </div>
       {message && <p role="status" className="break-words border-t border-border-soft pt-3 text-body-md leading-6 text-text-muted">{message}</p>}

@@ -281,7 +281,7 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
           </AdminField>
           {hasLegacyAiTerms && <p className="border-l-2 border-amber-300 pl-3 text-sm text-[#5C6B8A]">Phiên bản hiện tại chưa có hạn mức AI riêng, đang dùng số ở Cấu hình hệ thống. Nhập hai ô dưới đây để lưu.</p>}
           <div className="grid gap-4 sm:grid-cols-2">
-            <AdminField id="plan-aiDailyCallLimit" label="Lượt AI mỗi ngày" hint={`Từ 0 đến ${AI_DAILY_MAX}. Tính chung AI điền form và AI viết lý do, kể cả lần lỗi. 0 = gói không có AI.`} error={fieldErrors.aiDailyCallLimit}>
+            <AdminField id="plan-aiDailyCallLimit" label="Lượt AI mỗi ngày" hint={`Từ 0 đến ${AI_DAILY_MAX}. Tính chung AI điền form và AI viết lý do. Lần AI lỗi do nhà cung cấp được miễn một số lần mỗi ngày (chỉnh ở Cấu hình hệ thống). 0 = gói không có AI.`} error={fieldErrors.aiDailyCallLimit}>
               <input {...inputProps("aiDailyCallLimit")} type="number" min={0} max={AI_DAILY_MAX} step={1} value={form.aiDailyCallLimit} onChange={e => handleChange("aiDailyCallLimit", e.target.value)} />
             </AdminField>
             <AdminField id="plan-aiExplainCallsPerTripLimit" label="Số lần AI viết lý do mỗi lịch trình" hint={`Từ 0 đến ${AI_EXPLAIN_MAX}. Chỉ tính lần viết thành công.`} error={fieldErrors.aiExplainCallsPerTripLimit}>

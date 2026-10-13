@@ -10,6 +10,7 @@ import { tripService, toTripRequestDto } from "../../services/tripService";
 import TripRequestAssistant from "../../components/trip/TripRequestAssistant";
 // Đồng hồ cập nhật định kỳ để chip buổi/thời lượng tự khoá khi đã qua giờ
 import { useClock } from "../../hooks/useClock";
+import { useAiCooldown } from "../../hooks/useAiCooldown";
 import { formatCurrency, formatDistance } from "../../utils/formatCurrency";
 import {
   formatVnDateTime,
@@ -303,7 +304,8 @@ function GenerateQuotaNotice({ message, description, used, limit, resetAt, onUpg
 export default function CreateTripPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { request, setRequest, generateTrip, setCurrentTrip } = useTrip();
+  const { request, setRequest, generateTrip, setCurrentTrip, noteAiError } = useTrip();
+  const aiCooldown = useAiCooldown();
   const { isDemo } = useAuth();
   const { subscription, refreshSubscription } = useSubscription();
   const aiQuota = getAiQuota(subscription);
@@ -771,7 +773,11 @@ export default function CreateTripPage() {
                   submitLabel="Điền giúp tôi"
                   onParsed={handleParsed}
                   aiQuota={aiQuota}
-                  onSettled={refreshSubscription}
+                  cooldownSeconds={aiCooldown}
+                  onSettled={(err) => {
+                    if (err) noteAiError(err);
+                    refreshSubscription();
+                  }}
                   blockedReason={generateExhausted ? "Bạn đã hết lượt tạo lịch trình nên ô này tạm khoá." : ""}
                 />
                 {aiFilled.length > 0 && (

@@ -59,7 +59,7 @@ beforeEach(() => {
   mock.auth = { user: { id: "user-one" }, isLoggedIn: true, isDemo: false };
   mock.trip = { currentTrip: realShapeTrip(), savedTrips: [], explainingTripIds: [],
     finalizeTrip: vi.fn().mockResolvedValue({}), deleteItem: vi.fn().mockResolvedValue([]),
-    explainTrip: vi.fn().mockResolvedValue({}), saveTrip: vi.fn().mockResolvedValue({}) };
+    explainTrip: vi.fn().mockResolvedValue({}), saveTrip: vi.fn().mockResolvedValue({}), noteAiError: vi.fn() };
   mock.refresh.mockResolvedValue({}); mock.availability.mockResolvedValue(availability);
   mock.entitlements.mockResolvedValue({ entitlements: [] });
   mock.assistantProps = null; mock.paymentProps = null; mock.directionProps = []; mock.subscription = null;
@@ -351,6 +351,23 @@ describe("USER-A5.1 Draft presentation preserves contracts", () => {
     cleanup(); mock.subscription = ai(3); mount();
     expect(screen.getByRole("button", { name: /Nhờ AI viết lý do/ })).toBeDisabled();
     expect(screen.getByText(/Bạn đã dùng hết lượt AI hôm nay/)).toBeInTheDocument();
+  });
+  it("AI cooldown locks the explain button, counts down and reaches the change assistant", () => {
+    mock.trip.aiCooldownUntil = Date.now() + 16000; mount();
+    expect(screen.getByRole("button", { name: /Nhờ AI viết lý do/ })).toBeDisabled();
+    expect(screen.getByText(/AI vừa gặp lỗi\. Thử lại sau 16 giây\./)).toBeInTheDocument();
+    expect(mock.assistantProps.cooldownSeconds).toBe(16);
+    act(() => vi.advanceTimersByTime(16000));
+    expect(screen.getByRole("button", { name: /Nhờ AI viết lý do/ })).toBeEnabled();
+    expect(mock.assistantProps.cooldownSeconds).toBe(0);
+    expect(mock.trip.explainTrip).not.toHaveBeenCalled();
+  });
+  it("a failed change-assistant call is reported to the Trip context before the plan reloads", () => {
+    mount(); const error = { code: "ai_cooldown", data: { retryAfterSeconds: 16 } };
+    mock.assistantProps.onSettled(error);
+    expect(mock.trip.noteAiError).toHaveBeenCalledExactlyOnceWith(error); expect(mock.refresh).toHaveBeenCalledTimes(1);
+    mock.assistantProps.onSettled(undefined);
+    expect(mock.trip.noteAiError).toHaveBeenCalledTimes(1); expect(mock.refresh).toHaveBeenCalledTimes(2);
   });
   it("used-up generate quota blocks the change assistant, otherwise it stays open", () => {
     mount(); expect(mock.assistantProps.blockedReason).toBe("");

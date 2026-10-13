@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { STORAGE_KEYS } from "../constants";
 import { tripService } from "../services/tripService";
+import { getAiCooldownSeconds } from "../utils/aiErrors";
 import { useAuth } from "./AuthContext";
 import { useNotifications } from "./NotificationContext";
 
@@ -74,6 +75,12 @@ function OwnedTripProvider({ children, owner, persisted }) {
   // Lần gọi AI viết lý do đang chờ, theo tripId. Giữ ở context để rời trang Nháp rồi quay lại vẫn biết đang chờ.
   const explainRequests = useRef(new Map());
   const [explainingTripIds, setExplainingTripIds] = useState([]);
+  // Sau một lần AI lỗi BE bắt chờ vài chục giây, chung cho AI điền form và AI viết lý do. Mốc thời gian (ms) hết chờ.
+  const [aiCooldownUntil, setAiCooldownUntil] = useState(0);
+  const noteAiError = (err) => {
+    const seconds = getAiCooldownSeconds(err);
+    if (seconds > 0) setAiCooldownUntil(Date.now() + seconds * 1000);
+  };
 
   useEffect(() => {
     let active = true;
@@ -176,6 +183,9 @@ function OwnedTripProvider({ children, owner, persisted }) {
       try {
         await ownedRequest(() => tripService.explainTrip(tripId));
         return await refreshTrip(tripId);
+      } catch (err) {
+        if (scope.current.active && scope.current.generation === generation) noteAiError(err);
+        throw err;
       } finally {
         explainRequests.current.delete(tripId);
         if (scope.current.active && scope.current.generation === generation) {
@@ -244,6 +254,8 @@ function OwnedTripProvider({ children, owner, persisted }) {
         openDraft,
         explainTrip,
         explainingTripIds,
+        aiCooldownUntil,
+        noteAiError,
         finalizeTrip,
         replaceItem,
         deleteItem,

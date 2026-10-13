@@ -45,7 +45,7 @@ beforeEach(() => {
   vi.restoreAllMocks(); navigation.mockReset(); vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-08T03:07:00Z"));
   demo = false;
-  context = { request: null, setRequest: vi.fn(), generateTrip: vi.fn().mockResolvedValue({ id: "new-trip" }), setCurrentTrip: vi.fn() };
+  context = { request: null, setRequest: vi.fn(), generateTrip: vi.fn().mockResolvedValue({ id: "new-trip" }), setCurrentTrip: vi.fn(), noteAiError: vi.fn() };
   vi.spyOn(Auth, "useAuth").mockImplementation(() => ({ isDemo: demo }));
   vi.spyOn(Trip, "useTrip").mockImplementation(() => context);
   plan = { subscription: null, refreshSubscription: vi.fn().mockResolvedValue(null) };
@@ -294,7 +294,7 @@ describe("USER-A4.3 assistant and illustrative loading contracts", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Không phải yêu cầu");
   });
   it.each([
-    ["ai_unavailable", "AI đang bận, bạn điền form giúp nhé."],
+    ["ai_unavailable", "AI đang bận, bạn thử lại sau nhé."],
     ["ai_daily_limit_reached", "Bạn đã dùng hết lượt AI của hôm nay."],
     ["other", "Lỗi từ máy chủ"],
   ])("preserves %s error mapping and returns to enabled submit", async (code, message) => {
@@ -396,6 +396,27 @@ describe("generate quota and daily AI quota from the current plan", () => {
     plan.subscription = { ...usedUp, usage: { generateUsed: 1, generateLimit: 1, resetAt: "2026-10-01T00:00:00Z" } };
     await mount();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+  it("assistant cooldown locks only the submit button and shows the seconds left", () => {
+    const props = { title: "Yêu cầu AI", placeholder: "Nhập yêu cầu", submitLabel: "Điền giúp tôi", onParsed: vi.fn() };
+    const view = render(<TripRequestAssistant {...props} cooldownSeconds={16} />);
+    typeAI("Đi cà phê chiều mai");
+    expect(screen.getByRole("textbox")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Thử lại sau 16 giây" })).toBeDisabled();
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(tripService.parseTripRequest).not.toHaveBeenCalled();
+    view.rerender(<TripRequestAssistant {...props} cooldownSeconds={0} />);
+    expect(screen.getByRole("button", { name: "Điền giúp tôi" })).toBeEnabled();
+  });
+  it("page reports a failed AI call to the Trip context, shows the charged wording and reloads the plan", async () => {
+    const error = Object.assign(new Error("Server title"), { code: "ai_unavailable", data: { charged: false, retryAfterSeconds: 30 } });
+    tripService.parseTripRequest.mockRejectedValue(error);
+    await mount();
+    fireEvent.change(screen.getByRole("textbox", { name: /Kể cho LocalMate/ }), { target: { value: "Đi cà phê chiều mai" } });
+    await click("Điền giúp tôi");
+    expect(screen.getByRole("alert")).toHaveTextContent("AI đang bận, lần này không tính lượt. Bạn thử lại sau 30 giây nhé.");
+    expect(context.noteAiError).toHaveBeenCalledExactlyOnceWith(error);
+    expect(plan.refreshSubscription).toHaveBeenCalledTimes(2);
   });
   it("assistant shows remaining AI calls, locks at zero and reports every settled call", async () => {
     tripService.parseTripRequest.mockRejectedValue({ code: "ai_unavailable" });
