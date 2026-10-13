@@ -10,6 +10,7 @@ import DashboardRangeFilter from "../../components/admin/dashboard/DashboardRang
 import RevenueChart from "../../components/admin/dashboard/RevenueChart";
 import TopStationList from "../../components/admin/dashboard/TopStationList";
 import TripsFinalizedChart from "../../components/admin/dashboard/TripsFinalizedChart";
+import AiUsagePanel from "../../components/admin/dashboard/AiUsagePanel";
 import {
   DEFAULT_RANGE_PRESET,
   DEFAULT_STATION_LIMIT,
@@ -25,6 +26,7 @@ import {
 } from "../../components/admin/dashboard/dashboardUtils";
 import { ADMIN_PERMISSIONS } from "../../constants";
 import { adminDashboardService } from "../../services/adminDashboardService";
+import { adminAiUsageService } from "../../services/adminAiUsageService";
 import { adminPlaceService } from "../../services/adminPlaceService";
 import { adminStationService } from "../../services/adminStationService";
 import { hasAnyPermission } from "../../utils/adminAccess";
@@ -83,7 +85,7 @@ async function loadPlaceSummary() {
 // Tải 1 khối dữ liệu. status: "idle" (thiếu quyền, không gọi) | "loading" | "ready" | "error"
 // | "unavailable" (BE chưa có endpoint ⇒ 404, hiện "Chờ API" thay vì báo lỗi).
 // fieldErrors: lỗi 400 invalid_dashboard_query theo ô. Đổi `load` (vd đổi khoảng ngày) ⇒ tự tải lại.
-function useDashboardData(load, enabled) {
+function useDashboardData(load, enabled, ownerKey = null, errorCode = "invalid_dashboard_query") {
   const [state, setState] = useState({ source: null, status: "loading", error: "", fieldErrors: null, data: null });
   const [retryKey, setRetryKey] = useState(0);
 
@@ -92,13 +94,14 @@ function useDashboardData(load, enabled) {
     let active = true;
     load()
       .then((data) => {
-        if (active) setState({ source: load, status: "ready", error: "", fieldErrors: null, data });
+        if (active) setState({ source: load, ownerKey, status: "ready", error: "", fieldErrors: null, data });
       })
       .catch((err) => {
         if (!active) return;
-        const fieldErrors = getDashboardFieldErrors(err);
+        const fieldErrors = getDashboardFieldErrors(err, errorCode);
         setState({
           source: load,
+          ownerKey,
           status: err?.status === 404 ? "unavailable" : "error",
           error: fieldErrors ? "Bộ lọc chưa hợp lệ, kiểm tra lại ô được đánh dấu." : err?.message || "Không tải được dữ liệu.",
           fieldErrors,
@@ -108,14 +111,14 @@ function useDashboardData(load, enabled) {
     return () => {
       active = false;
     };
-  }, [load, enabled, retryKey]);
+  }, [load, enabled, retryKey, ownerKey, errorCode]);
 
   const retry = () => {
     setState((current) => ({ ...current, source: null }));
     setRetryKey((key) => key + 1);
   };
 
-  const status = !enabled ? "idle" : state.source === load ? state.status : "loading";
+  const status = !enabled ? "idle" : state.source === load && state.ownerKey === ownerKey ? state.status : "loading";
   return {
     status,
     error: state.error,
@@ -196,6 +199,7 @@ export default function AdminDashboardPage() {
   const [month, setMonth] = useState(monthOptions[0]);
 
   const loadSummary = useCallback(() => adminDashboardService.getSummary(range), [range]);
+  const loadAiUsage = useCallback(() => adminAiUsageService.getSystemSummary(range), [range]);
   const loadRevenueDaily = useCallback(() => adminDashboardService.getRevenueDaily(range), [range]);
   const loadTripsFinalizedDaily = useCallback(
     () => adminDashboardService.getTripsFinalizedDaily(range),
@@ -214,6 +218,8 @@ export default function AdminDashboardPage() {
   const tripsFinalizedDaily = useDashboardData(loadTripsFinalizedDaily, canViewRevenue);
   const topStations = useDashboardData(loadTopStations, canViewRevenue);
   const breakEven = useDashboardData(loadBreakEven, canViewRevenue);
+  const aiUsage = useDashboardData(loadAiUsage, canViewRevenue,
+    `${user?.id ?? ""}:${canViewRevenue}`, "invalid_ai_usage_query");
 
   const stations = coverage.data?.stations ?? [];
   const minActivePlaces = coverage.data?.minActivePlacesPerStation;
@@ -234,14 +240,15 @@ export default function AdminDashboardPage() {
   };
 
   const rangeSources = [summary, revenueDaily, tripsFinalizedDaily, topStations];
-  const rangeErrorSource = rangeSources.find((source) => source.fieldErrors?.from || source.fieldErrors?.to);
+  const rangeErrorSource = [...rangeSources, aiUsage].find((source) => source.fieldErrors?.from || source.fieldErrors?.to);
   const rangeFieldErrors = rangeErrorSource
     ? { from: rangeErrorSource.fieldErrors.from, to: rangeErrorSource.fieldErrors.to }
     : null;
   const businessSources = [...rangeSources, breakEven];
-  const refreshing = businessSources.some(isLoading);
+  const refreshSources = [...businessSources, aiUsage];
+  const refreshing = refreshSources.some(isLoading);
   // BE cache 5 phút ⇒ tải lại trong 5 phút vẫn ra số cũ
-  const refreshBusiness = () => businessSources.forEach((source) => source.retry());
+  const refreshBusiness = () => refreshSources.forEach((source) => source.retry());
   const updatedAt = summary.data?.generatedAt;
 
   const topStationPanel = canViewRevenue && (
@@ -313,6 +320,9 @@ export default function AdminDashboardPage() {
           </div>
         </section>
       )}
+
+      {canViewRevenue && <AiUsagePanel source={aiUsage}
+        canManageUsers={hasAnyPermission(user, [ADMIN_PERMISSIONS.MANAGE_USERS])} />}
 
       {canManagePlaces && (
         <section aria-labelledby="coverage-title" className="space-y-4">
