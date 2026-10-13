@@ -281,15 +281,15 @@ export default function AdminPlansPage() {
       },
       {
         key: "limits",
-        header: "Hạn mức (AI / Lưu)",
+        header: "Hạn mức (Tạo lịch / Lưu)",
         render: (row) => {
           const cv = row.currentVersion;
           const gen = cv?.generateLimit == null ? "∞" : `${cv.generateLimit} lượt`;
           const save = cv?.savedTripLimit == null ? "∞" : `${cv.savedTripLimit} chuyến`;
           return (
             <div className="text-xs">
-              <span className="font-medium text-slate-700" title="Lượt tạo AI">
-                AI: {gen}
+              <span className="font-medium text-slate-700" title="Lượt tạo lịch trình">
+                Tạo lịch: {gen}
               </span>
               <span className="mx-1 text-slate-300">·</span>
               <span className="font-medium text-slate-700" title="Lượt lưu chuyến">

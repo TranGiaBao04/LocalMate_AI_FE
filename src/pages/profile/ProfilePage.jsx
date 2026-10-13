@@ -273,7 +273,7 @@ function OwnedProfilePage({ auth }) {
                         {endDate && (!effectiveDate || subscription.effectiveUntil !== subscription.endsAt) && <div><dt>{effectiveDate ? "Thanh toán đến" : "Hết hạn"}</dt><dd className="mt-0.5 font-medium text-on-surface">{endDate}</dd></div>}
                       </dl>}
                       <dl className="divide-y divide-border-soft border-y border-border-soft">
-                        <div className="flex flex-wrap items-baseline justify-between gap-2 py-3"><dt className="text-xs text-on-surface-variant">{isFreeSubscription(subscription) ? "Lượt tạo AI tháng này" : "Lượt tạo AI"}</dt><dd className="text-sm font-bold text-on-surface">{usageText(subscription.usage?.generateUsed, subscription.usage?.generateLimit)}</dd></div>
+                        <div className="flex flex-wrap items-baseline justify-between gap-2 py-3"><dt className="text-xs text-on-surface-variant">{isFreeSubscription(subscription) ? "Lượt tạo lịch trình tháng này" : "Lượt tạo lịch trình"}</dt><dd className="text-sm font-bold text-on-surface">{usageText(subscription.usage?.generateUsed, subscription.usage?.generateLimit)}</dd></div>
                         <div className="flex flex-wrap items-baseline justify-between gap-2 py-3"><dt className="text-xs text-on-surface-variant">Lịch trình đã chốt</dt><dd className="text-sm font-bold text-on-surface">{usageText(subscription.savedTrips?.used, subscription.savedTrips?.limit)}</dd></div>
                       </dl>
                     </div>}

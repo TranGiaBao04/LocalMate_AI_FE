@@ -58,14 +58,14 @@ export const adminPlanService = {
 
   /**
    * Tạo gói dịch vụ mới
-   * @param {Object} data CreateAdminPlanRequest { code, name, entitlementPriority, price, durationDays, generateLimit, savedTripLimit, featureIds }
+   * @param {Object} data CreateAdminPlanRequest { code, name, entitlementPriority, price, durationDays, generateLimit, savedTripLimit, aiDailyCallLimit, aiExplainCallsPerTripLimit, featureIds }
    */
   createPlan: (data) => adminApiClient.post("/admin/plans", data),
 
   /**
    * Cập nhật điều khoản gói dịch vụ
    * @param {string} id GUID mã gói
-   * @param {Object} data UpdateAdminPlanRequest { name, price, durationDays, generateLimit, savedTripLimit, featureIds }
+   * @param {Object} data UpdateAdminPlanRequest { name, price, durationDays, generateLimit, savedTripLimit, aiDailyCallLimit, aiExplainCallsPerTripLimit, featureIds }
    */
   updatePlan: (id, data) => adminApiClient.put(`/admin/plans/${id}`, data),
 
