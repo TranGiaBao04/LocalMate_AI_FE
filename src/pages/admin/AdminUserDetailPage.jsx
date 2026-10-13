@@ -7,6 +7,7 @@ import { TransactionDetailDrawer } from "../../components/admin/transactions";
 import { buildTransactionColumns } from "../../components/admin/transactions/transactionColumns";
 import AssignRoleDialog from "../../components/admin/roles/AssignRoleDialog";
 import LockUserDialog from "../../components/admin/users/LockUserDialog";
+import UserAiUsageTab from "../../components/admin/users/UserAiUsageTab";
 import { USER_STATUS_BADGE, describeLockResult } from "../../components/admin/users/userLabels";
 import { ADMIN_PERMISSIONS } from "../../constants";
 import { useAuth } from "../../context/AuthContext";
@@ -19,6 +20,7 @@ const PAGE_SIZE = 10;
 const TABS = [
   { key: "payments", label: "Lịch sử thanh toán" },
   { key: "trips", label: "Lịch sử chuyến đi" },
+  { key: "ai", label: "Lịch sử AI" },
 ];
 const TRIP_STATUS_BADGE = {
   Draft: { status: "pending", label: "Nháp" },
@@ -297,6 +299,7 @@ function UserTripsTab({ userId }) {
 
 function UserDetail({ userId }) {
   const { user: currentUser } = useAuth();
+  const canManageUsers = hasAnyPermission(currentUser, [ADMIN_PERMISSIONS.MANAGE_USERS]);
   const canViewPayments = hasAnyPermission(currentUser, [ADMIN_PERMISSIONS.VIEW_REVENUE]);
   const canManageRoles = hasAnyPermission(currentUser, [ADMIN_PERMISSIONS.MANAGE_ROLES]);
   const [assignRoleOpen, setAssignRoleOpen] = useState(false);
@@ -500,7 +503,7 @@ function UserDetail({ userId }) {
 
       <section className="space-y-4">
         <div role="tablist" aria-label="Lịch sử của người dùng" className="flex flex-wrap gap-1 border-b border-[#DCE2EE]">
-          {TABS.map((item) => (
+          {TABS.filter((item) => item.key !== "ai" || canManageUsers).map((item) => (
             <button
               key={item.key}
               type="button"
@@ -509,19 +512,21 @@ function UserDetail({ userId }) {
               aria-controls={`user-history-panel-${item.key}`}
               aria-selected={tab === item.key}
               onClick={() => setTab(item.key)}
-              className={`-mb-px min-h-11 border-b-2 px-4 py-2.5 text-sm font-semibold transition ${tab === item.key ? "border-[#1d3e82] text-[#1d3e82]" : "border-transparent text-[#5C6B8A] hover:text-[#0F2148]"}`}
+              className={`-mb-px min-h-11 border-b-2 px-4 py-2.5 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2C56A8] ${tab === item.key ? "border-[#1d3e82] text-[#1d3e82]" : "border-transparent text-[#5C6B8A] hover:text-[#0F2148]"}`}
             >
               {item.label}
             </button>
           ))}
         </div>
-        <div role="tabpanel" id={`user-history-panel-${tab}`} aria-labelledby={`user-history-${tab}`}>
+        {(tab !== "ai" || canManageUsers) && <div role="tabpanel" id={`user-history-panel-${tab}`} aria-labelledby={`user-history-${tab}`}>
         {tab === "payments" ? (
           <UserPaymentsTab userId={userId} canViewDetail={canViewPayments} onChanged={reload} showNotice={showNotice} />
-        ) : (
+        ) : tab === "trips" ? (
           <UserTripsTab userId={userId} />
+        ) : (
+          <UserAiUsageTab key={`${userId}:${currentUser?.id ?? ""}`} userId={userId} />
         )}
-        </div>
+        </div>}
       </section>
 
       {assignRoleOpen && (
