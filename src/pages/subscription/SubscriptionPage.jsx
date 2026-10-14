@@ -9,7 +9,7 @@ import PaymentCheckoutModal from "../../components/subscription/PaymentCheckoutM
 import CheckoutQuoteDialog from "../../components/subscription/CheckoutQuoteDialog";
 import { useSubscriptionCheckoutQuote } from "../../hooks/useSubscriptionCheckoutQuote";
 import { subscriptionService } from "../../services/subscriptionService";
-import { isPaidSubscription, isFreeSubscription } from "../../utils/subscriptionUtils";
+import { isPaidSubscription, isFreeSubscription, isTrialSubscription } from "../../utils/subscriptionUtils";
 import {
   extractErrorCode,
   extractPendingPaymentMetadata,
@@ -69,6 +69,9 @@ function SubscriptionPageSession() {
 
   const isFree = isFreeSubscription(subscription);
   const isPaid = isPaidSubscription(subscription);
+  const isTrial = isTrialSubscription(subscription);
+  // Đang dùng thử thì không có kỳ đã mua để gia hạn, chỉ mua gói mới
+  const canRenew = isPaid && !isTrial;
   const currentPlanCode = isPaid || isFree ? subscription?.plan : null;
 
   // Đồng bộ lại gói cước hiện tại hoặc danh mục gói khi gặp mã lỗi phân loại từ báo giá
@@ -316,7 +319,7 @@ function SubscriptionPageSession() {
 
   // Xử lý gia hạn gói hiện tại
   const handleRenew = async () => {
-    if (isDemo || !isPaidSubscription(subscription) || checkoutLock.current || !activeRef.current) return;
+    if (isDemo || !isPaidSubscription(subscription) || isTrialSubscription(subscription) || checkoutLock.current || !activeRef.current) return;
     checkoutLock.current = true;
     setPageError("");
     setPageSuccess("");
@@ -556,7 +559,7 @@ function SubscriptionPageSession() {
             <SubscriptionSummary
               subscription={subscription}
               loading={subscriptionLoading}
-              onRenew={isPaidSubscription(subscription) ? handleRenew : undefined}
+              onRenew={canRenew ? handleRenew : undefined}
               plans={plans}
             />
           </section>
@@ -628,7 +631,8 @@ function SubscriptionPageSession() {
                   plan={plan}
                   currentPlanCode={currentPlanCode}
                   onSelect={handleSelectPlan}
-                  onRenew={isPaid ? handleRenew : undefined}
+                  onRenew={canRenew ? handleRenew : undefined}
+                  isTrial={isTrial}
                   isDemo={isDemo}
                   loading={actionLoading}
                 />
@@ -669,6 +673,7 @@ function SubscriptionPageSession() {
         onConfirm={handleConfirmQuote}
         confirmLoading={actionLoading}
         onRenew={handleRenewFromQuote}
+        trialUntil={isTrial ? subscription.effectiveUntil : null}
       />
 
       {/* Payment Checkout & QR Modal */}

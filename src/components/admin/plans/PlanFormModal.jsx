@@ -6,6 +6,15 @@ import { adminPlanService } from "../../../services/adminPlanService";
 import { formatPlanPrice } from "../../../utils/subscriptionUtils";
 
 const CODE_REGEX = /^[A-Z][A-Z0-9_]{0,63}$/;
+// Khớp AdminPlanService.Validate của BE
+const AI_DAILY_MAX = 1000;
+const AI_EXPLAIN_MAX = 20;
+
+function isWholeNumberInRange(value, max) {
+  if (value === "" || value == null) return false;
+  const num = Number(value);
+  return Number.isInteger(num) && num >= 0 && num <= max;
+}
 
 function PlanFormContent({ mode, plan, onClose, onSuccess }) {
   const isEdit = mode === "edit";
@@ -28,8 +37,12 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
     generateUnlimited: isEdit ? (cv?.generateLimit == null) : false,
     savedTripLimit: isEdit ? (cv?.savedTripLimit ?? 0) : 5,
     savedTripUnlimited: isEdit ? (cv?.savedTripLimit == null) : false,
+    // BE bắt buộc hai số này, không nhận null. Phiên bản cũ chưa có số thì để trống cho admin nhập.
+    aiDailyCallLimit: isEdit ? (cv?.aiDailyCallLimit ?? "") : "",
+    aiExplainCallsPerTripLimit: isEdit ? (cv?.aiExplainCallsPerTripLimit ?? "") : "",
     featureIds: isEdit ? cvFeatureIds : [],
   }));
+  const hasLegacyAiTerms = isEdit && (cv?.aiDailyCallLimit == null || cv?.aiExplainCallsPerTripLimit == null);
 
   const [fieldErrors, setFieldErrors] = useState({});
   const [generalError, setGeneralError] = useState("");
@@ -110,7 +123,7 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
         numGen < 0 ||
         !Number.isInteger(numGen)
       ) {
-        errors.generateLimit = "Hạn mức tạo AI phải là số nguyên không âm (>= 0) hoặc chọn Không giới hạn.";
+        errors.generateLimit = "Hạn mức tạo lịch trình phải là số nguyên không âm (>= 0) hoặc chọn Không giới hạn.";
       }
     }
 
@@ -125,6 +138,13 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
       ) {
         errors.savedTripLimit = "Hạn mức lưu chuyến phải là số nguyên không âm (>= 0) hoặc chọn Không giới hạn.";
       }
+    }
+
+    if (!isWholeNumberInRange(form.aiDailyCallLimit, AI_DAILY_MAX)) {
+      errors.aiDailyCallLimit = `Lượt AI mỗi ngày là bắt buộc, số nguyên từ 0 đến ${AI_DAILY_MAX}.`;
+    }
+    if (!isWholeNumberInRange(form.aiExplainCallsPerTripLimit, AI_EXPLAIN_MAX)) {
+      errors.aiExplainCallsPerTripLimit = `Số lần AI viết lý do là bắt buộc, số nguyên từ 0 đến ${AI_EXPLAIN_MAX}.`;
     }
 
     return errors;
@@ -152,6 +172,8 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
           durationDays: isFree ? null : Number(form.durationDays),
           generateLimit: form.generateUnlimited ? null : Number(form.generateLimit),
           savedTripLimit: form.savedTripUnlimited ? null : Number(form.savedTripLimit),
+          aiDailyCallLimit: Number(form.aiDailyCallLimit),
+          aiExplainCallsPerTripLimit: Number(form.aiExplainCallsPerTripLimit),
           featureIds: form.featureIds || [],
         };
 
@@ -167,6 +189,8 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
           durationDays: Number(form.durationDays),
           generateLimit: form.generateUnlimited ? null : Number(form.generateLimit),
           savedTripLimit: form.savedTripUnlimited ? null : Number(form.savedTripLimit),
+          aiDailyCallLimit: Number(form.aiDailyCallLimit),
+          aiExplainCallsPerTripLimit: Number(form.aiExplainCallsPerTripLimit),
           featureIds: form.featureIds || [],
         };
 
@@ -243,7 +267,7 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
         </fieldset>
         <fieldset className="space-y-4 border-t border-[#DCE2EE] pt-4">
           <legend className="px-1 text-base font-semibold">Hạn mức sử dụng</legend>
-          <AdminField id="plan-generateLimit" label="Lượt tạo AI (Generate Limit)" error={fieldErrors.generateLimit}>
+          <AdminField id="plan-generateLimit" label="Lượt tạo lịch trình (Generate Limit)" error={fieldErrors.generateLimit}>
             <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 text-sm">
               <input type="checkbox" checked={form.generateUnlimited} disabled={submitting} onChange={e => handleChange("generateUnlimited", e.target.checked)} />Không giới hạn (∞)
             </label>
@@ -255,6 +279,15 @@ function PlanFormContent({ mode, plan, onClose, onSuccess }) {
             </label>
             {form.savedTripUnlimited ? <p className="text-sm text-[#5C6B8A]">Không giới hạn lượt lưu</p> : <input {...inputProps("savedTripLimit")} type="number" min={0} step={1} value={form.savedTripLimit} onChange={e => handleChange("savedTripLimit", e.target.value)} />}
           </AdminField>
+          {hasLegacyAiTerms && <p className="border-l-2 border-amber-300 pl-3 text-sm text-[#5C6B8A]">Phiên bản hiện tại chưa có hạn mức AI riêng, đang dùng số ở Cấu hình hệ thống. Nhập hai ô dưới đây để lưu.</p>}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <AdminField id="plan-aiDailyCallLimit" label="Lượt AI mỗi ngày" hint={`Từ 0 đến ${AI_DAILY_MAX}. Tính chung AI điền form và AI viết lý do. Lần AI lỗi do nhà cung cấp được miễn một số lần mỗi ngày (chỉnh ở Cấu hình hệ thống). 0 = gói không có AI.`} error={fieldErrors.aiDailyCallLimit}>
+              <input {...inputProps("aiDailyCallLimit")} type="number" min={0} max={AI_DAILY_MAX} step={1} value={form.aiDailyCallLimit} onChange={e => handleChange("aiDailyCallLimit", e.target.value)} />
+            </AdminField>
+            <AdminField id="plan-aiExplainCallsPerTripLimit" label="Số lần AI viết lý do mỗi lịch trình" hint={`Từ 0 đến ${AI_EXPLAIN_MAX}. Chỉ tính lần viết thành công.`} error={fieldErrors.aiExplainCallsPerTripLimit}>
+              <input {...inputProps("aiExplainCallsPerTripLimit")} type="number" min={0} max={AI_EXPLAIN_MAX} step={1} value={form.aiExplainCallsPerTripLimit} onChange={e => handleChange("aiExplainCallsPerTripLimit", e.target.value)} />
+            </AdminField>
+          </div>
         </fieldset>
         <BenefitEditor selectedIds={form.featureIds} onChange={ids => handleChange("featureIds", ids)} disabled={submitting} error={fieldErrors.featureIds} />
       </form>

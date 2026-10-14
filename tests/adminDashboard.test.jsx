@@ -9,11 +9,13 @@ const mocks = vi.hoisted(() => ({
   dashboard: { getSummary: vi.fn(), getRevenueDaily: vi.fn(), getTripsFinalizedDaily: vi.fn(), getTopStations: vi.fn(), getBreakEven: vi.fn() },
   stations: { getStations: vi.fn() },
   places: { getPlaces: vi.fn() },
+  ai: { getSystemSummary: vi.fn() },
 }));
 vi.mock("../src/context/AuthContext", () => ({ useAuth: () => mocks.auth }));
 vi.mock("../src/services/adminDashboardService", () => ({ adminDashboardService: mocks.dashboard }));
 vi.mock("../src/services/adminStationService", () => ({ adminStationService: mocks.stations }));
 vi.mock("../src/services/adminPlaceService", () => ({ adminPlaceService: mocks.places }));
+vi.mock("../src/services/adminAiUsageService", () => ({ adminAiUsageService: mocks.ai }));
 
 const station = { id: "s1", order: 1, name: "Bến Thành", totals: { active: 8 }, isUnderstocked: false, shortfall: 0 };
 const coverage = { stations: [station, { ...station, id: "s2", order: 2, name: "Ga cần dữ liệu", totals: { active: 1 }, isUnderstocked: true, shortfall: 4 }], radiusMeters: 800, minActivePlacesPerStation: 5 };
@@ -31,6 +33,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-07T03:00:00Z"));
+  mocks.ai.getSystemSummary.mockResolvedValue({ totals: null });
   mocks.dashboard.getSummary.mockResolvedValue(summary);
   mocks.dashboard.getRevenueDaily.mockResolvedValue(revenue);
   mocks.dashboard.getTripsFinalizedDaily.mockResolvedValue(finalized);

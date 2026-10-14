@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AdminErrorState, AdminPagination, AdminRecordCard, AdminSurface, DataTable, EmptyState, LoadingState, NoticeBanner, StatusBadge } from "../../components/admin/ui";
-import { ADMIN_SELECT, ADMIN_TERTIARY_BUTTON } from "../../components/admin/adminStyles";
+import { ADMIN_SECONDARY_BUTTON, ADMIN_SELECT, ADMIN_TERTIARY_BUTTON } from "../../components/admin/adminStyles";
 import { createPortal } from "react-dom";
 import { TransactionDetailDrawer } from "../../components/admin/transactions";
 import { buildTransactionColumns } from "../../components/admin/transactions/transactionColumns";
 import AssignRoleDialog from "../../components/admin/roles/AssignRoleDialog";
+import GrantPlanDialog from "../../components/admin/users/GrantPlanDialog";
 import LockUserDialog from "../../components/admin/users/LockUserDialog";
-import { USER_STATUS_BADGE, describeLockResult } from "../../components/admin/users/userLabels";
+import UserAiUsageTab from "../../components/admin/users/UserAiUsageTab";
+import { GRANT_SOURCE_LABELS, USER_STATUS_BADGE, describeGrantResult, describeLockResult, getGrantState } from "../../components/admin/users/userLabels";
 import { ADMIN_PERMISSIONS } from "../../constants";
 import { useAuth } from "../../context/AuthContext";
 import { adminUserService } from "../../services/adminUserService";
@@ -19,6 +21,8 @@ const PAGE_SIZE = 10;
 const TABS = [
   { key: "payments", label: "Lịch sử thanh toán" },
   { key: "trips", label: "Lịch sử chuyến đi" },
+  { key: "ai", label: "Lịch sử AI" },
+  { key: "grants", label: "Tặng gói" },
 ];
 const TRIP_STATUS_BADGE = {
   Draft: { status: "pending", label: "Nháp" },
@@ -103,7 +107,7 @@ function LoadError({ message, onRetry }) {
 
 function UserHistoryRecords({ columns, rows, loading, sort, onSort, pagination, onPageChange, emptyState, label }) {
   return <div className="space-y-3">
-    <div className="hidden md:block [&_table]:min-w-[900px]"><DataTable columns={columns} rows={rows} loading={loading} sort={sort} onSort={onSort} emptyState={emptyState} /></div>
+    <div className="hidden md:block [&_table]:w-full [&_table]:min-w-[900px]"><DataTable columns={columns} rows={rows} loading={loading} sort={sort} onSort={onSort} emptyState={emptyState} /></div>
     <div aria-label={label} className="space-y-3 md:hidden">
       {loading ? <LoadingState label="Đang tải lịch sử" /> : rows.length ? rows.map(row => {
         const identity = columns[0];
@@ -295,11 +299,76 @@ function UserTripsTab({ userId }) {
   );
 }
 
+const GRANT_COLUMNS = [
+  {
+    key: "plan",
+    header: "Gói",
+    render: (row) => (
+      <div>
+        <p className="font-medium text-[#0F2148]">{row.plan?.name || row.plan?.code}</p>
+        <p className="mt-0.5 text-xs text-[#5C6B8A]">{row.days} ngày</p>
+      </div>
+    ),
+  },
+  {
+    key: "status",
+    header: "Trạng thái",
+    render: (row) => {
+      const state = getGrantState(row);
+      return <StatusBadge status={state.status} label={state.label} />;
+    },
+  },
+  { key: "startsAt", header: "Từ", render: (row) => formatVnDateTime(row.startsAt) },
+  { key: "endsAt", header: "Đến", render: (row) => formatVnDateTime(row.endsAt) },
+  { key: "source", header: "Nguồn", render: (row) => GRANT_SOURCE_LABELS[row.source] ?? row.source },
+  { key: "reason", header: "Lý do", render: (row) => (row.reason ? <span className="whitespace-pre-line">{row.reason}</span> : "—") },
+  { key: "grantedBy", header: "Người tặng", render: (row) => row.grantedBy?.fullName ?? "—" },
+  { key: "createdAt", header: "Tặng lúc", render: (row) => formatVnDateTime(row.createdAt) },
+];
+
+// Mọi gói đã tặng (không phân trang), mới nhất trước. reloadKey đổi sau mỗi lần tặng.
+function UserGrantsTab({ userId, reloadKey }) {
+  const [retryCount, setRetryCount] = useState(0);
+  const [response, setResponse] = useState({ key: null, rows: [], error: "" });
+  const queryKey = `${reloadKey}|${retryCount}`;
+  const loading = response.key !== queryKey;
+
+  useEffect(() => {
+    let active = true;
+    adminUserService.getGrants(userId)
+      .then((data) => {
+        // UserHistoryRecords cần `id`
+        if (active) setResponse({ key: queryKey, rows: (data ?? []).map((grant) => ({ ...grant, id: grant.grantId })), error: "" });
+      })
+      .catch((err) => {
+        if (active) setResponse({ key: queryKey, rows: [], error: err?.message || "Không tải được lịch sử tặng gói." });
+      });
+    return () => { active = false; };
+  }, [userId, queryKey]);
+
+  if (!loading && response.error) {
+    return <LoadError message={response.error} onRetry={() => setRetryCount((count) => count + 1)} />;
+  }
+  return (
+    <UserHistoryRecords
+      label="Lịch sử tặng gói"
+      columns={GRANT_COLUMNS}
+      rows={loading ? [] : response.rows}
+      loading={loading}
+      emptyState={{ icon: "redeem", title: "Chưa được tặng gói nào" }}
+    />
+  );
+}
+
 function UserDetail({ userId }) {
   const { user: currentUser } = useAuth();
+  const canManageUsers = hasAnyPermission(currentUser, [ADMIN_PERMISSIONS.MANAGE_USERS]);
   const canViewPayments = hasAnyPermission(currentUser, [ADMIN_PERMISSIONS.VIEW_REVENUE]);
   const canManageRoles = hasAnyPermission(currentUser, [ADMIN_PERMISSIONS.MANAGE_ROLES]);
+  const canManagePlans = hasAnyPermission(currentUser, [ADMIN_PERMISSIONS.MANAGE_PLANS]);
   const [assignRoleOpen, setAssignRoleOpen] = useState(false);
+  const [grantOpen, setGrantOpen] = useState(false);
+  const [grantCount, setGrantCount] = useState(0);
   const [reloadCount, setReloadCount] = useState(0);
   const [response, setResponse] = useState({ key: null, data: null, error: null });
   const [tab, setTab] = useState("payments");
@@ -336,6 +405,15 @@ function UserDetail({ userId }) {
   const showNotice = useCallback((type, message) => setNotice({ type, message }), []);
   const closeLockDialog = useCallback(() => setLockMode(null), []);
   const closeAssignRole = useCallback(() => setAssignRoleOpen(false), []);
+  const closeGrantDialog = useCallback(() => setGrantOpen(false), []);
+
+  const handleGrantDone = (result) => {
+    setNotice(describeGrantResult(result));
+    setGrantOpen(false);
+    setGrantCount((count) => count + 1);
+    setTab("grants");
+    reload(); // gói hiện tại có thể đổi ngay
+  };
 
   const handleRoleAssigned = (result) => {
     setNotice({ type: "success", message: `Đã chuyển sang role "${result.roleName}".` });
@@ -376,6 +454,10 @@ function UserDetail({ userId }) {
   const planUntil = subscription?.effectiveUntil ?? subscription?.endsAt;
   const loginMethods = [detail.hasPassword && "Email & mật khẩu", ...(detail.loginProviders ?? [])].filter(Boolean);
   const stats = detail.stats ?? {};
+  const visibleTabs = TABS.filter((item) =>
+    (item.key !== "ai" || canManageUsers) && (item.key !== "grants" || canManagePlans));
+  // Mất quyền khi đang mở tab thì ẩn panel
+  const tabVisible = visibleTabs.some((item) => item.key === tab);
 
   return (
     <div className="min-w-0 space-y-6 [overflow-wrap:anywhere]">
@@ -399,16 +481,30 @@ function UserDetail({ userId }) {
             )}
           </p>
         </div>
-        {(detail.canLock || detail.canUnlock) && (
-          <button
-            type="button"
-            onClick={() => setLockMode(detail.canLock ? "lock" : "unlock")}
-            className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-[12px] px-4 py-2.5 text-sm font-semibold text-white transition ${detail.canLock ? "bg-rose-600 hover:bg-rose-700" : "bg-[#1d3e82] hover:bg-[#17366f]"}`}
-          >
-            <span className="material-symbols-outlined text-[20px]">{detail.canLock ? "lock" : "lock_open"}</span>
-            {detail.canLock ? "Khoá tài khoản" : "Mở khoá"}
-          </button>
-        )}
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {canManagePlans && (
+            <button
+              type="button"
+              onClick={() => setGrantOpen(true)}
+              disabled={detail.status === "Locked"}
+              title={detail.status === "Locked" ? "Không thể tặng gói cho tài khoản đang bị khoá" : undefined}
+              className={ADMIN_SECONDARY_BUTTON}
+            >
+              <span className="material-symbols-outlined text-[20px]">redeem</span>
+              Tặng gói
+            </button>
+          )}
+          {(detail.canLock || detail.canUnlock) && (
+            <button
+              type="button"
+              onClick={() => setLockMode(detail.canLock ? "lock" : "unlock")}
+              className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-[12px] px-4 py-2.5 text-sm font-semibold text-white transition ${detail.canLock ? "bg-rose-600 hover:bg-rose-700" : "bg-[#1d3e82] hover:bg-[#17366f]"}`}
+            >
+              <span className="material-symbols-outlined text-[20px]">{detail.canLock ? "lock" : "lock_open"}</span>
+              {detail.canLock ? "Khoá tài khoản" : "Mở khoá"}
+            </button>
+          )}
+        </div>
       </div>
 
       {notice && createPortal(<div className="fixed bottom-4 left-4 right-4 z-[110] mx-auto max-w-xl"><NoticeBanner notice={notice} onClose={() => setNotice(null)} /></div>, document.body)}
@@ -467,8 +563,11 @@ function UserDetail({ userId }) {
         <section className={CARD_CLASS}>
           <h2 className="font-bold text-[#0F2148]">Gói hiện tại</h2>
           <dl className="mt-2">
-            <InfoRow label="Gói">{getPlanDisplayName(subscription?.plan) || "—"}</InfoRow>
-            <InfoRow label="Hiệu lực đến">{planUntil ? formatVnDateTime(planUntil) : "—"}</InfoRow>
+            <InfoRow label="Gói">
+              {getPlanDisplayName(subscription?.plan) || "—"}
+              {subscription?.isTrial && <span className="ml-1.5 text-xs font-semibold text-blue-700">· Dùng thử</span>}
+            </InfoRow>
+            <InfoRow label={subscription?.isTrial ? "Dùng thử đến" : "Hiệu lực đến"}>{planUntil ? formatVnDateTime(planUntil) : "—"}</InfoRow>
             {subscription?.usage && (
               <InfoRow label="Lượt tạo lịch trình">
                 {formatLimit(subscription.usage.generateUsed, subscription.usage.generateLimit)}
@@ -484,13 +583,23 @@ function UserDetail({ userId }) {
                 {formatLimit(subscription.savedTrips.used, subscription.savedTrips.limit)}
               </InfoRow>
             )}
+            {subscription?.ai && (
+              <InfoRow label="Lượt AI hôm nay">
+                {subscription.ai.dailyUsed}/{subscription.ai.dailyLimit}
+                {subscription.ai.resetAt && (
+                  <span className="block text-xs font-normal text-[#5C6B8A]">
+                    Làm mới {formatVnDateTime(subscription.ai.resetAt)}
+                  </span>
+                )}
+              </InfoRow>
+            )}
           </dl>
         </section>
       </div>
 
       <section className="space-y-4">
         <div role="tablist" aria-label="Lịch sử của người dùng" className="flex flex-wrap gap-1 border-b border-[#DCE2EE]">
-          {TABS.map((item) => (
+          {visibleTabs.map((item) => (
             <button
               key={item.key}
               type="button"
@@ -499,23 +608,31 @@ function UserDetail({ userId }) {
               aria-controls={`user-history-panel-${item.key}`}
               aria-selected={tab === item.key}
               onClick={() => setTab(item.key)}
-              className={`-mb-px min-h-11 border-b-2 px-4 py-2.5 text-sm font-semibold transition ${tab === item.key ? "border-[#1d3e82] text-[#1d3e82]" : "border-transparent text-[#5C6B8A] hover:text-[#0F2148]"}`}
+              className={`-mb-px min-h-11 border-b-2 px-4 py-2.5 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2C56A8] ${tab === item.key ? "border-[#1d3e82] text-[#1d3e82]" : "border-transparent text-[#5C6B8A] hover:text-[#0F2148]"}`}
             >
               {item.label}
             </button>
           ))}
         </div>
-        <div role="tabpanel" id={`user-history-panel-${tab}`} aria-labelledby={`user-history-${tab}`}>
+        {tabVisible && <div role="tabpanel" id={`user-history-panel-${tab}`} aria-labelledby={`user-history-${tab}`}>
         {tab === "payments" ? (
           <UserPaymentsTab userId={userId} canViewDetail={canViewPayments} onChanged={reload} showNotice={showNotice} />
-        ) : (
+        ) : tab === "trips" ? (
           <UserTripsTab userId={userId} />
+        ) : tab === "grants" ? (
+          <UserGrantsTab userId={userId} reloadKey={grantCount} />
+        ) : (
+          <UserAiUsageTab key={`${userId}:${currentUser?.id ?? ""}`} userId={userId} />
         )}
-        </div>
+        </div>}
       </section>
 
       {assignRoleOpen && (
         <AssignRoleDialog user={detail} onClose={closeAssignRole} onAssigned={handleRoleAssigned} />
+      )}
+
+      {grantOpen && (
+        <GrantPlanDialog user={detail} onClose={closeGrantDialog} onDone={handleGrantDone} />
       )}
 
       {lockMode && (

@@ -1,8 +1,11 @@
 import {
   formatVnDateTime,
+  formatVnDate,
   isPaidSubscription,
   isFreeSubscription,
+  isTrialSubscription,
   getPlanDisplayName,
+  getAiQuota,
 } from "../../utils/subscriptionUtils";
 
 export default function SubscriptionSummary({ subscription, loading, onRenew, plans = [] }) {
@@ -20,6 +23,7 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
 
   const isFree = isFreeSubscription(subscription);
   const isPaid = isPaidSubscription(subscription);
+  const isTrial = isTrialSubscription(subscription);
 
   // If subscription is missing, malformed, or neither valid Free nor valid Paid, fail safely
   if (!isFree && !isPaid) {
@@ -73,7 +77,10 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
     typeof savedTripsUsed === "number" &&
     savedTripsUsed > savedTripsLimit;
 
-  const generatePeriodLabel = isFree
+  const aiQuota = getAiQuota(subscription);
+
+  // Free và gói dùng thử đều đếm lượt tạo lịch theo tháng (BE chỉ đếm theo kỳ với gói đã mua)
+  const generatePeriodLabel = isFree || isTrial
     ? "Lượt tạo lịch trình tháng này"
     : "Lượt tạo lịch trình";
 
@@ -91,17 +98,19 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
             </h2>
             <span
               className={`rounded-full px-3 py-0.5 text-xs font-bold ${
-                isPaid
+                isTrial
+                  ? "bg-primary-fixed text-on-primary-fixed"
+                  : isPaid
                   ? "bg-primary text-on-primary shadow-sm"
                   : "bg-surface-container-high text-on-surface-variant"
               }`}
             >
-              {isPaid ? "Đang hoạt động" : "Mặc định"}
+              {isTrial ? "Dùng thử" : isPaid ? "Đang hoạt động" : "Mặc định"}
             </span>
           </div>
         </div>
 
-        {isPaid && onRenew && (
+        {isPaid && !isTrial && onRenew && (
           <button
             type="button"
             onClick={onRenew}
@@ -116,7 +125,20 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
       </div>
 
       {/* Expiry / Effective boundaries for Paid plans */}
-      {isPaid && (
+      {isTrial ? (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 text-body-md text-on-surface-variant bg-surface-container-low px-3.5 py-2.5 rounded-xl">
+            <span className="material-symbols-outlined text-primary text-[20px]">redeem</span>
+            <span>
+              Dùng thử đến:{" "}
+              <strong className="text-on-surface">{formatVnDate(subscription.effectiveUntil)}</strong>
+            </span>
+          </div>
+          <p className="text-label-sm text-text-muted">
+            Lịch trình tạo trong lúc dùng thử vẫn được giữ lại sau khi hết hạn.
+          </p>
+        </div>
+      ) : isPaid && (
         <>
           {hasDistinctBoundaries ? (
             <div className="space-y-2">
@@ -164,7 +186,7 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
       )}
 
       {/* Quota Usage Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 ${aiQuota ? "lg:grid-cols-3" : ""}`}>
         {/* Lượt tạo lịch trình */}
         <div className="border-l-2 border-primary/30 pl-4 py-2 space-y-2 min-w-0">
           <div className="flex items-center justify-between text-label-md text-on-surface-variant">
@@ -220,6 +242,28 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
             </p>
           )}
         </div>
+
+        {/* Lượt AI hôm nay */}
+        {aiQuota && (
+          <div className="border-l-2 border-accent/40 pl-4 py-2 space-y-2 min-w-0">
+            <div className="flex items-center justify-between text-label-md text-on-surface-variant">
+              <span>Lượt AI hôm nay</span>
+              <span className="material-symbols-outlined text-primary text-[18px]">
+                smart_toy
+              </span>
+            </div>
+            <div className="text-title-lg font-bold text-on-surface">
+              <span>
+                {aiQuota.used} / {aiQuota.limit}
+              </span>
+            </div>
+            <p className="text-label-sm text-text-muted">
+              {aiQuota.limit === 0
+                ? "Gói hiện tại không có lượt AI"
+                : `Tính chung AI điền form và AI viết lý do. Làm mới vào ${formatVnDateTime(aiQuota.resetAt)}`}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -503,7 +503,7 @@ describe("FE-UP4: Current Subscription State & Renewal Verification", () => {
       </MemoryRouter>
     );
     expect(profileContainer).not.toHaveTextContent("tháng này");
-    expect(profileContainer).toHaveTextContent("Lượt tạo AI");
+    expect(profileContainer).toHaveTextContent("Lượt tạo lịch trình");
   });
 
   // ==========================================================================
@@ -537,7 +537,7 @@ describe("FE-UP4: Current Subscription State & Renewal Verification", () => {
         <ProfilePage />
       </MemoryRouter>
     );
-    expect(profileContainer).toHaveTextContent("Lượt tạo AI tháng này");
+    expect(profileContainer).toHaveTextContent("Lượt tạo lịch trình tháng này");
   });
 
   // ==========================================================================

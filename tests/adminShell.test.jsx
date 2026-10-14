@@ -55,7 +55,7 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe("Admin A1 grouped navigation and preserved access", () => {
-  it("T01 full permissions retain all ten sections plus overview", () => {
+  it("T01 full permissions retain all eleven sections plus overview", () => {
     shell();
     const links = sidebar().getAllByRole("link");
     expect(links.map((link) => link.getAttribute("href"))).toEqual(["/admin", ...ADMIN_SECTIONS.map((section) => `/admin/${section.path}`)]);
@@ -88,7 +88,7 @@ describe("Admin A1 grouped navigation and preserved access", () => {
     expect(sidebar().getByRole("link", { name: "Tổng quan", exact: true })).toHaveAttribute("aria-current", "page");
     expect(sidebar().getByText("Admin Portal")).toBeInTheDocument();
     expect(sidebar().getByText("admin@local.test")).toBeInTheDocument();
-    expect(sidebar().getByText(/10 khu vực quản trị/)).toBeInTheDocument();
+    expect(sidebar().getByText(/11 khu vực quản trị/)).toBeInTheDocument();
     expect(sidebar().getByRole("img", { name: "LocalMate AI" }).getAttribute("src")).toContain("logo.jpg");
   });
   it("T11 logout preserves its call and replace-login destination", () => {
@@ -135,7 +135,7 @@ describe("Admin A1 accessible drawer and account interactions", () => {
     const { trigger, dialog } = openDrawer();
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(dialog).toHaveAttribute("aria-modal", "true");
-    expect(within(dialog).getAllByRole("link")).toHaveLength(11);
+    expect(within(dialog).getAllByRole("link")).toHaveLength(12);
   });
   it("T06 Escape closes and restores previous body overflow", () => {
     document.body.style.overflow = "auto";

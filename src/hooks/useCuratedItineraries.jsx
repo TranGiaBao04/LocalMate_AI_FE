@@ -25,7 +25,7 @@ function currentStartTime() {
 export function useCuratedItineraries() {
   const navigate = useNavigate();
   const { isDemo } = useAuth();
-  const { setCurrentTrip } = useTrip();
+  const { openDraft } = useTrip();
   const [curated, setCurated] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -68,7 +68,7 @@ export function useCuratedItineraries() {
       const trip = await itineraryService.applyCuratedItinerary(itinerary.id, {
         startTime: currentStartTime(),
       });
-      setCurrentTrip(trip);
+      openDraft(trip);
       navigate("/draft");
     } catch (err) {
       setApplyError({ id: itinerary.id, message: APPLY_ERROR_MESSAGES[err.code] ?? err.message });

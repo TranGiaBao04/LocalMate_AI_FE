@@ -8,14 +8,14 @@ import { buildDirectionsUrl } from "../src/utils/googleMaps";
 import { formatCurrencyShort } from "../src/utils/formatCurrency";
 
 const mock = vi.hoisted(() => ({
-  navigate: vi.fn(), auth: {}, trip: {}, refresh: vi.fn(),
+  navigate: vi.fn(), auth: {}, trip: {}, refresh: vi.fn(), subscription: null,
   availability: vi.fn(), entitlements: vi.fn(), checkout: vi.fn(),
   assistantProps: null, paymentProps: null, directionProps: [],
 }));
 vi.mock("react-router-dom", async (original) => ({ ...(await original()), useNavigate: () => mock.navigate }));
 vi.mock("../src/context/AuthContext", () => ({ useAuth: () => mock.auth }));
 vi.mock("../src/context/TripContext", () => ({ useTrip: () => mock.trip }));
-vi.mock("../src/context/SubscriptionContext", () => ({ useSubscription: () => ({ refreshSubscription: mock.refresh }) }));
+vi.mock("../src/context/SubscriptionContext", () => ({ useSubscription: () => ({ subscription: mock.subscription, refreshSubscription: mock.refresh }) }));
 vi.mock("../src/services/itineraryPurchaseService", async (original) => ({
   ...(await original()), itineraryPurchaseService: {
     getAvailability: mock.availability, getMyEntitlements: mock.entitlements, checkout: mock.checkout,
@@ -59,10 +59,10 @@ beforeEach(() => {
   mock.auth = { user: { id: "user-one" }, isLoggedIn: true, isDemo: false };
   mock.trip = { currentTrip: realShapeTrip(), savedTrips: [], explainingTripIds: [],
     finalizeTrip: vi.fn().mockResolvedValue({}), deleteItem: vi.fn().mockResolvedValue([]),
-    explainTrip: vi.fn().mockResolvedValue({}), saveTrip: vi.fn().mockResolvedValue({}) };
+    explainTrip: vi.fn().mockResolvedValue({}), saveTrip: vi.fn().mockResolvedValue({}), noteAiError: vi.fn() };
   mock.refresh.mockResolvedValue({}); mock.availability.mockResolvedValue(availability);
   mock.entitlements.mockResolvedValue({ entitlements: [] });
-  mock.assistantProps = null; mock.paymentProps = null; mock.directionProps = [];
+  mock.assistantProps = null; mock.paymentProps = null; mock.directionProps = []; mock.subscription = null;
 });
 
 describe("USER-A5.2 authoritative finalize decision", () => {
@@ -266,7 +266,7 @@ describe("USER-A5.1 Draft presentation preserves contracts", () => {
   });
   it("retains false note match and hides unsupported optional sections", () => {
     Object.assign(mock.trip.currentTrip, { noteApplied: false, metroFriendly: false, plannedDate: null, endTime: null }); mount();
-    expect(screen.getByText(/Chưa tìm được địa điểm khớp/)).toBeInTheDocument();
+    expect(screen.getByText(/chưa áp dụng được ghi chú/)).toBeInTheDocument();
     expect(screen.queryByText("Metro-friendly")).not.toBeInTheDocument(); expect(screen.queryByText(/Kết thúc dự kiến/)).not.toBeInTheDocument();
   });
   it("keeps timeline order and Maps component source props", () => {
@@ -340,5 +340,38 @@ describe("USER-A5.1 Draft presentation preserves contracts", () => {
     mock.trip.currentTrip.items[0].placeName = name; mount();
     expect(screen.getByRole("heading", { name: name.trim() })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Quay lại" })).toBeInTheDocument();
+  });
+  it("daily AI quota shows remaining calls, reloads after a call and locks at zero", async () => {
+    const ai = (dailyUsed) => ({ plan: "Free", ai: { dailyUsed, dailyLimit: 3, resetAt: "2999-01-01T00:00:00Z" } });
+    mock.subscription = ai(2); mount();
+    expect(screen.getByText(/Còn 1\/3 lượt hôm nay/)).toBeInTheDocument();
+    expect(mock.assistantProps.aiQuota).toMatchObject({ used: 2, limit: 3, remaining: 1 });
+    fireEvent.click(screen.getByRole("button", { name: /Nhờ AI viết lý do/ })); await flush();
+    expect(mock.trip.explainTrip).toHaveBeenCalledExactlyOnceWith("trip-one"); expect(mock.refresh).toHaveBeenCalledTimes(1);
+    cleanup(); mock.subscription = ai(3); mount();
+    expect(screen.getByRole("button", { name: /Nhờ AI viết lý do/ })).toBeDisabled();
+    expect(screen.getByText(/Bạn đã dùng hết lượt AI hôm nay/)).toBeInTheDocument();
+  });
+  it("AI cooldown locks the explain button, counts down and reaches the change assistant", () => {
+    mock.trip.aiCooldownUntil = Date.now() + 16000; mount();
+    expect(screen.getByRole("button", { name: /Nhờ AI viết lý do/ })).toBeDisabled();
+    expect(screen.getByText(/AI vừa gặp lỗi\. Thử lại sau 16 giây\./)).toBeInTheDocument();
+    expect(mock.assistantProps.cooldownSeconds).toBe(16);
+    act(() => vi.advanceTimersByTime(16000));
+    expect(screen.getByRole("button", { name: /Nhờ AI viết lý do/ })).toBeEnabled();
+    expect(mock.assistantProps.cooldownSeconds).toBe(0);
+    expect(mock.trip.explainTrip).not.toHaveBeenCalled();
+  });
+  it("a failed change-assistant call is reported to the Trip context before the plan reloads", () => {
+    mount(); const error = { code: "ai_cooldown", data: { retryAfterSeconds: 16 } };
+    mock.assistantProps.onSettled(error);
+    expect(mock.trip.noteAiError).toHaveBeenCalledExactlyOnceWith(error); expect(mock.refresh).toHaveBeenCalledTimes(1);
+    mock.assistantProps.onSettled(undefined);
+    expect(mock.trip.noteAiError).toHaveBeenCalledTimes(1); expect(mock.refresh).toHaveBeenCalledTimes(2);
+  });
+  it("used-up generate quota blocks the change assistant, otherwise it stays open", () => {
+    mount(); expect(mock.assistantProps.blockedReason).toBe("");
+    cleanup(); mock.subscription = { plan: "Free", usage: { generateUsed: 1, generateLimit: 1, resetAt: "2999-01-01T00:00:00Z" } }; mount();
+    expect(mock.assistantProps.blockedReason).toMatch(/hết lượt tạo lịch trình/);
   });
 });

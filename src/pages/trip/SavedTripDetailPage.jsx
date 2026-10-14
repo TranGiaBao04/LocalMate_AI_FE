@@ -42,7 +42,7 @@ const REVIEW_ERROR_MESSAGES = {
 export default function SavedTripDetailPage() {
   const { tripId } = useParams();
   const navigate = useNavigate();
-  const { savedTrips, markVisited, fetchTrip } = useTrip();
+  const { savedTrips, markVisited, fetchTrip, openDraft } = useTrip();
   const trip = savedTrips.find((t) => t.id === tripId);
   const [loadedTripId, setLoadedTripId] = useState(null);
   const [tripLoadError, setTripLoadError] = useState("");
@@ -317,6 +317,24 @@ export default function SavedTripDetailPage() {
                 {visitedCount}/{trip.items.length} đã ghé
               </span>
             </p>
+            {trip.status === "draft" && (
+              <div className="mt-4 flex flex-wrap items-center gap-3 rounded-[8px] border border-border-soft bg-surface-container-low p-4">
+                <p className="min-w-0 flex-1 text-body-md text-on-surface-variant">
+                  Lịch trình này đang là bản nháp. Mở lại để thay địa điểm hoặc chốt lịch trình.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    openDraft(trip);
+                    navigate("/draft");
+                  }}
+                  className="flex min-h-11 shrink-0 items-center gap-2 rounded-[8px] bg-primary px-4 text-label-md font-bold text-on-primary hover:bg-navy-dark"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">edit</span>
+                  Tiếp tục chỉnh sửa
+                </button>
+              </div>
+            )}
           </div>
         </section>
 

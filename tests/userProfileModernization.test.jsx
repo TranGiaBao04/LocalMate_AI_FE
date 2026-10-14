@@ -365,7 +365,7 @@ describe("A7 subscription, recent Trips and account consumers", () => {
     boundary.subscription.subscription.usage = { generateUsed: 2, generateLimit: 7 };
     boundary.subscription.subscription.savedTrips = { used: 3, limit: 9 };
     await render(tree());
-    expect(screen.getByText("Lượt tạo AI tháng này")).toBeInTheDocument();
+    expect(screen.getByText("Lượt tạo lịch trình tháng này")).toBeInTheDocument();
     expect(screen.getByText("2 / 7")).toBeInTheDocument();
     expect(screen.getByText("3 / 9")).toBeInTheDocument();
   });
@@ -377,7 +377,7 @@ describe("A7 subscription, recent Trips and account consumers", () => {
     expect(screen.getByText(formatVnDateTime(sub.effectiveUntil))).toBeInTheDocument();
     expect(screen.getByText(formatVnDateTime(sub.endsAt))).toBeInTheDocument();
     expect(screen.getAllByText("Không giới hạn")).toHaveLength(2);
-    expect(screen.queryByText("Lượt tạo AI tháng này")).not.toBeInTheDocument();
+    expect(screen.queryByText("Lượt tạo lịch trình tháng này")).not.toBeInTheDocument();
   });
   it.each(["loading", "error", "missing", "unbounded-code"])("honestly renders subscription %s without quota fallback", async (mode) => {
     boundary.subscription.subscription = mode === "unbounded-code" ? { plan: "Unknown" } : null;
