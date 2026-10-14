@@ -135,6 +135,44 @@ describe("owner generations, storage and normal Trip contracts", () => {
     act(() => current.setCurrentTrip(null));
     await view.switchTo(A); expect(state().current).toBe(tripA.id);
   });
+  it("generated and reopened drafts join the saved list once, for their owner only", async () => {
+    mock.service.generateTrip.mockResolvedValue({ ...tripB, id: "new-draft" });
+    const view = mount(); await settled();
+    await act(async () => { await current.generateTrip({}); });
+    expect(state()).toMatchObject({ saved: ["new-draft", tripA.id], current: null });
+    act(() => current.openDraft(tripB));
+    expect(state()).toMatchObject({ saved: [tripB.id, "new-draft", tripA.id], current: tripB.id });
+    act(() => current.openDraft(tripB));
+    expect(state().saved).toEqual([tripB.id, "new-draft", tripA.id]);
+    expect(mock.service.getTrips).toHaveBeenCalledTimes(1);
+    await view.switchTo(B); expect(state()).toMatchObject({ saved: [tripB.id], current: null });
+  });
+  it("AI cooldown from a failed explain belongs to its owner and uses only the server's seconds", async () => {
+    mock.service.explainTrip.mockRejectedValue(Object.assign(new Error("cooldown"), { code: "ai_cooldown", data: { retryAfterSeconds: 16 } }));
+    const view = mount(); await settled();
+    expect(current.aiCooldownUntil).toBe(0);
+    const before = Date.now();
+    let result; await act(async () => { result = await consume(current.explainTrip(tripA.id)); });
+    expect(result.error.code).toBe("ai_cooldown");
+    const until = current.aiCooldownUntil;
+    expect(until).toBeGreaterThanOrEqual(before + 16000);
+    act(() => current.noteAiError({ code: "ai_unavailable", data: { charged: false } }));
+    expect(current.aiCooldownUntil).toBe(until);
+    await view.switchTo(B); expect(current.aiCooldownUntil).toBe(0);
+  });
+  it("a 503 that starts the wait locks AI at once; a 503 without seconds does not", async () => {
+    const unavailable = (data) => Object.assign(new Error("unavailable"), { code: "ai_unavailable", data });
+    mock.service.explainTrip.mockRejectedValueOnce(unavailable({ charged: true }));
+    mount(); await settled();
+    await act(async () => { await consume(current.explainTrip(tripA.id)); });
+    expect(current.aiCooldownUntil).toBe(0);
+    mock.service.explainTrip.mockRejectedValueOnce(unavailable({ charged: false, retryAfterSeconds: 30 }));
+    const before = Date.now();
+    let result; await act(async () => { result = await consume(current.explainTrip(tripA.id)); });
+    expect(result.error.code).toBe("ai_unavailable");
+    expect(current.aiCooldownUntil).toBeGreaterThanOrEqual(before + 30000);
+    expect(state().explaining).toEqual([]);
+  });
   it("same-owner rerender does not reset currentTrip/request or refetch list", async () => {
     const view = mount(); await settled();
     act(() => { current.setCurrentTrip(tripA); current.setRequest(requestA); });

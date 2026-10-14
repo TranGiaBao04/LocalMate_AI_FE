@@ -827,6 +827,12 @@ describe("FE-UP1: Subscription Upgrade Contract Boundary", () => {
     expect(isUnlimitedQuota(normalizedMissing.savedTrips.limit)).toBe(false);
   });
 
+  it("case 19b: MySubscription DTO keeps the daily AI counters verbatim", () => {
+    const ai = { dailyUsed: 2, dailyLimit: 3, resetAt: "2026-10-13T17:00:00Z" };
+    expect(safeNormalizeMySubscription({ plan: "Free", ai }).ai).toEqual(ai);
+    expect(safeNormalizeMySubscription({ plan: "Free" }).ai).toBeUndefined();
+  });
+
   // --------------------------------------------------------------------------
   // 20. Stable Error Codes Verification
   // --------------------------------------------------------------------------

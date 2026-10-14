@@ -20,6 +20,9 @@ const boundary = vi.hoisted(() => ({
   pdf: vi.fn(), png: vi.fn(), calendar: vi.fn(), download: vi.fn(), share: vi.fn(),
 }));
 vi.mock("../src/context/AuthContext", () => ({ useAuth: () => boundary.auth }));
+vi.mock("../src/context/SubscriptionContext", () => ({
+  useSubscription: () => ({ subscription: null, refreshSubscription: async () => null }),
+}));
 vi.mock("../src/context/NotificationContext", () => ({
   useNotifications: () => ({ refreshUnreadCount: vi.fn() }),
 }));
@@ -490,4 +493,44 @@ it("actual A5 Save reaches actual A6 list and detail with one ID and no duplicat
   await screen.findByRole("heading", { level: 1, name: finalized().title });
   expect(boundary.save.mock.calls).toEqual([["trip-a"]]); expect(boundary.getTripById.mock.calls).toEqual([["trip-a"]]);
   expect(JSON.parse(screen.getByTestId("context-state").textContent).saved).toEqual(["trip-a"]);
+});
+
+it("a generated draft appears in the actual saved list without reloading it", async () => {
+  boundary.generate.mockResolvedValueOnce(mapTrip(rawTrip("trip-new", "NEW_DRAFT")));
+  render(<GenerationSession />);
+  await waitFor(() => expect(screen.getByTestId("context-state")).toHaveTextContent('"saved":["trip-a"]'));
+  fireEvent.click(await screen.findByRole("button", { name: "Tạo lịch mới" }));
+  await waitFor(() => expect(screen.getByTestId("active-route")).toHaveTextContent("/draft"));
+  expect(JSON.parse(screen.getByTestId("context-state").textContent)).toMatchObject({ current: "trip-new", saved: ["trip-new", "trip-a"] });
+  expect(boundary.getTrips).toHaveBeenCalledTimes(1);
+});
+
+function DraftDetailSession() {
+  return (
+    <MemoryRouter initialEntries={["/trips/trip-a"]}>
+      <RouteEvidence />
+      <TripProvider>
+        <ContextEvidence />
+        <Routes>
+          <Route path="/trips/:tripId" element={<SavedTripDetailPage />} />
+          <Route path="/draft" element={<p>Draft editor destination</p>} />
+        </Routes>
+      </TripProvider>
+    </MemoryRouter>
+  );
+}
+it("a draft detail reopens in the draft editor with the loaded Trip as current", async () => {
+  boundary.getTripById.mockResolvedValue(detailA);
+  render(<DraftDetailSession />);
+  fireEvent.click(await screen.findByRole("button", { name: "Tiếp tục chỉnh sửa" }));
+  expect(screen.getByTestId("active-route")).toHaveTextContent("/draft");
+  expect(screen.getByText("Draft editor destination")).toBeInTheDocument();
+  expect(JSON.parse(screen.getByTestId("context-state").textContent)).toMatchObject({ current: "trip-a", saved: ["trip-a"] });
+  expect(boundary.generate).not.toHaveBeenCalled();
+});
+it("a finalized detail offers no draft editing action", async () => {
+  boundary.getTrips.mockResolvedValue([]); boundary.getTripById.mockResolvedValue(finalized());
+  render(<DraftDetailSession />);
+  await screen.findByRole("heading", { level: 1, name: finalized().title });
+  expect(screen.queryByRole("button", { name: "Tiếp tục chỉnh sửa" })).not.toBeInTheDocument();
 });

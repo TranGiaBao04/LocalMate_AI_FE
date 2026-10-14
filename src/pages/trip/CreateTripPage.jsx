@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTrip } from "../../context/TripContext";
+import { useSubscription } from "../../context/SubscriptionContext";
 import { tagService } from "../../services/tagService";
 import { masterDataService } from "../../services/masterDataService";
 import { placeService } from "../../services/placeService";
@@ -9,8 +10,13 @@ import { tripService, toTripRequestDto } from "../../services/tripService";
 import TripRequestAssistant from "../../components/trip/TripRequestAssistant";
 // Đồng hồ cập nhật định kỳ để chip buổi/thời lượng tự khoá khi đã qua giờ
 import { useClock } from "../../hooks/useClock";
+import { useAiCooldown } from "../../hooks/useAiCooldown";
 import { formatCurrency, formatDistance } from "../../utils/formatCurrency";
-import { formatVnDateTime } from "../../utils/subscriptionUtils";
+import {
+  formatVnDateTime,
+  getAiQuota,
+  isGenerateQuotaExhausted,
+} from "../../utils/subscriptionUtils";
 import {
   DAY_MINUTES,
   addDays,
@@ -154,6 +160,9 @@ const TRIP_ISSUE_MESSAGES = {
   duration_too_short:
     "Số giờ chưa đủ để tới và tham quan địa điểm nào. Hãy tăng thời lượng hoặc chọn khu gần hơn.",
 };
+// duration_too_short khi đang chọn Đi bộ: quãng đường đi bộ thường là thứ ăn hết thời gian
+const WALKING_TOO_SLOW_MESSAGE =
+  "Đi bộ tới khu này mất gần hết thời gian bạn chọn. Hãy đổi phương tiện, tăng thời lượng hoặc chọn khu gần hơn.";
 
 const GENERATE_ERROR_MESSAGES = {
   ...TRIP_ISSUE_MESSAGES,
@@ -172,7 +181,9 @@ const chipClass = (selected) =>
 
 // Lý do không tạo được lịch + cách sửa nhanh. onFix nhận phần request cần đổi rồi thử lại ngay;
 // BE không tự đổi ga/phương tiện thay người dùng.
-function TripIssue({ issue, busy, onFix, onGoToStep }) {
+function TripIssue({ issue, travelMode, busy, onFix, onGoToStep }) {
+  const walkingTooSlow = issue.code === "duration_too_short" && travelMode === "Walking";
+  const suggestOtherModes = issue.code === "too_far_from_station_for_metro" || walkingTooSlow;
   const actionClass =
     "min-h-11 max-w-full break-words rounded-[8px] border border-error/30 bg-white px-4 py-2.5 text-body-md font-semibold text-error transition-colors hover:bg-error/5 disabled:opacity-60 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error";
   return (
@@ -182,7 +193,7 @@ function TripIssue({ issue, busy, onFix, onGoToStep }) {
     >
       <p className="flex items-start gap-2 text-body-md font-medium text-error">
         <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[20px]">error</span>
-        <span className="min-w-0 break-words">{issue.message}</span>
+        <span className="min-w-0 break-words">{walkingTooSlow ? WALKING_TOO_SLOW_MESSAGE : issue.message}</span>
       </p>
       {issue.code === "insufficient_candidates" && issue.suggestedStations.length > 0 && (
         <div className="space-y-2">
@@ -205,25 +216,26 @@ function TripIssue({ issue, busy, onFix, onGoToStep }) {
           </div>
         </div>
       )}
-      {issue.code === "too_far_from_station_for_metro" && (
+      {(suggestOtherModes || issue.code === "duration_too_short") && (
         <div className="flex flex-wrap gap-2">
-          {TRAVEL_MODES.filter((m) => m.value === "Auto" || m.value === "Motorbike").map((m) => (
-            <button
-              key={m.value}
-              type="button"
-              disabled={busy}
-              onClick={() => onFix({ travelMode: m.value })}
-              className={actionClass}
-            >
-              Đổi sang {m.label}
+          {suggestOtherModes &&
+            TRAVEL_MODES.filter((m) => m.value === "Auto" || m.value === "Motorbike").map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                disabled={busy}
+                onClick={() => onFix({ travelMode: m.value })}
+                className={actionClass}
+              >
+                Đổi sang {m.label}
+              </button>
+            ))}
+          {issue.code === "duration_too_short" && (
+            <button type="button" onClick={() => onGoToStep(1)} className={actionClass}>
+              Chỉnh thời lượng
             </button>
-          ))}
+          )}
         </div>
-      )}
-      {issue.code === "duration_too_short" && (
-        <button type="button" onClick={() => onGoToStep(1)} className={actionClass}>
-          Chỉnh thời lượng
-        </button>
       )}
       {issue.code === "out_of_service_area" && (
         <button type="button" onClick={() => onGoToStep(0)} className={actionClass}>
@@ -234,11 +246,76 @@ function TripIssue({ issue, busy, onFix, onGoToStep }) {
   );
 }
 
+// Báo hết lượt tạo lịch trình: ở đầu trang (biết trước từ gói) và ở bước cuối (BE từ chối).
+function GenerateQuotaNotice({ message, description, used, limit, resetAt, onUpgrade, onExplore }) {
+  return (
+    <div
+      role="alert"
+      className="space-y-4 rounded-[8px] border border-error/20 bg-error-container/20 p-4 sm:p-5"
+    >
+      <div className="flex items-start gap-2">
+        <span aria-hidden="true" className="material-symbols-outlined text-error text-[20px] shrink-0 mt-0.5">
+          lock
+        </span>
+        <div className="min-w-0 space-y-2 break-words">
+          <p className="font-semibold text-body-md text-error">{message}</p>
+          <p className="text-body-sm text-on-surface-variant">{description}</p>
+        </div>
+      </div>
+
+      {(limit != null || resetAt) && (
+        <div className="space-y-2 rounded-[8px] border border-border-soft bg-white p-3 text-body-md">
+          {limit != null && (
+            <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-on-surface">
+              <span>Đã sử dụng:</span>
+              <span className="font-semibold">
+                {used ?? limit} / {limit} lượt
+              </span>
+            </div>
+          )}
+          {resetAt && (
+            <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-on-surface-variant">
+              <span>Làm mới vào:</span>
+              <span className="font-medium">{formatVnDateTime(resetAt)}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onUpgrade}
+        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[8px] bg-primary px-4 py-3 text-body-md font-semibold text-on-primary transition-colors hover:bg-primary/90 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">workspace_premium</span>
+        Nâng cấp gói dịch vụ
+      </button>
+      <button
+        type="button"
+        onClick={onExplore}
+        className="min-h-11 rounded-[8px] px-1 text-body-md font-semibold text-primary underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        Xem lịch trình mẫu
+      </button>
+    </div>
+  );
+}
+
 export default function CreateTripPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { request, setRequest, generateTrip, setCurrentTrip } = useTrip();
+  const { request, setRequest, generateTrip, setCurrentTrip, noteAiError } = useTrip();
+  const aiCooldown = useAiCooldown();
   const { isDemo } = useAuth();
+  const { subscription, refreshSubscription } = useSubscription();
+  const aiQuota = getAiQuota(subscription);
+  const generateExhausted = !isDemo && isGenerateQuotaExhausted(subscription);
+
+  // Gói trong context chỉ tải lúc đăng nhập: tải lại khi mở trang để biết đúng số lượt còn lại
+  useEffect(() => {
+    if (!isDemo) refreshSubscription();
+  }, [isDemo, refreshSubscription]);
+
   const now = useClock(CLOCK_TICK_MS);
   // Mở từ "Muốn đổi gì?" ở trang Nháp: { fields, changed, missing, base, origin }
   const prefill = location.state?.prefill ?? null;
@@ -560,7 +637,7 @@ export default function CreateTripPage() {
   };
 
   const handleGenerate = async (overrides = {}) => {
-    if (isDemo) return;
+    if (isDemo || generateExhausted) return;
     const req = {
       ...(request || {}),
       // Lưu cả điểm xuất phát: mở thẳng bước cuối từ "Muốn đổi gì?" thì bước 1 không chạy
@@ -588,11 +665,13 @@ export default function CreateTripPage() {
     navigate("/loading");
     try {
       const trip = await generateTrip(buildTripDto(overrides));
+      refreshSubscription();
       setCurrentTrip(trip);
       // Thay /loading trong lịch sử, để nút back ở trang Nháp về wizard chứ không kẹt ở màn hình chờ
       navigate("/draft", { replace: true });
     } catch (err) {
       if (err?.code === "trip_session_changed") return;
+      refreshSubscription();
       navigate("/create", {
         replace: true,
         state: {
@@ -643,7 +722,8 @@ export default function CreateTripPage() {
           </span>
         </button>
 
-        <div className="min-w-0 flex-1 lg:max-w-[780px]">
+        {/* Màn rộng: thanh tiến độ rộng bằng cột nội dung (900px trừ lề) và nằm giữa, thẳng mép với form bên dưới */}
+        <div className="mx-auto min-w-0 flex-1 lg:max-w-[836px]">
           <div className="flex justify-between items-center mb-1">
             <span className="text-[13px] font-semibold tracking-normal text-primary">
               Bước {step + 1}/{STEPS.length}
@@ -657,9 +737,24 @@ export default function CreateTripPage() {
             />
           </div>
         </div>
+        {/* Cân với nút quay lại bên trái để thanh tiến độ nằm đúng giữa */}
+        <div aria-hidden="true" className="hidden h-11 w-11 shrink-0 lg:block" />
       </header>
 
       <main className="content-shell !mx-auto !max-w-[900px] min-w-0 flex-1 px-4 pb-32 pt-24 sm:px-6 lg:px-8">
+        {generateExhausted && generateErrorCode !== "generate_quota_exceeded" && (
+          <div className="mb-6">
+            <GenerateQuotaNotice
+              message="Bạn đã dùng hết lượt tạo lịch trình của gói hiện tại."
+              description="Lượt này chỉ tính cho lịch tạo theo yêu cầu. Bạn vẫn có thể bắt đầu từ một lịch trình mẫu, hoặc nâng cấp gói để tạo thêm."
+              used={subscription.usage.generateUsed}
+              limit={subscription.usage.generateLimit}
+              resetAt={subscription.usage.resetAt}
+              onUpgrade={() => navigate("/subscription")}
+              onExplore={() => navigate("/explore")}
+            />
+          </div>
+        )}
         <ol aria-label="Các bước tạo lịch trình" className="mb-8 grid grid-cols-4 gap-2 border-b border-border-soft pb-5">
           {STEPS.map((label, index) => (
             <li key={label} aria-current={index === step ? "step" : undefined} className={`flex min-w-0 flex-col gap-2 text-[12px] font-medium sm:flex-row sm:items-center sm:text-[13px] ${index === step ? "text-primary" : "text-text-muted"}`}>
@@ -677,6 +772,13 @@ export default function CreateTripPage() {
                   placeholder="Ví dụ: chiều mai rảnh khoảng 4 tiếng, có 300k, muốn đi cà phê chụp ảnh quanh Bến Thành"
                   submitLabel="Điền giúp tôi"
                   onParsed={handleParsed}
+                  aiQuota={aiQuota}
+                  cooldownSeconds={aiCooldown}
+                  onSettled={(err) => {
+                    if (err) noteAiError(err);
+                    refreshSubscription();
+                  }}
+                  blockedReason={generateExhausted ? "Bạn đã hết lượt tạo lịch trình nên ô này tạm khoá." : ""}
                 />
                 {aiFilled.length > 0 && (
                   <div
@@ -1067,6 +1169,7 @@ export default function CreateTripPage() {
             {feasibilityIssue && (
               <TripIssue
                 issue={feasibilityIssue}
+                travelMode={effectiveTravelMode}
                 busy={checking}
                 onFix={retryFeasibility}
                 onGoToStep={goToStep}
@@ -1079,53 +1182,16 @@ export default function CreateTripPage() {
           <div className="space-y-stack-lg">
             {generateError && (
               generateErrorCode === "generate_quota_exceeded" ? (
-                <div
-                  role="alert"
-                  className="mt-4 space-y-4 rounded-[8px] border border-error/20 bg-error-container/20 p-4 sm:p-5"
-                >
-                  <div className="flex items-start gap-2">
-                    <span aria-hidden="true" className="material-symbols-outlined text-error text-[20px] shrink-0 mt-0.5">
-                      lock
-                    </span>
-                    <div className="min-w-0 space-y-2 break-words">
-                      <p className="font-semibold text-body-md text-error">
-                        {generateError}
-                      </p>
-                      <p className="text-body-sm text-on-surface-variant">
-                        Nâng cấp gói dịch vụ để tiếp tục tạo các hành trình khám phá không giới hạn.
-                      </p>
-                    </div>
-                  </div>
-
-                  {quotaMetadata && (quotaMetadata.limit != null || quotaMetadata.resetAt) && (
-                    <div className="space-y-2 rounded-[8px] border border-border-soft bg-white p-3 text-body-md">
-                      {quotaMetadata.limit != null && (
-                        <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-on-surface">
-                          <span>Đã sử dụng:</span>
-                          <span className="font-semibold">
-                            {quotaMetadata.used ?? quotaMetadata.limit} / {quotaMetadata.limit} lượt
-                          </span>
-                        </div>
-                      )}
-                      {quotaMetadata.resetAt && (
-                        <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-on-surface-variant">
-                          <span>Làm mới vào:</span>
-                          <span className="font-medium">
-                            {formatVnDateTime(quotaMetadata.resetAt)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => navigate("/subscription")}
-                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[8px] bg-primary px-4 py-3 text-body-md font-semibold text-on-primary transition-colors hover:bg-primary/90 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                  >
-                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">workspace_premium</span>
-                    Nâng cấp gói dịch vụ
-                  </button>
+                <div className="mt-4">
+                  <GenerateQuotaNotice
+                    message={generateError}
+                    description="Nâng cấp gói dịch vụ để tiếp tục tạo các hành trình khám phá không giới hạn."
+                    used={quotaMetadata?.used}
+                    limit={quotaMetadata?.limit}
+                    resetAt={quotaMetadata?.resetAt}
+                    onUpgrade={() => navigate("/subscription")}
+                    onExplore={() => navigate("/explore")}
+                  />
                 </div>
               ) : (
                 <div className="mt-stack-md">
@@ -1135,6 +1201,7 @@ export default function CreateTripPage() {
                       message: generateError,
                       suggestedStations: generateSuggestedStations,
                     }}
+                    travelMode={effectiveTravelMode}
                     onFix={retryGenerate}
                     onGoToStep={goToStep}
                   />
@@ -1304,7 +1371,7 @@ export default function CreateTripPage() {
           <button
             type="button"
             onClick={handleNextStep}
-            disabled={!canContinue || checking}
+            disabled={!canContinue || checking || generateExhausted}
             className="flex min-h-12 shrink-0 items-center whitespace-nowrap rounded-[8px] bg-primary px-4 py-3 text-body-md font-semibold text-on-primary transition-colors hover:bg-navy-dark disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-6"
           >
             {checking ? "Đang kiểm tra..." : "Tiếp tục"}
@@ -1325,7 +1392,8 @@ export default function CreateTripPage() {
           <button
             type="button"
             onClick={() => handleGenerate()}
-            className="flex min-h-12 shrink-0 items-center whitespace-nowrap rounded-[8px] bg-primary px-4 py-3 text-body-md font-semibold text-on-primary transition-colors hover:bg-navy-dark motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-6"
+            disabled={generateExhausted}
+            className="flex min-h-12 shrink-0 items-center whitespace-nowrap rounded-[8px] bg-primary px-4 py-3 text-body-md font-semibold text-on-primary transition-colors hover:bg-navy-dark disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-6"
           >
             {prefill ? "Tạo lịch mới" : "Tạo lịch trình"}
             <span aria-hidden="true" className="material-symbols-outlined ml-2 hidden min-[360px]:inline">auto_awesome</span>

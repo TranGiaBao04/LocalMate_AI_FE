@@ -205,12 +205,21 @@ export const ADMIN_ERROR_CODES = ADMIN_SUBSCRIPTION_ERROR_CODES;
  */
 
 /**
+ * Daily AI counters within MySubscription DTO.
+ * @typedef {Object} SubscriptionAi
+ * @property {number} dailyUsed AI calls counted today (Vietnam date); provider failures the backend waives are not counted
+ * @property {number} dailyLimit Daily limit (0 means the plan has no AI)
+ * @property {string} resetAt Reset UTC timestamp (00:00 Vietnam time, next day)
+ */
+
+/**
  * Authoritative response from GET /api/subscription/me
  * @typedef {Object} MySubscription
  * @property {string} plan Effective plan code
  * @property {string|null} endsAt Backend PaidThrough horizon UTC timestamp
  * @property {SubscriptionUsage|null} usage Usage statistics
  * @property {SubscriptionSavedTrips|null} savedTrips Saved trips quota
+ * @property {SubscriptionAi|undefined} ai Daily AI usage
  * @property {string|null} effectiveUntil Current period effective boundary UTC timestamp
  */
 
@@ -598,6 +607,14 @@ export function safeNormalizeMySubscription(data) {
               data.savedTrips.limit !== undefined
                 ? data.savedTrips.limit
                 : undefined,
+          }
+        : undefined,
+    ai:
+      data.ai && typeof data.ai === "object"
+        ? {
+            dailyUsed: data.ai.dailyUsed,
+            dailyLimit: data.ai.dailyLimit,
+            resetAt: data.ai.resetAt,
           }
         : undefined,
     effectiveUntil:

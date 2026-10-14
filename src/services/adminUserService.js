@@ -63,4 +63,15 @@ export const adminUserService = {
   // Trả { userId, status, lockedAt, lockReason, lockedBy }. Đã khoá sẵn ⇒ 200, giữ lý do và người khoá cũ.
   lockUser: (userId, reason) => adminApiClient.post(`/admin/users/${userId}/lock`, { reason }),
   unlockUser: (userId) => adminApiClient.post(`/admin/users/${userId}/unlock`),
+
+  // Gói tặng (quyền ManagePlans). Dòng: { grantId, userId, plan: { code, name }, days, startsAt, endsAt,
+  //   source: Admin|SignupTrial, reason, grantedBy: { userId, fullName } | null, createdAt }, mới nhất trước.
+  // reason/grantedBy là null với SignupTrial.
+  getGrants: (userId) => adminApiClient.get(`/admin/users/${userId}/grants`),
+
+  // 201 trả một dòng như trên. Gói tặng có thể xếp nối sau gói đang có ⇒ đọc startsAt/endsAt.
+  // Lỗi: 400 invalid_grant (errors.PlanId/Days/Reason), 404 user_not_found,
+  // 409 user_locked | grant_exceeds_max_horizon. Không có API thu hồi.
+  grantPlan: (userId, { planId, days, reason }) =>
+    adminApiClient.post(`/admin/users/${userId}/grants`, { planId, days, reason }),
 };

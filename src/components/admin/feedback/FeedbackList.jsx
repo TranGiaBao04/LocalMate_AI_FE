@@ -287,7 +287,7 @@ export default function FeedbackList({ kind, tagLabels = {}, preset = null }) {
       {response.error && !loading && !dateError && <AdminErrorState message={response.error} onRetry={() => setReloadCount(count => count + 1)} />}
       {!loading && !response.error && !dateError && response.data && <p className="text-sm text-[#5C6B8A]">{response.data.totalCount} kết quả · Trang {response.data.page} / {Math.max(1, response.data.totalPages)}</p>}
       {!response.error && !dateError && <>
-        <div className="hidden md:block [&_table]:min-w-[900px]"><DataTable columns={columns} rows={rows} loading={loading} sort={sort} onSort={handleSort}
+        <div className="hidden md:block [&_table]:w-full [&_table]:min-w-[900px]"><DataTable columns={columns} rows={rows} loading={loading} sort={sort} onSort={handleSort}
           emptyState={{ icon: isReviews ? "reviews" : "forum", title: hasFilters ? "Không có dòng nào phù hợp" : isReviews ? "Chưa có đánh giá" : "Chưa có feedback chuyến đi", description: hasFilters ? "Thử đổi từ khoá hoặc bộ lọc." : undefined, actionLabel: hasFilters ? "Xóa bộ lọc" : undefined, onAction: hasFilters ? handleClearFilters : undefined }} /></div>
         <div aria-label={isReviews ? "Đánh giá trên di động" : "Feedback chuyến đi trên di động"} className="space-y-3 md:hidden">
           {loading ? <LoadingState label="Đang tải phản hồi" /> : rows.length ? rows.map(row => (

@@ -42,7 +42,7 @@ describe("A2 existing consumer compatibility", () => {
     mount(<AdminPlansPage />);
     await within(screen.getByRole("table")).findByText("Trip Pass");
     expect(screen.getByRole("table")).toHaveTextContent("19.000đ");
-    expect(within(screen.getByRole("table")).getByTitle("Lượt tạo AI")).toHaveTextContent("AI: ∞");
+    expect(within(screen.getByRole("table")).getByTitle("Lượt tạo lịch trình")).toHaveTextContent("Tạo lịch: ∞");
     expect(within(screen.getByRole("table")).getByTitle("Lượt lưu chuyến")).toHaveTextContent("Lưu: 3 chuyến");
     fireEvent.click(screen.getByRole("button", { name: "Sắp xếp theo Tên gói" }));
     await waitFor(() => expect(mocks.plans.getPlans.mock.lastCall[0]).toMatchObject({ sortBy: "name", sortDirection: "asc", page: 1, pageSize: 10 }));

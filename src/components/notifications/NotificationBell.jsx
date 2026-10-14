@@ -10,6 +10,7 @@ const TYPE_ICONS = {
   welcome: "waving_hand",
   trip_finalized: "task_alt",
   subscription_payment_succeeded: "workspace_premium",
+  plan_granted: "redeem",
 };
 
 // Nơi mở khi bấm vào thông báo, theo targetType của BE

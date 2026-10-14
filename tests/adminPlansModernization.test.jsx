@@ -10,7 +10,7 @@ vi.mock("../src/services/adminPlanService", () => ({ adminPlanService: {
   createPlan: vi.fn(), updatePlan: vi.fn(), updatePlanStatus: vi.fn(), deletePlan: vi.fn(),
 }}));
 const plan = { id: "pass", code: "TRIP_PASS", name: "Trip Pass", isActive: true, isSystem: true, entitlementPriority: 100, activeSubscriberCount: 4,
-  currentVersion: { versionNumber: 7, price: 19000, durationDays: 7, generateLimit: null, savedTripLimit: 3, features: [], aiDailyCallLimit: 0, aiExplainCallsPerTripLimit: null } };
+  currentVersion: { versionNumber: 7, price: 19000, durationDays: 7, generateLimit: null, savedTripLimit: 3, features: [], aiDailyCallLimit: 15, aiExplainCallsPerTripLimit: 3 } };
 const result = items => ({ items, page: 1, totalPages: 2, totalCount: 21 });
 const desktop = () => within(screen.getByRole("table"));
 const mobile = () => within(screen.getByLabelText("Danh sách gói trên di động"));
@@ -52,6 +52,13 @@ describe("A5 Plans preservation and responsive interactions", () => {
     await list([plan, { ...plan, id: "off", name: "Inactive", isActive: false }]);
     expect(desktop().getByText("Hoạt động")).toBeInTheDocument();
     expect(desktop().getByText("Tạm dừng")).toBeInTheDocument();
+  });
+  it("list shows AI limits of the current version, or the system fallback", async () => {
+    await list([plan, { ...plan, id: "old", name: "Legacy", code: "LEGACY", currentVersion: { ...plan.currentVersion, aiDailyCallLimit: null, aiExplainCallsPerTripLimit: null } }]);
+    const rows = desktop().getAllByRole("row").slice(1);
+    expect(within(rows[0]).getByTitle("Lượt AI mỗi ngày")).toHaveTextContent("AI: 15/ngày");
+    expect(within(rows[0]).getByTitle("Số lần AI viết lý do mỗi lịch trình")).toHaveTextContent("Viết lý do: 3/lịch");
+    expect(within(rows[1]).getByTitle("Lượt AI mỗi ngày")).toHaveTextContent("AI: theo cấu hình");
   });
   it("Free remains protected from deactivation/deletion", async () => {
     await list([{ ...plan, code: "FREE", name: "Free" }]);
@@ -105,18 +112,30 @@ describe("A5 Plans preservation and responsive interactions", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(mobile().getByText("Chưa có gói dịch vụ nào phù hợp")).toBeInTheDocument();
   });
-  it("create sends original fields only, without AI metadata", async () => {
+  it("create requires both AI limits and sends them", async () => {
     form();
     fireEvent.change(screen.getByLabelText("Mã gói (Code)"), { target: { value: "custom" } });
     fireEvent.change(screen.getByLabelText("Tên hiển thị gói"), { target: { value: " Custom Plan " } });
     fireEvent.click(screen.getByRole("button", { name: "Tạo gói dịch vụ", exact: true }));
-    await waitFor(() => expect(adminPlanService.createPlan).toHaveBeenCalledExactlyOnceWith({ code: "CUSTOM", name: "Custom Plan", entitlementPriority: 10, price: 50000, durationDays: 30, generateLimit: 10, savedTripLimit: 5, featureIds: [] }));
+    expect(adminPlanService.createPlan).not.toHaveBeenCalled();
+    expect(screen.getByText(/Lượt AI mỗi ngày là bắt buộc/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Lượt AI mỗi ngày"), { target: { value: "10" } });
+    fireEvent.change(screen.getByLabelText("Số lần AI viết lý do mỗi lịch trình"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Tạo gói dịch vụ", exact: true }));
+    await waitFor(() => expect(adminPlanService.createPlan).toHaveBeenCalledExactlyOnceWith({ code: "CUSTOM", name: "Custom Plan", entitlementPriority: 10, price: 50000, durationDays: 30, generateLimit: 10, savedTripLimit: 5, aiDailyCallLimit: 10, aiExplainCallsPerTripLimit: 3, featureIds: [] }));
   });
-  it("edit sends original version terms, not immutable identity or AI fields", async () => {
+  it("edit sends version terms with AI limits, not immutable identity", async () => {
     form("edit");
     fireEvent.click(screen.getByRole("button", { name: "Cập nhật gói" }));
-    await waitFor(() => expect(adminPlanService.updatePlan).toHaveBeenCalledExactlyOnceWith("pass", { name: "Trip Pass", price: 19000, durationDays: 7, generateLimit: null, savedTripLimit: 3, featureIds: [] }));
-    expect(screen.queryByLabelText(/AiDaily/)).not.toBeInTheDocument();
+    await waitFor(() => expect(adminPlanService.updatePlan).toHaveBeenCalledExactlyOnceWith("pass", { name: "Trip Pass", price: 19000, durationDays: 7, generateLimit: null, savedTripLimit: 3, aiDailyCallLimit: 15, aiExplainCallsPerTripLimit: 3, featureIds: [] }));
+  });
+  it("zero AI limit stays zero and a version without AI terms must be filled before saving", async () => {
+    form("edit", { ...plan, currentVersion: { ...plan.currentVersion, aiDailyCallLimit: 0, aiExplainCallsPerTripLimit: null } });
+    expect(screen.getByLabelText("Lượt AI mỗi ngày")).toHaveValue(0);
+    expect(screen.getByLabelText("Số lần AI viết lý do mỗi lịch trình")).toHaveValue(null);
+    expect(screen.getByText(/chưa có hạn mức AI riêng/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cập nhật gói" }));
+    expect(adminPlanService.updatePlan).not.toHaveBeenCalled();
   });
   it("Free keeps price0 and durationNULL", async () => {
     form("edit", { ...plan, code: "FREE" });
@@ -125,7 +144,7 @@ describe("A5 Plans preservation and responsive interactions", () => {
   });
   it("zero Generate/Saved stays zero, not unlimited", async () => {
     form("edit", { ...plan, currentVersion: { ...plan.currentVersion, generateLimit: 0, savedTripLimit: 0 } });
-    expect(screen.getByLabelText("Lượt tạo AI (Generate Limit)")).toHaveValue(0);
+    expect(screen.getByLabelText("Lượt tạo lịch trình (Generate Limit)")).toHaveValue(0);
     expect(screen.getByLabelText("Lượt lưu chuyến (Saved Trip Limit)")).toHaveValue(0);
     expect(screen.getAllByRole("checkbox").every(input => !input.checked)).toBe(true);
   });
@@ -135,12 +154,12 @@ describe("A5 Plans preservation and responsive interactions", () => {
     expect(adminPlanService.createPlan).not.toHaveBeenCalled();
     expect(screen.getByText("Tên gói không được để trống.")).toBeInTheDocument();
   });
-  it("existing invalid_plan_data remains visible without adding AI fields", async () => {
-    adminPlanService.updatePlan.mockRejectedValue({ code: "invalid_plan_data", message: "AI terms required", errors: { AiDailyCallLimit: ["Required"] } });
+  it("invalid_plan_data shows the general message and the error under the AI field", async () => {
+    adminPlanService.updatePlan.mockRejectedValue({ code: "invalid_plan_data", message: "AI terms required", errors: { aiDailyCallLimit: ["Out of range"] } });
     form("edit");
     fireEvent.click(screen.getByRole("button", { name: "Cập nhật gói" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("AI terms required");
-    expect(screen.queryByLabelText(/daily/i)).not.toBeInTheDocument();
+    expect(await screen.findByText("AI terms required")).toBeInTheDocument();
+    expect(screen.getByText("Out of range")).toBeInTheDocument();
   });
   it("mobile edit action is keyboard-focusable and enters shared dialog", async () => {
     await list();
@@ -177,7 +196,9 @@ describe("A5 Plans preservation and responsive interactions", () => {
     expect(records[1]).toHaveTextContent("v7");
     expect(records[1]).toHaveTextContent("Phiên bản hiện tại");
     expect(adminPlanService.getPlanVersions).toHaveBeenCalledExactlyOnceWith("pass", { page: 1, pageSize: 10 });
-    expect(screen.queryByText(/LLM|Explain|hàng ngày/)).not.toBeInTheDocument();
+    expect(within(records[0]).getByText("Lượt AI mỗi ngày").nextSibling).toHaveTextContent("Theo cấu hình hệ thống");
+    expect(within(records[1]).getByText("Lượt AI mỗi ngày").nextSibling).toHaveTextContent("0 lượt");
+    expect(within(records[1]).getByText("AI viết lý do mỗi lịch trình").nextSibling).toHaveTextContent("Theo cấu hình hệ thống");
   });
   it("300ms search debounce remains unchanged", async () => {
     vi.useFakeTimers();
