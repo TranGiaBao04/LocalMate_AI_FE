@@ -37,6 +37,7 @@ const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
 const AdminUserDetailPage = lazy(() => import("./pages/admin/AdminUserDetailPage"));
 const AdminRolesPage = lazy(() => import("./pages/admin/AdminRolesPage"));
+const AdminTrialProgramsPage = lazy(() => import("./pages/admin/AdminTrialProgramsPage"));
 const AdminFeedbackPage = lazy(() => import("./pages/admin/AdminFeedbackPage"));
 const AdminCuratedItinerariesPage = lazy(() => import("./pages/admin/AdminCuratedItinerariesPage"));
 const AdminCuratedItineraryFormPage = lazy(() => import("./pages/admin/AdminCuratedItineraryFormPage"));
@@ -49,6 +50,7 @@ const ADMIN_PAGES = {
   import: ImportStepperPage,
   "curated-itineraries": AdminCuratedItinerariesPage,
   plans: AdminPlansPage,
+  "trial-programs": AdminTrialProgramsPage,
   transactions: AdminTransactionsPage,
   settings: AdminSettingsPage,
   users: AdminUsersPage,

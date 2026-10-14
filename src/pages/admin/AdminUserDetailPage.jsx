@@ -107,7 +107,7 @@ function LoadError({ message, onRetry }) {
 
 function UserHistoryRecords({ columns, rows, loading, sort, onSort, pagination, onPageChange, emptyState, label }) {
   return <div className="space-y-3">
-    <div className="hidden md:block [&_table]:min-w-[900px]"><DataTable columns={columns} rows={rows} loading={loading} sort={sort} onSort={onSort} emptyState={emptyState} /></div>
+    <div className="hidden md:block [&_table]:w-full [&_table]:min-w-[900px]"><DataTable columns={columns} rows={rows} loading={loading} sort={sort} onSort={onSort} emptyState={emptyState} /></div>
     <div aria-label={label} className="space-y-3 md:hidden">
       {loading ? <LoadingState label="Đang tải lịch sử" /> : rows.length ? rows.map(row => {
         const identity = columns[0];

@@ -59,6 +59,17 @@ export const ADMIN_SECTIONS = [
     tone: "bg-amber-50 text-amber-700",
   },
   {
+    path: "trial-programs",
+    navLabel: "Dùng thử",
+    navGroup: "Kinh doanh",
+    label: "Dùng thử khi đăng ký",
+    group: "Gói cước & Doanh thu",
+    icon: "redeem",
+    permissions: [P.MANAGE_PLANS],
+    description: "Tặng Trip Pass dùng thử cho tài khoản đăng ký trong khoảng ngày đã chọn.",
+    tone: "bg-lime-50 text-lime-700",
+  },
+  {
     path: "transactions",
     navLabel: "Giao dịch",
     navGroup: "Kinh doanh",
