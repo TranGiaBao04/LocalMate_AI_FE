@@ -132,7 +132,10 @@ export default function AdminUsersPage() {
       header: "Gói hiện tại",
       render: (row) => (
         <div>
-          <p className="font-medium text-[#0F2148]">{row.plan?.name || row.plan?.code}</p>
+          <p className="font-medium text-[#0F2148]">
+            {row.plan?.name || row.plan?.code}
+            {row.planIsTrial && <span className="ml-1.5 text-xs font-semibold text-blue-700">· Dùng thử</span>}
+          </p>
           {row.planEffectiveUntil && (
             <p className="mt-0.5 text-xs text-[#5C6B8A]">Đến {formatVnDate(row.planEffectiveUntil)}</p>
           )}
