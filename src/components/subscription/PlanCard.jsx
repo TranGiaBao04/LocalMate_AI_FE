@@ -5,6 +5,7 @@ export default function PlanCard({
   currentPlanCode = null,
   onSelect,
   onRenew,
+  isTrial = false,
   isDemo = false,
   loading = false,
 }) {
@@ -81,9 +82,19 @@ export default function PlanCard({
       return (
         <div className="flex flex-col gap-2">
           <div className="text-center py-1.5 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
-            Gói đang dùng
+            {isTrial ? "Đang dùng thử" : "Gói đang dùng"}
           </div>
-          {onRenew ? (
+          {isTrial ? (
+            // Dùng thử không gia hạn được, mua gói đi luồng báo giá như gói khác
+            <button
+              type="button"
+              onClick={() => onSelect(planCode)}
+              disabled={loading}
+              className="w-full py-2.5 rounded-xl border-2 border-primary text-primary hover:bg-primary/5 font-bold text-label-md transition-all active:scale-98"
+            >
+              {loading ? "Đang xử lý..." : `Mua ${displayName}`}
+            </button>
+          ) : onRenew ? (
             <button
               type="button"
               onClick={onRenew}

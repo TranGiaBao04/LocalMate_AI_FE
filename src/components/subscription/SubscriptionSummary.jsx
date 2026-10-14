@@ -1,7 +1,9 @@
 import {
   formatVnDateTime,
+  formatVnDate,
   isPaidSubscription,
   isFreeSubscription,
+  isTrialSubscription,
   getPlanDisplayName,
   getAiQuota,
 } from "../../utils/subscriptionUtils";
@@ -21,6 +23,7 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
 
   const isFree = isFreeSubscription(subscription);
   const isPaid = isPaidSubscription(subscription);
+  const isTrial = isTrialSubscription(subscription);
 
   // If subscription is missing, malformed, or neither valid Free nor valid Paid, fail safely
   if (!isFree && !isPaid) {
@@ -76,7 +79,8 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
 
   const aiQuota = getAiQuota(subscription);
 
-  const generatePeriodLabel = isFree
+  // Free và gói dùng thử đều đếm lượt tạo lịch theo tháng (BE chỉ đếm theo kỳ với gói đã mua)
+  const generatePeriodLabel = isFree || isTrial
     ? "Lượt tạo lịch trình tháng này"
     : "Lượt tạo lịch trình";
 
@@ -94,17 +98,19 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
             </h2>
             <span
               className={`rounded-full px-3 py-0.5 text-xs font-bold ${
-                isPaid
+                isTrial
+                  ? "bg-primary-fixed text-on-primary-fixed"
+                  : isPaid
                   ? "bg-primary text-on-primary shadow-sm"
                   : "bg-surface-container-high text-on-surface-variant"
               }`}
             >
-              {isPaid ? "Đang hoạt động" : "Mặc định"}
+              {isTrial ? "Dùng thử" : isPaid ? "Đang hoạt động" : "Mặc định"}
             </span>
           </div>
         </div>
 
-        {isPaid && onRenew && (
+        {isPaid && !isTrial && onRenew && (
           <button
             type="button"
             onClick={onRenew}
@@ -119,7 +125,20 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
       </div>
 
       {/* Expiry / Effective boundaries for Paid plans */}
-      {isPaid && (
+      {isTrial ? (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 text-body-md text-on-surface-variant bg-surface-container-low px-3.5 py-2.5 rounded-xl">
+            <span className="material-symbols-outlined text-primary text-[20px]">redeem</span>
+            <span>
+              Dùng thử đến:{" "}
+              <strong className="text-on-surface">{formatVnDate(subscription.effectiveUntil)}</strong>
+            </span>
+          </div>
+          <p className="text-label-sm text-text-muted">
+            Lịch trình tạo trong lúc dùng thử vẫn được giữ lại sau khi hết hạn.
+          </p>
+        </div>
+      ) : isPaid && (
         <>
           {hasDistinctBoundaries ? (
             <div className="space-y-2">

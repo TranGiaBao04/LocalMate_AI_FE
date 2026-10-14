@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTrip } from "../../context/TripContext";
 import { useSubscription } from "../../context/SubscriptionContext";
-import { formatVnDateTime, isPaidSubscription, isFreeSubscription, getPlanDisplayName, getAiQuota } from "../../utils/subscriptionUtils";
+import { formatVnDate, formatVnDateTime, isPaidSubscription, isFreeSubscription, isTrialSubscription, getPlanDisplayName, getAiQuota } from "../../utils/subscriptionUtils";
 import MobileLayout from "../../components/layout/MobileLayout";
 import PageHeader from "../../components/layout/PageHeader";
 import { tagService } from "../../services/tagService";
@@ -152,7 +152,8 @@ function OwnedProfilePage({ auth }) {
   ];
   const validSubscription = subscription && (isFreeSubscription(subscription) || isPaidSubscription(subscription));
   const aiQuota = getAiQuota(subscription);
-  const effectiveDate = formatVnDateTime(subscription?.effectiveUntil);
+  const isTrial = isTrialSubscription(subscription);
+  const effectiveDate = isTrial ? formatVnDate(subscription.effectiveUntil) : formatVnDateTime(subscription?.effectiveUntil);
   const endDate = formatVnDateTime(subscription?.endsAt);
 
   return (
@@ -268,13 +269,13 @@ function OwnedProfilePage({ auth }) {
                 : subscriptionLoading ? <p role="status" data-testid="profile-subscription-loading" className="text-sm text-on-surface-variant">Đang tải thông tin gói...</p>
                   : subscriptionError || !validSubscription ? <div role="alert" data-testid="profile-subscription-unavailable" className="space-y-2"><p className="text-sm font-semibold text-on-surface">Không thể tải thông tin gói</p><p className="break-words text-sm text-on-surface-variant">{subscriptionError || "Chưa có thông tin gói dịch vụ từ máy chủ."}</p></div>
                     : <div className="space-y-4">
-                      <div><p className="text-xs text-on-surface-variant">Gói hiện tại</p><p className="mt-1 break-words text-xl font-bold text-primary">{getPlanDisplayName(subscription.plan, plans)}</p></div>
+                      <div><p className="text-xs text-on-surface-variant">Gói hiện tại</p><p className="mt-1 flex flex-wrap items-center gap-2 break-words text-xl font-bold text-primary">{getPlanDisplayName(subscription.plan, plans)}{isTrial && <span className="rounded-full bg-primary-fixed px-2.5 py-0.5 text-xs font-bold text-on-primary-fixed">Dùng thử</span>}</p></div>
                       {(effectiveDate || endDate) && <dl className="space-y-2 text-sm text-on-surface-variant">
-                        {effectiveDate && <div><dt>Kỳ hiện tại</dt><dd className="mt-0.5 font-medium text-on-surface">{effectiveDate}</dd></div>}
+                        {effectiveDate && <div><dt>{isTrial ? "Dùng thử đến" : "Kỳ hiện tại"}</dt><dd className="mt-0.5 font-medium text-on-surface">{effectiveDate}</dd></div>}
                         {endDate && (!effectiveDate || subscription.effectiveUntil !== subscription.endsAt) && <div><dt>{effectiveDate ? "Thanh toán đến" : "Hết hạn"}</dt><dd className="mt-0.5 font-medium text-on-surface">{endDate}</dd></div>}
                       </dl>}
                       <dl className="divide-y divide-border-soft border-y border-border-soft">
-                        <div className="flex flex-wrap items-baseline justify-between gap-2 py-3"><dt className="text-xs text-on-surface-variant">{isFreeSubscription(subscription) ? "Lượt tạo lịch trình tháng này" : "Lượt tạo lịch trình"}</dt><dd className="text-sm font-bold text-on-surface">{usageText(subscription.usage?.generateUsed, subscription.usage?.generateLimit)}</dd></div>
+                        <div className="flex flex-wrap items-baseline justify-between gap-2 py-3"><dt className="text-xs text-on-surface-variant">{isFreeSubscription(subscription) || isTrial ? "Lượt tạo lịch trình tháng này" : "Lượt tạo lịch trình"}</dt><dd className="text-sm font-bold text-on-surface">{usageText(subscription.usage?.generateUsed, subscription.usage?.generateLimit)}</dd></div>
                         <div className="flex flex-wrap items-baseline justify-between gap-2 py-3"><dt className="text-xs text-on-surface-variant">Lịch trình đã chốt</dt><dd className="text-sm font-bold text-on-surface">{usageText(subscription.savedTrips?.used, subscription.savedTrips?.limit)}</dd></div>
                         {aiQuota && <div className="flex flex-wrap items-baseline justify-between gap-2 py-3"><dt className="text-xs text-on-surface-variant">Lượt AI hôm nay</dt><dd className="text-sm font-bold text-on-surface">{aiQuota.used} / {aiQuota.limit}</dd></div>}
                       </dl>

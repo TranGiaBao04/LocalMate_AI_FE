@@ -5,7 +5,7 @@ import {
   extractErrorCode,
   getCustomerErrorMessage,
 } from "../../utils/subscriptionUpgradeContract";
-import { PLAN_DISPLAY_NAMES, formatPlanPrice } from "../../utils/subscriptionUtils";
+import { PLAN_DISPLAY_NAMES, formatPlanPrice, formatVnDate } from "../../utils/subscriptionUtils";
 
 /**
  * Dialog displaying authoritative server checkout quote preview before payment confirmation.
@@ -25,6 +25,7 @@ import { PLAN_DISPLAY_NAMES, formatPlanPrice } from "../../utils/subscriptionUti
  * @param {(planCode: string) => void} props.onConfirm
  * @param {boolean} [props.confirmLoading]
  * @param {() => void} [props.onRenew]
+ * @param {string|null} [props.trialUntil] Lúc hết dùng thử (UTC) khi đang dùng thử, để cảnh báo phần còn lại bị bỏ
  */
 export default function CheckoutQuoteDialog({
   isOpen,
@@ -35,6 +36,7 @@ export default function CheckoutQuoteDialog({
   onConfirm,
   confirmLoading = false,
   onRenew,
+  trialUntil = null,
 }) {
   const dialogRef = useRef(null);
   useEffect(() => {
@@ -259,6 +261,15 @@ export default function CheckoutQuoteDialog({
           {/* 4. Supported Authoritative Quote Preview */}
           {!loading && !error && isSupportedQuote && (
             <div className="space-y-5">
+              {trialUntil && (
+                <div data-testid="quote-trial-warning" className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-body-md text-amber-900">
+                  <span className="material-symbols-outlined text-amber-600 text-[20px]">info</span>
+                  <p>
+                    Gói bạn mua sẽ bắt đầu ngay và thay cho thời gian dùng thử còn lại
+                    (dùng thử đến {formatVnDate(trialUntil)}).
+                  </p>
+                </div>
+              )}
               {/* Operation type & plan badge */}
               <div className="flex items-center justify-between pb-3 border-b border-outline-variant/20">
                 <div className="flex items-center gap-2">

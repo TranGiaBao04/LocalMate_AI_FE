@@ -120,6 +120,14 @@ export function isFreeSubscription(sub) {
 }
 
 /**
+ * Gói được tặng (admin tặng hoặc dùng thử khi đăng ký): BE trả isTrial = true, endsAt = null,
+ * effectiveUntil = lúc hết dùng thử. Không có kỳ đã mua nên không gia hạn được (409 no_active_subscription).
+ */
+export function isTrialSubscription(sub) {
+  return isPaidSubscription(sub) && sub.isTrial === true;
+}
+
+/**
  * Lượt AI trong ngày từ GET /subscription/me (`ai`). Trả null khi chưa có số hoặc đã qua resetAt
  * (00:00 giờ Việt Nam hôm sau), để giao diện không hiện lượt của hôm qua.
  */
