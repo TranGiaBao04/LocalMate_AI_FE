@@ -18,6 +18,7 @@ describe("formatDayHours", () => {
     expect(formatDayHours(unknown("Monday"))).toBe("Chưa rõ");
     expect(formatDayHours(open("Monday", "08:00", "22:00"))).toBe("08:00 – 22:00");
     expect(formatDayHours(open("Monday", "17:00", "02:00"))).toBe("17:00 – 02:00 (hôm sau)");
+    expect(formatDayHours(open("Monday", "00:00", "00:00"))).toBe("Mở cả ngày");
   });
 });
 
@@ -39,6 +40,14 @@ describe("getOpenStateNow", () => {
     expect(getOpenStateNow(hours, thu("03:00"))).toEqual({ status: "closed", opensAt: "17:00", closedToday: false });
     expect(getOpenStateNow(hours, thu("23:00"))).toEqual({ status: "open", closesAt: "02:00", closesNextDay: true });
   });
+  it("treats 00:00–00:00 as open all day without stretching into the next morning", () => {
+    const hours = week(open("Wednesday", "00:00", "00:00"), open("Thursday", "00:00", "00:00"));
+    expect(getOpenStateNow(hours, thu("03:00"))).toEqual({ status: "open", allDay: true });
+    expect(getOpenStateNow(hours, thu("23:59"))).toEqual({ status: "open", allDay: true });
+    // thứ Năm mở 24 giờ, thứ Sáu nghỉ: 01:00 thứ Sáu là đã đóng
+    const friday = week(open("Thursday", "00:00", "00:00"), closed("Friday"));
+    expect(getOpenStateNow(friday, at("2026-10-09", "01:00"))).toEqual({ status: "closed", opensAt: null, closedToday: true });
+  });
   it("wraps Sunday night into Monday morning", () => {
     const hours = week(open("Sunday", "18:00", "02:00"), closed("Monday"));
     expect(getOpenStateNow(hours, at("2026-10-12", "01:00")).status).toBe("open");
@@ -58,5 +67,6 @@ describe("describeOpenState", () => {
     expect(describeOpenState({ status: "closed", opensAt: null, closedToday: true })).toBe("Hôm nay nghỉ");
     expect(describeOpenState({ status: "closed", opensAt: null, closedToday: false })).toBe("Đang đóng cửa");
     expect(describeOpenState({ status: "unknown" })).toBeNull();
+    expect(describeOpenState({ status: "open", allDay: true })).toBe("Đang mở cửa · mở cả ngày");
   });
 });

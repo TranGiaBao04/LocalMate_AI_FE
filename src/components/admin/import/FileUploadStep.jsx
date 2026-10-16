@@ -40,6 +40,7 @@ export default function FileUploadStep({ onPreviewLoaded }) {
         <p className="mt-2 text-sm leading-[22px] text-[#5C6B8A]">
           Cột <strong>OpeningHours</strong> (giờ mở cửa): để trống nếu chưa rõ. <code>06:00-21:00</code> là mở cả tuần; ghi thứ bằng 3 chữ tiếng Anh
           (Mon Tue Wed Thu Fri Sat Sun), ví dụ <code>Tue-Sun 08:00-17:00</code> (thứ Hai nghỉ) hoặc <code>Fri-Mon 18:00-02:00</code> (mở qua đêm).
+          Mở 24 giờ ghi <code>24h</code> (có thể kèm thứ, ví dụ <code>Mon-Fri 24h</code>).
           Ô ghi sai vẫn tạo được địa điểm nhưng chưa có giờ mở cửa, và có cảnh báo ở bước xem trước.
         </p>
       </div>
