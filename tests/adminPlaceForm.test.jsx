@@ -4,7 +4,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import AdminPlaceFormPage from "../src/pages/admin/AdminPlaceFormPage";
 import MapCoordinatePicker from "../src/components/admin/MapCoordinatePicker";
 import OpenHoursEditor from "../src/components/admin/OpenHoursEditor";
-import { emptyHours, fromOpeningHours, toSaveDays } from "../src/components/admin/openingHoursRows";
+import { emptyHours, fromOpeningHours, toSaveDays, validateHours } from "../src/components/admin/openingHoursRows";
 import ImageUploadDropzone from "../src/components/admin/ImageUploadDropzone";
 import MultiTagSelector from "../src/components/admin/MultiTagSelector";
 const mocks = vi.hoisted(() => ({
@@ -177,7 +177,7 @@ describe("A4 Place form frozen payload", () => {
     expect(screen.getByText("Nhập đủ giờ mở và giờ đóng.")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Giờ mở cửa Thứ Hai"), { target: { value: "22:00" } });
     fireEvent.click(screen.getByRole("button", { name: /Tạo địa điểm/ }));
-    expect(screen.getByText("Giờ mở và giờ đóng không được trùng nhau.")).toBeInTheDocument();
+    expect(screen.getByText(/Giờ mở và giờ đóng không được trùng nhau\./)).toBeInTheDocument();
     expect(mocks.places.createPlace).not.toHaveBeenCalled();
   });
   it("hours that fail to load are locked and never overwritten", async () => {
@@ -209,6 +209,25 @@ describe("A4 domain editors", () => {
     expect(rows[0]).toEqual({ dayOfWeek: "Monday", state: "open", openTime: "08:00", closeTime: "22:00" });
     expect(rows[6]).toEqual({ dayOfWeek: "Sunday", state: "unset", openTime: "", closeTime: "" });
     expect(toSaveDays(rows)).toEqual([{ dayOfWeek: "Monday", isClosed: false, openTime: "08:00", closeTime: "22:00" }]);
+  });
+  it("all-day reads from and saves as 00:00–00:00, other equal times stay blocked", () => {
+    const rows = fromOpeningHours(weekHours({
+      Monday: { dayOfWeek: "Monday", isClosed: false, openTime: "00:00:00", closeTime: "00:00:00" },
+    }));
+    expect(rows[0]).toMatchObject({ dayOfWeek: "Monday", state: "allDay" });
+    expect(toSaveDays(rows)).toEqual([{ dayOfWeek: "Monday", isClosed: false, openTime: "00:00", closeTime: "00:00" }]);
+    const typed = (openTime, closeTime) => [{ dayOfWeek: "Monday", state: "open", openTime, closeTime }];
+    expect(validateHours(typed("00:00", "00:00"))).toEqual({});
+    expect(validateHours(typed("08:00", "08:00")).Monday).toMatch(/chọn “Mở cả ngày”/);
+  });
+  it("editor offers all-day and warns about the old 00:00–23:59 workaround", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<OpenHoursEditor value={emptyHours()} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText("Trạng thái Thứ Hai"), { target: { value: "allDay" } });
+    expect(onChange.mock.lastCall[0][0]).toMatchObject({ dayOfWeek: "Monday", state: "allDay" });
+    const old = emptyHours().map((r, i) => (i === 0 ? { ...r, state: "open", openTime: "00:00", closeTime: "23:59" } : r));
+    rerender(<OpenHoursEditor value={old} onChange={onChange} />);
+    expect(screen.getByText(/bị hở 1 phút lúc nửa đêm/)).toBeInTheDocument();
   });
   it("copies Monday to the whole week and clears every day", () => {
     const onChange = vi.fn(); render(<OpenHoursEditor value={fromOpeningHours(savedHours)} onChange={onChange} />);

@@ -267,6 +267,14 @@ describe("USER-A3 Place detail contracts", () => {
     expect(screen.getByText("17:00 – 02:00 (hôm sau)")).toBeVisible();
     expect(within(screen.getByText("Thứ Năm")).getByText("Hôm nay")).toBeVisible();
   });
+  it("shows an all-day place as open all day", async () => {
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+      .map((dayOfWeek) => ({ dayOfWeek, isClosed: false, openTime: "00:00:00", closeTime: "00:00:00" }));
+    placeService.getPlaceById.mockResolvedValue(placeData({ openingHours: { placeId: "p1", hasData: true, days } }));
+    renderPlace();
+    expect(await screen.findByText("Đang mở cửa · mở cả ngày")).toBeVisible();
+    expect(screen.getAllByText("Mở cả ngày")).toHaveLength(7);
+  });
   it("hides opening hours when the place has none yet", async () => {
     placeService.getPlaceById.mockResolvedValue(placeData({ openingHours: { placeId: "p1", hasData: false, days: [] } }));
     renderPlace();
