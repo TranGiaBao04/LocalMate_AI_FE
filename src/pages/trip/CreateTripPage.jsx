@@ -20,6 +20,7 @@ import {
 import {
   DAY_MINUTES,
   addDays,
+  formatClock,
   formatPlannedDate,
   minutesNowInVietnam,
   minutesToTime,
@@ -43,7 +44,7 @@ const DEFAULT_TRIP_LIMITS = { minDurationHours: 1, maxDurationHours: 24 };
 const NOTE_MAX_LENGTH = 300; // khớp TripNoteRules của BE
 
 // Buổi kết thúc khi buổi sau bắt đầu (buổi cuối tới 24:00). Với hôm nay, giờ bắt đầu thực tế là
-// max(giờ của buổi, giờ hiện tại làm tròn); buổi bị khoá khi đã qua hoặc không còn đủ thời lượng tối thiểu.
+// max(giờ của buổi, giờ hiện tại làm tròn); buổi bị khoá khi giờ đó đã qua. Lịch được kéo qua nửa đêm.
 function buildTimeSlots(timeSlots, { isToday, nowMinutes, limits }) {
   const earliest = isToday ? roundUpMinutes(nowMinutes, START_TIME_STEP_MINUTES) : 0;
   const sorted = [...timeSlots].sort(
@@ -54,16 +55,12 @@ function buildTimeSlots(timeSlots, { isToday, nowMinutes, limits }) {
     const slotEnd =
       index + 1 < sorted.length ? timeToMinutes(sorted[index + 1].startTime) : DAY_MINUTES;
     const startMinutes = Math.max(slotStart, earliest);
-    const maxHours = Math.min(
-      Math.floor((DAY_MINUTES - startMinutes) / 60),
-      slot.maxDurationHours,
-      limits.maxDurationHours,
-    );
+    const maxHours = Math.min(slot.maxDurationHours, limits.maxDurationHours);
     return {
       ...slot,
       startMinutes,
       maxHours,
-      disabled: startMinutes >= slotEnd || maxHours < limits.minDurationHours,
+      disabled: startMinutes >= slotEnd,
     };
   });
 }
@@ -150,6 +147,8 @@ const REASON_CODES = {
   TooFarFromStationForMetro: "too_far_from_station_for_metro",
   InsufficientCandidates: "insufficient_candidates",
   DurationTooShort: "duration_too_short",
+  NoPlacesOpen: "no_places_open",
+  MetroNotRunning: "metro_not_running",
 };
 
 const TRIP_ISSUE_MESSAGES = {
@@ -159,10 +158,25 @@ const TRIP_ISSUE_MESSAGES = {
   insufficient_candidates: "Khu này chưa có địa điểm nào trong ngân sách của bạn.",
   duration_too_short:
     "Số giờ chưa đủ để tới và tham quan địa điểm nào. Hãy tăng thời lượng hoặc chọn khu gần hơn.",
+  no_places_open: "Giờ này chưa có địa điểm nào đang mở cửa. Hãy chọn giờ bắt đầu sớm hơn.",
+  metro_not_running: "Metro không chạy vào giờ bạn xuất phát. Hãy chọn giờ khác hoặc đổi phương tiện.",
 };
 // duration_too_short khi đang chọn Đi bộ: quãng đường đi bộ thường là thứ ăn hết thời gian
 const WALKING_TOO_SLOW_MESSAGE =
   "Đi bộ tới khu này mất gần hết thời gian bạn chọn. Hãy đổi phương tiện, tăng thời lượng hoặc chọn khu gần hơn.";
+
+// Lỗi sửa bằng cách quay lại bước Thời gian -> nhãn nút
+const TIME_STEP_ACTIONS = {
+  duration_too_short: "Chỉnh thời lượng",
+  no_places_open: "Chọn giờ khác",
+  metro_not_running: "Chọn giờ khác",
+};
+
+// metro_not_running: có giờ chuyến đầu/cuối ở ga lên thì nói rõ; null khi lịch tàu ngày đó không có chuyến
+function metroNotRunningMessage(hours) {
+  if (!hours) return TRIP_ISSUE_MESSAGES.metro_not_running;
+  return `Metro ở ga ${hours.stationName} chạy từ ${hours.firstDeparture.slice(0, 5)} đến ${hours.lastDeparture.slice(0, 5)} (giờ dự kiến). Hãy chọn giờ khác hoặc đổi phương tiện.`;
+}
 
 const GENERATE_ERROR_MESSAGES = {
   ...TRIP_ISSUE_MESSAGES,
@@ -183,7 +197,16 @@ const chipClass = (selected) =>
 // BE không tự đổi ga/phương tiện thay người dùng.
 function TripIssue({ issue, travelMode, busy, onFix, onGoToStep }) {
   const walkingTooSlow = issue.code === "duration_too_short" && travelMode === "Walking";
-  const suggestOtherModes = issue.code === "too_far_from_station_for_metro" || walkingTooSlow;
+  const suggestOtherModes =
+    issue.code === "too_far_from_station_for_metro" ||
+    issue.code === "metro_not_running" ||
+    walkingTooSlow;
+  const timeAction = TIME_STEP_ACTIONS[issue.code];
+  const message = walkingTooSlow
+    ? WALKING_TOO_SLOW_MESSAGE
+    : issue.code === "metro_not_running"
+      ? metroNotRunningMessage(issue.metroServiceHours)
+      : issue.message;
   const actionClass =
     "min-h-11 max-w-full break-words rounded-[8px] border border-error/30 bg-white px-4 py-2.5 text-body-md font-semibold text-error transition-colors hover:bg-error/5 disabled:opacity-60 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error";
   return (
@@ -193,7 +216,7 @@ function TripIssue({ issue, travelMode, busy, onFix, onGoToStep }) {
     >
       <p className="flex items-start gap-2 text-body-md font-medium text-error">
         <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[20px]">error</span>
-        <span className="min-w-0 break-words">{walkingTooSlow ? WALKING_TOO_SLOW_MESSAGE : issue.message}</span>
+        <span className="min-w-0 break-words">{message}</span>
       </p>
       {issue.code === "insufficient_candidates" && issue.suggestedStations.length > 0 && (
         <div className="space-y-2">
@@ -216,7 +239,7 @@ function TripIssue({ issue, travelMode, busy, onFix, onGoToStep }) {
           </div>
         </div>
       )}
-      {(suggestOtherModes || issue.code === "duration_too_short") && (
+      {(suggestOtherModes || timeAction) && (
         <div className="flex flex-wrap gap-2">
           {suggestOtherModes &&
             TRAVEL_MODES.filter((m) => m.value === "Auto" || m.value === "Motorbike").map((m) => (
@@ -230,9 +253,9 @@ function TripIssue({ issue, travelMode, busy, onFix, onGoToStep }) {
                 Đổi sang {m.label}
               </button>
             ))}
-          {issue.code === "duration_too_short" && (
+          {timeAction && (
             <button type="button" onClick={() => onGoToStep(1)} className={actionClass}>
-              Chỉnh thời lượng
+              {timeAction}
             </button>
           )}
         </div>
@@ -334,6 +357,9 @@ export default function CreateTripPage() {
   const [generateSuggestedStations] = useState(
     () => location.state?.suggestedStations ?? [],
   );
+  const [generateMetroServiceHours] = useState(
+    () => location.state?.metroServiceHours ?? null,
+  );
   const [step, setStep] = useState(() => (location.state?.error || prefill ? 3 : 0));
   const stepHeadingRef = useRef(null);
   const previousStepRef = useRef(step);
@@ -359,7 +385,7 @@ export default function CreateTripPage() {
   const [stations, setStations] = useState([]);
   const [locating, setLocating] = useState(false);
   const [feasibility, setFeasibility] = useState(null);
-  const [feasibilityIssue, setFeasibilityIssue] = useState(null); // { code, message, suggestedStations }
+  const [feasibilityIssue, setFeasibilityIssue] = useState(null); // { code, message, suggestedStations, metroServiceHours }
   const [checking, setChecking] = useState(false);
   const [startAreaError, setStartAreaError] = useState("");
   const [durationHours, setDurationHours] = useState(() => initial?.durationHours ?? 4);
@@ -445,11 +471,10 @@ export default function CreateTripPage() {
         ? roundUpMinutes(nowMinutes, START_TIME_STEP_MINUTES)
         : DEFAULT_START_MINUTES;
   const maxHours =
-    selectedSlot && !useCustomStart
-      ? selectedSlot.maxHours
-      : Math.min(Math.floor((DAY_MINUTES - startMinutes) / 60), tripLimits.maxDurationHours);
+    selectedSlot && !useCustomStart ? selectedSlot.maxHours : tripLimits.maxDurationHours;
+  // Hết giờ xuất phát trong hôm nay: mọi buổi đã qua, hoặc (không có buổi) giờ làm tròn đã tới 24:00
   const noTimeLeft =
-    slots.length > 0 && !useCustomStart ? !selectedSlot : maxHours < tripLimits.minDurationHours;
+    startMinutes >= DAY_MINUTES || (slots.length > 0 && !useCustomStart && !selectedSlot);
   // Giá trị AI điền có thể không trùng mức có sẵn (vd 5 giờ, 350.000đ): thêm một lựa chọn riêng
   const allDurations = DURATION_OPTIONS.some((o) => o.value === durationHours)
     ? DURATION_OPTIONS
@@ -465,7 +490,9 @@ export default function CreateTripPage() {
   const effectiveDuration =
     durationHours <= maxHours ? durationHours : (fittingOptions.at(-1)?.value ?? maxHours);
   const startTime = minutesToTime(startMinutes);
-  const endTime = minutesToTime(startMinutes + effectiveDuration * 60);
+  const endMinutes = startMinutes + effectiveDuration * 60;
+  const endsNextDay = endMinutes >= DAY_MINUTES;
+  const endTime = formatClock(minutesToTime(endMinutes % DAY_MINUTES), endsNextDay);
   const budgetOptions = BUDGET_OPTIONS.some((b) => b.value === budgetPerPerson)
     ? BUDGET_OPTIONS
     : [
@@ -600,6 +627,7 @@ export default function CreateTripPage() {
           code,
           message: TRIP_ISSUE_MESSAGES[code] ?? "Yêu cầu hiện chưa khả thi, hãy thử điều chỉnh.",
           suggestedStations: result.suggestedStations ?? [],
+          metroServiceHours: result.metroServiceHours ?? null,
         });
         return false;
       }
@@ -680,6 +708,8 @@ export default function CreateTripPage() {
           quotaMetadata: err.data?.extensions || err.data || null,
           // 409 insufficient_candidates: tối đa 3 ga gần nhất có địa điểm, nằm cạnh code trong body lỗi
           suggestedStations: err.data?.suggestedStations ?? [],
+          // 409 metro_not_running: giờ chuyến đầu/cuối ở ga lên, cũng nằm cạnh code
+          metroServiceHours: err.data?.metroServiceHours ?? null,
         },
       });
     }
@@ -1061,8 +1091,12 @@ export default function CreateTripPage() {
                 </div>
                 <p className="mt-1 text-label-md text-on-surface-variant">
                   Xuất phát {startTime}, dự kiến xong trước {endTime}
-                  {maxHours < tripLimits.maxDurationHours && ` · tối đa ${maxHours} giờ (phải kết thúc trong ngày)`}
                 </p>
+                {endsNextDay && (
+                  <p className="mt-1 text-label-md text-on-surface-variant">
+                    Lịch qua nửa đêm chỉ xếp những nơi còn mở cửa vào giờ đó, nên có thể kết thúc sớm hơn.
+                  </p>
+                )}
               </section>
             )}
 
@@ -1200,6 +1234,7 @@ export default function CreateTripPage() {
                       code: generateErrorCode,
                       message: generateError,
                       suggestedStations: generateSuggestedStations,
+                      metroServiceHours: generateMetroServiceHours,
                     }}
                     travelMode={effectiveTravelMode}
                     onFix={retryGenerate}

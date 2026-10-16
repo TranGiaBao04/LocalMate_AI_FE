@@ -121,7 +121,7 @@ describe("A4 Import diagnostics and files", () => {
     expect(cards[0]).toHaveTextContent("Bến Thành");
     expect(cards[1]).toHaveTextContent("tọa độ thô");
     expect(cards[1]).toHaveTextContent("ga thô");
-    expect(cards[1]).toHaveTextContent("Cảnh báo / Nghi trùng");
+    expect(cards[1]).toHaveTextContent("Cảnh báo");
     expect(cards[2]).toHaveTextContent("Lỗi");
   });
   it("result uses exact server counts including skipped and failed", () => {

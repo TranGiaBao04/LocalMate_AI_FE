@@ -46,6 +46,8 @@ export function normalizeTripForExport(trip) {
     return {
       order: index + 1,
       time: toOptionalText(item.time),
+      // time vẫn là "HH:mm" (tripCalendar đọc giờ từ đây); "(hôm sau)" chỉ ghép lúc hiển thị
+      isNextDay: item.isNextDay === true,
       placeName,
       category: toOptionalText(item.placeCategory),
       durationMinutes: toOptionalNumber(item.durationMinutes),
@@ -72,6 +74,7 @@ export function normalizeTripForExport(trip) {
     plannedDate: toOptionalText(trip.plannedDate),
     startTime: toOptionalText(trip.startTime),
     endTime: toOptionalText(trip.endTime),
+    endsNextDay: trip.endsNextDay === true,
     summary: {
       stopCount: stops.length,
       durationMinutes: firstNumber(

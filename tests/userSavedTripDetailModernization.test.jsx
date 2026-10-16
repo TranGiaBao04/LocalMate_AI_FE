@@ -260,6 +260,12 @@ async function openReview() {
 }
 
 describe("actual Saved Detail and protected consumers", () => {
+  it("shows next-day time and a closed-place note from the BE flags", async () => {
+    await openDetail(mapTrip({ ...rawA, status: "Finalized", plannedDate: "2026-10-10", startTime: "22:00:00",
+      items: [{ ...rawA.items[0], scheduledTime: "00:18:00", isNextDay: true, openingStatus: "Closed" }] }));
+    expect(screen.getByText("00:18 (hôm sau)")).toBeInTheDocument();
+    expect(screen.getByText(/có thể đã đóng cửa vào giờ này/)).toBeInTheDocument();
+  });
   it("characterizes B01 Delete removing list membership but not currentTrip using the real Provider", async () => {
     boundary.remove.mockResolvedValue(); await openDetail();
     fireEvent.click(screen.getByRole("button", { name: "Set test-only current Trip A" }));

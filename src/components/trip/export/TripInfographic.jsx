@@ -1,6 +1,7 @@
 import boldFont from "../../../assets/fonts/be-vietnam-pro/BeVietnamPro-Bold.ttf";
 import regularFont from "../../../assets/fonts/be-vietnam-pro/BeVietnamPro-Regular.ttf";
 import semiBoldFont from "../../../assets/fonts/be-vietnam-pro/BeVietnamPro-SemiBold.ttf";
+import { formatClock } from "../../../utils/vnTime";
 
 export const TRIP_INFOGRAPHIC_WIDTH = 1080;
 
@@ -216,7 +217,9 @@ export default function TripInfographic({ trip }) {
   const metroStopCount = trip.stops.filter(
     (stop) => stop.nearestMetroStation,
   ).length;
-  const timeRange = [trip.startTime, trip.endTime].filter(Boolean).join(" - ");
+  const timeRange = [trip.startTime, trip.endTime && formatClock(trip.endTime, trip.endsNextDay)]
+    .filter(Boolean)
+    .join(" - ");
 
   return (
     <div data-trip-infographic style={styles.root}>
@@ -308,7 +311,7 @@ export default function TripInfographic({ trip }) {
                   <div style={styles.stopNumber}>{stop.order}</div>
                   <div>
                     <p style={styles.stopTime}>
-                      {stop.time ?? "Chưa có giờ dự kiến"}
+                      {stop.time ? formatClock(stop.time, stop.isNextDay) : "Chưa có giờ dự kiến"}
                     </p>
                     <h3 style={styles.stopName}>
                       {stop.placeName ?? "Địa điểm chưa có tên"}
