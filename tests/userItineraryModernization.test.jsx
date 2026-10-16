@@ -194,6 +194,13 @@ describe("USER-A5.3 Finalized save/share contracts", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /Đã ghé/ })[1]); expect(mock.navigate).toHaveBeenCalledWith("/trips/trip-one");
     expect(mock.trip.saveTrip).not.toHaveBeenCalled();
   });
+  it("marks next-day stops and closed places without offering edits", () => {
+    Object.assign(mock.trip.currentTrip.items[1], { time: "00:18", isNextDay: true, openingStatus: "Closed" });
+    mount(Finalized);
+    expect(screen.getByText("00:18 (hôm sau)")).toBeInTheDocument();
+    expect(screen.getAllByText(/có thể đã đóng cửa vào giờ này/)).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /Thay thế/ })).not.toBeInTheDocument();
+  });
   it("zero coordinate retains baseline hidden Maps condition", () => {
     mock.trip.currentTrip.items[0].latitude = 0; mount(Finalized); expect(screen.queryByRole("link", { name: /Mở Maps/ })).not.toBeInTheDocument();
   });
@@ -268,6 +275,17 @@ describe("USER-A5.1 Draft presentation preserves contracts", () => {
     Object.assign(mock.trip.currentTrip, { noteApplied: false, metroFriendly: false, plannedDate: null, endTime: null }); mount();
     expect(screen.getByText(/chưa áp dụng được ghi chú/)).toBeInTheDocument();
     expect(screen.queryByText("Metro-friendly")).not.toBeInTheDocument(); expect(screen.queryByText(/Kết thúc dự kiến/)).not.toBeInTheDocument();
+  });
+  it("marks next-day stops, the overnight end time and closed stops", () => {
+    Object.assign(mock.trip.currentTrip, { endTime: "01:18", endsNextDay: true });
+    Object.assign(mock.trip.currentTrip.items[1], { time: "00:18", isNextDay: true, openingStatus: "Closed" });
+    mount();
+    expect(screen.getByText(/Kết thúc dự kiến 01:18 \(hôm sau\)/)).toBeInTheDocument();
+    expect(screen.getByText("00:18 (hôm sau)")).toBeInTheDocument();
+    expect(screen.getByText(/Sang ngày .*10\/10/)).toBeInTheDocument();
+    expect(screen.getByText(/1 địa điểm có thể đã đóng cửa vào giờ ghé/)).toBeInTheDocument();
+    expect(screen.getAllByText(/có thể đã đóng cửa vào giờ này/)).toHaveLength(1);
+    expect(screen.getByText("09:20")).toBeInTheDocument();
   });
   it("keeps timeline order and Maps component source props", () => {
     mount(); expect(screen.getAllByRole("heading", { level: 3 }).map((n) => n.textContent)).toEqual(["Cà phê ven sông", "Bảo tàng"]);

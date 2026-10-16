@@ -255,6 +255,28 @@ describe("USER-A3 Place detail contracts", () => {
     expect(screen.getByText("35k–1.5tr")).toBeVisible();
     expect(screen.getAllByText(long.trim())).toHaveLength(6);
   });
+  it("shows today's open state and the weekly table from openingHours", async () => {
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((dayOfWeek) =>
+      dayOfWeek === "Monday" ? { dayOfWeek, isClosed: true, openTime: null, closeTime: null }
+      : dayOfWeek === "Tuesday" ? { dayOfWeek, isClosed: false, openTime: null, closeTime: null }
+      : dayOfWeek === "Saturday" ? { dayOfWeek, isClosed: false, openTime: "17:00:00", closeTime: "02:00:00" }
+      : { dayOfWeek, isClosed: false, openTime: "08:00:00", closeTime: "22:00:00" });
+    placeService.getPlaceById.mockResolvedValue(placeData({ openingHours: { placeId: "p1", hasData: true, days } }));
+    renderPlace();
+    expect(await screen.findByText("Đang mở cửa · đóng lúc 22:00")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Lịch mở cửa trong tuần" })).toBeVisible();
+    expect(screen.getByText("Nghỉ")).toBeVisible();
+    expect(screen.getByText("Chưa rõ")).toBeVisible();
+    expect(screen.getByText("17:00 – 02:00 (hôm sau)")).toBeVisible();
+    expect(within(screen.getByText("Thứ Năm")).getByText("Hôm nay")).toBeVisible();
+  });
+  it("hides opening hours when the place has none yet", async () => {
+    placeService.getPlaceById.mockResolvedValue(placeData({ openingHours: { placeId: "p1", hasData: false, days: [] } }));
+    renderPlace();
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByText("Giờ mở cửa")).not.toBeInTheDocument();
+    expect(screen.queryByText("Lịch mở cửa trong tuần")).not.toBeInTheDocument();
+  });
   it("retains Maps directions and preview search destination identities", async () => {
     renderPlace();
     await screen.findByRole("heading", { level: 1 });

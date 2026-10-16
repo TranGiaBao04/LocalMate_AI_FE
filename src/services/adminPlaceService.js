@@ -32,6 +32,14 @@ export const adminPlaceService = {
   updatePlaceStatus: (id, status) =>
     adminApiClient.put(`/admin/places/${id}/status`, { status }),
 
+  // GET /api/admin/places/{id}/opening-hours → { placeId, hasData, days: đủ 7 thứ Monday → Sunday }
+  getOpeningHours: (id) =>
+    adminApiClient.get(`/admin/places/${id}/opening-hours`),
+
+  // PUT ghi đè cả tuần: days chỉ gồm thứ đã nhập, thứ không gửi = chưa có dữ liệu, [] = xoá hết
+  saveOpeningHours: (id, days) =>
+    adminApiClient.put(`/admin/places/${id}/opening-hours`, { days }),
+
   // DELETE /api/admin/places/{id} (Soft Delete)
   deletePlace: (id) =>
     adminApiClient.delete(`/admin/places/${id}`),

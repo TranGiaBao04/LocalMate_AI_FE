@@ -9,6 +9,13 @@ import {
 import MapEmbedPreview from "../../components/MapEmbedPreview";
 import GoogleMapsButton from "../../components/GoogleMapsButton";
 import PlaceReviews, { PlaceRatingSummary } from "../../components/place/PlaceReviews";
+import OpeningHoursTable from "../../components/place/OpeningHoursTable";
+import { useClock } from "../../hooks/useClock";
+import { describeOpenState, getOpenStateNow } from "../../utils/openingHours";
+import { weekdayInVietnam } from "../../utils/vnTime";
+
+// Trạng thái "đang mở / đã đóng" tự đổi theo giờ thật
+const CLOCK_TICK_MS = 60000;
 
 export default function PlacePreviewPage() {
   const { placeId } = useParams();
@@ -24,6 +31,7 @@ function PlaceDetail({ placeId }) {
   const [loading, setLoading] = useState(true);
   const [clusterPlaces, setClusterPlaces] = useState([]);
   const [loadingCluster, setLoadingCluster] = useState(false);
+  const now = useClock(CLOCK_TICK_MS);
 
   useEffect(() => {
     placeService
@@ -104,6 +112,9 @@ function PlaceDetail({ placeId }) {
     );
   }
 
+  // openingHours cùng khuôn với API admin; hasData false (chưa nhập giờ) thì ẩn cả trạng thái lẫn bảng
+  const openNow = describeOpenState(getOpenStateNow(place.openingHours, now));
+
   return (
     <div className="app-shell flex flex-col">
       <header className="app-header flex h-16 items-center gap-3 border-b border-border-soft px-container-margin lg:px-8">
@@ -171,6 +182,7 @@ function PlaceDetail({ placeId }) {
                   ? "Miễn phí"
                   : `${formatCurrencyShort(place.estimatedCostMin)}–${formatCurrencyShort(place.estimatedCostMax)}`,
             },
+            { icon: "storefront", label: "Giờ mở cửa", value: openNow },
             {
               icon: "schedule",
               label: "Thời gian",
@@ -214,6 +226,16 @@ function PlaceDetail({ placeId }) {
             </span>
           ))}
         </div>
+
+        {place.openingHours?.hasData && (
+          <section className="space-y-3 border-t border-border-soft pt-5">
+            <h3 className="flex items-center gap-2 text-lg font-bold leading-7 text-navy-dark">
+              <span aria-hidden="true" className="material-symbols-outlined text-xl text-primary">schedule</span>
+              Lịch mở cửa trong tuần
+            </h3>
+            <OpeningHoursTable openingHours={place.openingHours} today={weekdayInVietnam(now)} />
+          </section>
+        )}
 
         {place.insights?.length > 0 && (
           <div className="space-y-4 border-t border-border-soft pt-5">

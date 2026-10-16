@@ -15,6 +15,12 @@ const STATUSES = [
   { value: "Pending", label: "Chờ duyệt (Pending)" },
 ];
 
+// Giá trị gửi BE dạng chuỗi "true" | "false"; "" = không lọc
+const OPENING_HOURS_FILTERS = [
+  { value: "false", label: "Chưa có giờ mở cửa" },
+  { value: "true", label: "Đã có giờ mở cửa" },
+];
+
 export default function PlaceFilterBar({
   filters,
   onChange,
@@ -38,11 +44,12 @@ export default function PlaceFilterBar({
     filters.search ||
     filters.category ||
     filters.status ||
-    filters.stationId;
+    filters.stationId ||
+    filters.hasOpeningHours;
 
   return (
     <FilterBar searchValue={searchTerm} searchLabel="Tìm địa điểm" searchPlaceholder="Tìm kiếm theo tên địa điểm, địa chỉ..."
-      onSearchChange={setSearchTerm} activeFilterCount={[filters.category,filters.status,filters.stationId].filter(Boolean).length}
+      onSearchChange={setSearchTerm} activeFilterCount={[filters.category,filters.status,filters.stationId,filters.hasOpeningHours].filter(Boolean).length}
       onClear={hasActiveFilters ? () => { setSearchTerm(""); onReset(); } : undefined}>
       {searchTerm && <button type="button" aria-label="Xóa từ khóa" className={ADMIN_ICON_BUTTON} onClick={() => { setSearchTerm(""); onChange({search:"",page:1}); }}><span aria-hidden="true" className="material-symbols-outlined text-[20px]">close</span></button>}
       <select aria-label="Danh mục" value={filters.category || ""} onChange={(e) => onChange({category:e.target.value,page:1})} className={`${ADMIN_SELECT} !w-full sm:!w-auto`}>
@@ -53,6 +60,9 @@ export default function PlaceFilterBar({
       </select>
       <select aria-label="Ga Metro" value={filters.stationId || ""} onChange={(e) => onChange({stationId:e.target.value,page:1})} className={`${ADMIN_SELECT} !w-full sm:!w-auto sm:max-w-52`}>
         <option value="">Tất cả ga Metro</option>{stations.map((station) => <option key={station.id} value={station.id}>{station.name}</option>)}
+      </select>
+      <select aria-label="Giờ mở cửa" value={filters.hasOpeningHours || ""} onChange={(e) => onChange({hasOpeningHours:e.target.value,page:1})} className={`${ADMIN_SELECT} !w-full sm:!w-auto`}>
+        <option value="">Tất cả giờ mở cửa</option>{OPENING_HOURS_FILTERS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
       </select>
     </FilterBar>
   );

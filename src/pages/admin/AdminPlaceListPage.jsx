@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { adminPlaceService } from "../../services/adminPlaceService";
 import { adminStationService } from "../../services/adminStationService";
 import AdminPageHeader from "../../components/admin/AdminPageHeader";
@@ -9,13 +9,38 @@ import PlaceFilterBar from "../../components/admin/PlaceFilterBar";
 import { VerifiedBadge, PlaceStatusToggle } from "../../components/admin/VerifiedBadge";
 import DeletePlaceDialog from "../../components/admin/DeletePlaceDialog";
 
+// Trang + bộ lọc nằm trên URL (?page=3&category=Cafe…) để xem/sửa xong quay về đúng chỗ, F5 cũng giữ
+const PAGE_SIZE = 10;
+const FILTER_KEYS = ["search", "category", "status", "stationId", "hasOpeningHours"];
+
+function readFilters(searchParams) {
+  const page = Number(searchParams.get("page"));
+  return {
+    page: Number.isInteger(page) && page > 0 ? page : 1,
+    pageSize: PAGE_SIZE,
+    ...Object.fromEntries(FILTER_KEYS.map((key) => [key, searchParams.get(key) ?? ""])),
+  };
+}
+
+// Chỉ ghi giá trị khác mặc định để URL gọn (trang 1 và ô trống không ghi)
+function toSearchParams(filters) {
+  const params = new URLSearchParams();
+  for (const key of FILTER_KEYS) if (filters[key]) params.set(key, filters[key]);
+  if (filters.page > 1) params.set("page", String(filters.page));
+  return params;
+}
+
 export default function AdminPlaceListPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filters = useMemo(() => readFilters(searchParams), [searchParams]);
+  // Mở chi tiết/sửa/tạo kèm đường về đúng trang + bộ lọc hiện tại
+  const returnState = { returnTo: `${location.pathname}${location.search}` };
   const [data, setData] = useState({ items: [], page: 1, pageSize: 10, totalCount: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [stations, setStations] = useState([]);
-  const [filters, setFilters] = useState({ page: 1, pageSize: 10, search: "", category: "", status: "", stationId: "" });
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -54,11 +79,12 @@ export default function AdminPlaceListPage() {
   }, [fetchPlaces]);
 
   const handleFilterChange = (newFilters) => {
-    setFilters((prev) => ({ ...prev, ...newFilters }));
+    // replace: đổi trang/bộ lọc không chồng thêm lịch sử, nút Back của trình duyệt vẫn ra khỏi danh sách
+    setSearchParams(toSearchParams({ ...filters, ...newFilters }), { replace: true });
   };
 
   const handleResetFilters = () => {
-    setFilters({ page: 1, pageSize: 10, search: "", category: "", status: "", stationId: "" });
+    setSearchParams({}, { replace: true });
   };
 
   const handleStatusToggle = async (place) => {
@@ -90,17 +116,19 @@ export default function AdminPlaceListPage() {
 
   const price = (place) => place.estimatedCostMin || place.estimatedCostMax
     ? `${place.estimatedCostMin?.toLocaleString()}đ - ${place.estimatedCostMax?.toLocaleString()}đ` : "Miễn phí";
+  // hasOpeningHours: true khi có ít nhất một thứ đã nhập; BE cũ không trả field thì không gắn nhãn
+  const noHoursBadge = (place) => place.hasOpeningHours === false && <StatusBadge variant="warning" label="Chưa có giờ mở cửa" />;
   const identity = (place) => <div className="flex min-w-52 items-center gap-3">
     {place.imageUrl ? <img src={place.imageUrl} alt="" className="h-11 w-11 shrink-0 rounded-[8px] object-cover" /> : <span aria-hidden="true" className="material-symbols-outlined grid h-11 w-11 shrink-0 place-items-center rounded-[8px] bg-[#F4F6FA] text-[#8993AC]">location_on</span>}
-    <div className="min-w-0"><p className="font-semibold text-[#0F2148]">{place.name}</p><p className="text-xs text-[#8993AC]">ID: {place.id.slice(0, 8)}...</p></div>
+    <div className="min-w-0 space-y-1"><p className="font-semibold text-[#0F2148]">{place.name}</p><p className="text-xs text-[#8993AC]">ID: {place.id.slice(0, 8)}...</p>{noHoursBadge(place)}</div>
   </div>;
   const status = (place) => <div className="flex flex-wrap items-center gap-2">
     <PlaceStatusToggle status={place.status} onToggle={() => handleStatusToggle(place)} loading={toggleLoadingId === place.id} />
     <StatusBadge status={place.status} />
   </div>;
   const actions = (place) => <div className="flex flex-wrap items-center gap-1">
-    <button type="button" aria-label={`Xem chi tiết ${place.name}`} title="Xem chi tiết địa điểm" onClick={() => navigate(`/admin/places/${place.id}`)} className={ADMIN_ICON_BUTTON}><span aria-hidden="true" className="material-symbols-outlined text-[20px]">visibility</span></button>
-    <button type="button" aria-label={`Chỉnh sửa ${place.name}`} title="Chỉnh sửa địa điểm" onClick={() => navigate(`/admin/places/edit/${place.id}`)} className={ADMIN_ICON_BUTTON}><span aria-hidden="true" className="material-symbols-outlined text-[20px]">edit</span></button>
+    <button type="button" aria-label={`Xem chi tiết ${place.name}`} title="Xem chi tiết địa điểm" onClick={() => navigate(`/admin/places/${place.id}`, { state: returnState })} className={ADMIN_ICON_BUTTON}><span aria-hidden="true" className="material-symbols-outlined text-[20px]">visibility</span></button>
+    <button type="button" aria-label={`Chỉnh sửa ${place.name}`} title="Chỉnh sửa địa điểm" onClick={() => navigate(`/admin/places/edit/${place.id}`, { state: returnState })} className={ADMIN_ICON_BUTTON}><span aria-hidden="true" className="material-symbols-outlined text-[20px]">edit</span></button>
     <button type="button" aria-label={`Xóa mềm ${place.name}`} title="Xóa mềm địa điểm" disabled={deleteLoading} onClick={() => setDeleteTarget(place)} className={`${ADMIN_ICON_BUTTON} hover:!text-red-700`}><span aria-hidden="true" className="material-symbols-outlined text-[20px]">delete</span></button>
   </div>;
   const columns = [
@@ -117,7 +145,7 @@ export default function AdminPlaceListPage() {
     <div className="space-y-6">
       <AdminPageHeader eyebrow="Dữ liệu Metro" title="Quản lý địa điểm" description={error ? "Danh sách địa điểm" : `Tổng số ${data.totalCount || 0} địa điểm trong hệ thống`}>
         <Link to="/admin/places/import" className={ADMIN_SECONDARY_BUTTON}><span aria-hidden="true" className="material-symbols-outlined text-[20px]">upload_file</span>Import CSV / Excel</Link>
-        <Link to="/admin/places/create" className={ADMIN_PRIMARY_BUTTON}><span aria-hidden="true" className="material-symbols-outlined text-[20px]">add</span>Thêm địa điểm mới</Link>
+        <Link to="/admin/places/create" state={returnState} className={ADMIN_PRIMARY_BUTTON}><span aria-hidden="true" className="material-symbols-outlined text-[20px]">add</span>Thêm địa điểm mới</Link>
       </AdminPageHeader>
       <PlaceFilterBar filters={filters} onChange={handleFilterChange} onReset={handleResetFilters} stations={stations} />
       {error ? <AdminErrorState message={error} onRetry={fetchPlaces} /> : <>
@@ -128,7 +156,7 @@ export default function AdminPlaceListPage() {
         </div>
         <div className="space-y-3 md:hidden">
           {loading ? <LoadingState variant="card" /> : data.items.length === 0 ? <EmptyState icon="location_on" title="Không tìm thấy địa điểm nào" description="Thử nới lỏng từ khóa hoặc điều kiện lọc" /> : data.items.map((place) => <AdminRecordCard key={place.id} title={place.name} subtitle={place.category}
-            status={<div className="flex flex-wrap gap-2">{status(place)}<VerifiedBadge isVerified={place.isVerified} /></div>}
+            status={<div className="flex flex-wrap gap-2">{status(place)}<VerifiedBadge isVerified={place.isVerified} />{noHoursBadge(place)}</div>}
             primaryAction={actions(place)}>
             <p>{place.address}</p><p className="mt-2 font-medium text-[#0F2148]">{price(place)}</p>
           </AdminRecordCard>)}
