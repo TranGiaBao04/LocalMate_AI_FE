@@ -177,7 +177,7 @@ export default function ReplacePlacePage() {
 
               <div className="flex gap-2">
                 <button
-                  onClick={() => navigate(`/place/${place.placeId}`)}
+                  onClick={() => navigate(`/place/${place.placeId}`, { state: { fromTimeline: true } })}
                   className="flex-1 py-2 border border-outline-variant text-on-surface-variant rounded-full text-label-md font-bold active:scale-95 transition-all hover:border-primary hover:text-primary"
                 >
                   Xem thông tin
