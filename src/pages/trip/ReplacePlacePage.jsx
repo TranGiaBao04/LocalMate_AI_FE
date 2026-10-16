@@ -21,8 +21,13 @@ const REPLACE_ERROR_MESSAGES = {
   place_already_in_trip: "Địa điểm này đã có trong lịch trình.",
   itinerary_item_not_found: "Không tìm thấy chặng cần thay. Hãy tải lại lịch trình.",
   trip_finalized: "Lịch trình đã chốt nên không thay được địa điểm.",
-  replacement_crosses_midnight:
-    "Thay địa điểm này sẽ làm lịch kéo qua 24:00. Hãy chọn địa điểm khác.",
+  replacement_too_long: "Thay địa điểm này sẽ làm lịch dài quá 24 giờ. Hãy chọn địa điểm khác.",
+};
+
+// openingStatus của gợi ý, tính theo khung giờ của chặng đang thay. BE đã xếp Open → Unknown → Closed.
+const OPENING_LABELS = {
+  Open: { text: "Mở cửa vào giờ này", className: "text-secondary" },
+  Closed: { text: "Có thể đã đóng cửa giờ này", className: "text-error" },
 };
 
 export default function ReplacePlacePage() {
@@ -69,6 +74,8 @@ export default function ReplacePlacePage() {
     }
   };
 
+  const hasClosed = alternatives.some((p) => p.openingStatus === "Closed");
+
   return (
     <div className="app-shell flex flex-col">
       <header className="app-header flex h-16 items-center gap-3 border-b border-outline-variant/20 px-container-margin py-stack-sm lg:px-8">
@@ -97,6 +104,11 @@ export default function ReplacePlacePage() {
         <p className="text-body-md text-on-surface-variant mt-stack-md">
           Các gợi ý tương tự, phù hợp với lịch trình hiện tại:
         </p>
+        {hasClosed && (
+          <p className="text-label-md text-on-surface-variant">
+            Nơi có thể đã đóng cửa vào giờ của chặng này được xếp cuối danh sách.
+          </p>
+        )}
 
         {error && (
           <p className="text-label-md text-error bg-error-container/10 rounded-lg px-3 py-2">
@@ -111,13 +123,16 @@ export default function ReplacePlacePage() {
         )}
 
         <div className="grid gap-stack-md lg:grid-cols-2">
-          {alternatives.map((place) => (
-            <div key={place.placeId} className="card space-y-stack-sm">
+          {alternatives.map((place) => {
+            const opening = OPENING_LABELS[place.openingStatus];
+            const closed = place.openingStatus === "Closed";
+            return (
+            <div key={place.placeId} className={`card space-y-stack-sm ${closed ? "border border-error/20" : ""}`}>
               {place.imageUrl && (
                 <img
                   src={place.imageUrl}
                   alt={place.name}
-                  className="h-36 w-full rounded-lg object-cover"
+                  className={`h-36 w-full rounded-lg object-cover ${closed ? "opacity-60 grayscale" : ""}`}
                 />
               )}
               <div className="flex items-start justify-between">
@@ -131,6 +146,12 @@ export default function ReplacePlacePage() {
                   <p className="text-label-md text-on-surface-variant">
                     Ga {place.stationName} · {formatDistance(place.distanceFromStationMeters)}
                   </p>
+                  {opening && (
+                    <p className={`mt-1 flex items-center gap-1 text-label-md font-semibold ${opening.className}`}>
+                      <span aria-hidden="true" className="material-symbols-outlined text-[14px]">schedule</span>
+                      {opening.text}
+                    </p>
+                  )}
                 </div>
 
                 <span className="px-2 py-0.5 bg-primary-container/15 text-on-primary-container text-[10px] rounded-full font-bold ml-2">
@@ -171,7 +192,8 @@ export default function ReplacePlacePage() {
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </main>
     </div>

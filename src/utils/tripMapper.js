@@ -38,6 +38,10 @@ export function mapTripItem(item) {
     // Cách đi tới chặng này: { mode: "Walking"|"Motorbike"|"Metro", totalMinutes, fallback, ...field tàu }.
     // null ở chặng đầu của trip cũ chưa đặt giờ hoặc trip từ lịch mẫu.
     leg: item.leg ?? null,
+    // Chặng bắt đầu sau 00:00 của ngày hôm sau ngày đi (time vẫn là giờ trong ngày)
+    isNextDay: item.isNextDay ?? false,
+    // "Open" | "Closed" | "Unknown": BE tính theo giờ mở cửa hiện tại mỗi lần xem lịch
+    openingStatus: item.openingStatus ?? "Unknown",
   };
 }
 
@@ -65,6 +69,8 @@ export function mapTrip(trip) {
     totalTravelMinutes: trip.totalTravelMinutes,
     totalMinutes: trip.totalMinutes,
     endTime: toHHmm(trip.endTime),
+    // Chặng cuối kết thúc từ 00:00 hôm sau trở đi (kể cả đúng 24:00, endTime khi đó là "00:00")
+    endsNextDay: trip.endsNextDay ?? false,
     // Trip cũ trả null cho 3 field này
     plannedDate: trip.plannedDate,
     startTime: toHHmm(trip.startTime),

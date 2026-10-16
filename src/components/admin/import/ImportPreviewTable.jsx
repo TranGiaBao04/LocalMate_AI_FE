@@ -1,7 +1,7 @@
 import { AdminSurface, DataTable, AdminRecordCard, EmptyState, StatusBadge } from "../ui";
 
 function RowStatus({ row }) {
-  return <StatusBadge variant={!row.isValid ? "error" : row.warnings?.length ? "warning" : "success"} label={!row.isValid ? "Lỗi" : row.warnings?.length ? "Cảnh báo / Nghi trùng" : "Hợp lệ"} />;
+  return <StatusBadge variant={!row.isValid ? "error" : row.warnings?.length ? "warning" : "success"} label={!row.isValid ? "Lỗi" : row.warnings?.length ? "Cảnh báo" : "Hợp lệ"} />;
 }
 function Diagnostics({ row }) {
   return <div className="space-y-2 break-words">

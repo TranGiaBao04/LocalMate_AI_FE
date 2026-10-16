@@ -4,6 +4,7 @@ import { useTrip } from "../../context/TripContext";
 import { useAuth } from "../../context/AuthContext";
 import { formatCurrencyShort, formatDuration } from "../../utils/formatCurrency";
 import { buildDirectionsUrl } from "../../utils/googleMaps";
+import { formatClock } from "../../utils/vnTime";
 
 export default function FinalizedItineraryPage() {
   const navigate = useNavigate();
@@ -158,7 +159,7 @@ export default function FinalizedItineraryPage() {
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0 flex-1 basis-40">
                         <span className="text-label-md text-primary font-bold">
-                          {item.time}
+                          {formatClock(item.time, item.isNextDay)}
                         </span>
                         <h3 className="mt-1 break-words text-body-lg font-semibold leading-6 text-navy-dark">
                           {item.placeName}
@@ -185,6 +186,14 @@ export default function FinalizedItineraryPage() {
                         {formatCurrencyShort(item.estimatedCost)}
                       </span>
                     </div>
+
+                    {/* Lịch đã chốt không thay được chặng, chỉ nhắc để người dùng kiểm tra trước khi đi */}
+                    {item.openingStatus === "Closed" && (
+                      <p className="flex items-start gap-1.5 break-words text-[13px] leading-5 text-error">
+                        <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[16px]">door_front</span>
+                        Địa điểm có thể đã đóng cửa vào giờ này, bạn nên kiểm tra trước khi đến.
+                      </p>
+                    )}
 
                     <div className="flex flex-wrap gap-2 border-t border-border-soft pt-3">
                       {item.latitude && item.longitude && (

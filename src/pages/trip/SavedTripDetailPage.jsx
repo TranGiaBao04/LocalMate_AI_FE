@@ -12,6 +12,7 @@ import {
   formatDuration,
 } from "../../utils/formatCurrency";
 import { buildDirectionsUrl } from "../../utils/googleMaps";
+import { formatClock } from "../../utils/vnTime";
 import useTripDialogFocus from "../../hooks/useTripDialogFocus";
 
 const toDirectionsUrl = (item) =>
@@ -395,7 +396,7 @@ export default function SavedTripDetailPage() {
                                 : "text-on-surface-variant"
                             }`}
                           >
-                            {item.time}
+                            {formatClock(item.time, item.isNextDay)}
                           </span>
 
                           {item.isVisited && (
@@ -408,6 +409,12 @@ export default function SavedTripDetailPage() {
                         <h3 className="mb-2 break-words [overflow-wrap:anywhere] text-title-md leading-7 font-bold text-on-surface">
                           {item.placeName}
                         </h3>
+                        {item.openingStatus === "Closed" && (
+                          <p className="mb-2 flex items-start gap-1.5 break-words text-[13px] leading-5 text-error">
+                            <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[16px]">door_front</span>
+                            Địa điểm có thể đã đóng cửa vào giờ này, bạn nên kiểm tra trước khi đến.
+                          </p>
+                        )}
                         {item.placeImageUrl && (
                           <img
                             src={item.placeImageUrl}
