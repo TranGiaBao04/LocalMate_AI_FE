@@ -309,7 +309,7 @@ describe("USER-A5.1 Draft presentation preserves contracts", () => {
   it("view/replace retain exact item destinations; no mutation on render", () => {
     mount(); fireEvent.click(screen.getAllByRole("button", { name: /Xem thông tin/ })[0]);
     fireEvent.click(screen.getAllByRole("button", { name: /Thay thế/ })[1]);
-    expect(mock.navigate.mock.calls).toEqual([["/place/place-one"], ["/replace/item-two"]]);
+    expect(mock.navigate.mock.calls).toEqual([["/place/place-one", { state: { fromTimeline: true } }], ["/replace/item-two"]]);
     expect(mock.trip.deleteItem).not.toHaveBeenCalled(); expect(mock.trip.explainTrip).not.toHaveBeenCalled();
     expect(mock.trip.finalizeTrip).not.toHaveBeenCalled(); expect(mock.availability).not.toHaveBeenCalled();
   });

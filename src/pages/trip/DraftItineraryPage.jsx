@@ -584,7 +584,7 @@ function DraftItineraryPageInner() {
 
                   <div className="flex flex-wrap gap-2 border-t border-border-soft pt-3">
                     <button
-                      onClick={() => navigate(`/place/${item.placeId}`)}
+                      onClick={() => navigate(`/place/${item.placeId}`, { state: { fromTimeline: true } })}
                       className="flex min-h-11 min-w-0 flex-1 basis-28 items-center justify-center gap-1 rounded-[8px] bg-primary px-2 py-2 text-[13px] font-semibold text-on-primary transition-colors hover:bg-navy-dark motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                     >
                       <span className="material-symbols-outlined text-[14px]">
