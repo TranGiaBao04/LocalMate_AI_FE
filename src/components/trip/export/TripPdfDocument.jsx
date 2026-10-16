@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "@react-pdf/renderer";
+import { formatClock } from "../../../utils/vnTime";
 
 const resolveFontSource = (fontUrl) => {
   if (typeof window !== "undefined") return fontUrl.href;
@@ -240,7 +241,9 @@ const joinMeta = (values) => values.filter(Boolean).join("  •  ");
 
 export default function TripPdfDocument({ trip }) {
   const hasMetroStops = trip.stops.some((stop) => stop.nearestMetroStation);
-  const timeRange = [trip.startTime, trip.endTime].filter(Boolean).join(" - ");
+  const timeRange = [trip.startTime, trip.endTime && formatClock(trip.endTime, trip.endsNextDay)]
+    .filter(Boolean)
+    .join(" - ");
 
   return (
     <Document
@@ -310,7 +313,7 @@ export default function TripPdfDocument({ trip }) {
                 <Text style={styles.stopNumberText}>{stop.order}</Text>
               </View>
               <View style={styles.stopBody}>
-                {stop.time && <Text style={styles.stopTime}>{stop.time}</Text>}
+                {stop.time && <Text style={styles.stopTime}>{formatClock(stop.time, stop.isNextDay)}</Text>}
                 <Text style={styles.stopTitle}>
                   {stop.placeName ?? "Địa điểm chưa có tên"}
                 </Text>

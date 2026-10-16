@@ -20,7 +20,7 @@ const tags = [{ id: "coffee", name: "Cà phê", type: "Interest" }, { id: "photo
 const master = {
   metroStations: stations, travelModes: ["Auto", "Metro", "Walking", "Motorbike"],
   tripLimits: { minDurationHours: 1, maxDurationHours: 24 },
-  timeSlots: [{ code: "morning", label: "Buổi sáng", startTime: "08:00:00", maxDurationHours: 12 }, { code: "afternoon", label: "Buổi chiều", startTime: "13:00:00", maxDurationHours: 8 }, { code: "evening", label: "Buổi tối", startTime: "18:00:00", maxDurationHours: 6 }],
+  timeSlots: [{ code: "morning", label: "Buổi sáng", startTime: "08:00:00", maxDurationHours: 24 }, { code: "afternoon", label: "Buổi chiều", startTime: "13:00:00", maxDurationHours: 24 }, { code: "evening", label: "Buổi tối", startTime: "18:00:00", maxDurationHours: 24 }],
 };
 const fields = { durationHours: 4, budgetMax: 300000, tagIds: ["coffee"], travelMode: "Auto", startStationOrder: 1, destinationStationOrder: null, plannedDate: "2026-10-09", startTime: "09:30:00", note: "Yên tĩnh" };
 let context;
@@ -127,11 +127,14 @@ describe("USER-A4.1 wizard, origin and VN time contracts", () => {
     expect(placeService.getMetroClusters).toHaveBeenCalledTimes(1);
     expect(tripService.checkFeasibility).not.toHaveBeenCalled(); expect(globalThis.fetch).not.toHaveBeenCalled();
   });
-  it("preserves late-day duration fit, disabled slots and next-day recovery", async () => {
+  it("lets a late start run past midnight and blocks only when no start time is left today", async () => {
     vi.setSystemTime(new Date("2026-10-08T15:07:00Z")); await timeStep();
-    expect(screen.getByText(/Xuất phát 22:15, dự kiến xong trước 23:15/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "4 giờ" })).toBeDisabled();
-    await tick(90 * 60 * 1000); expect(screen.getByRole("button", { name: "Tiếp tục" })).toBeDisabled();
+    expect(screen.getByText(/Xuất phát 22:15, dự kiến xong trước 02:15 \(hôm sau\)/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "4 giờ" })).toBeEnabled();
+    expect(screen.getByText(/chỉ xếp những nơi còn mở cửa/)).toBeInTheDocument();
+    expect(screen.queryByText(/phải kết thúc trong ngày/)).not.toBeInTheDocument();
+    await tick(100 * 60 * 1000); // 23:47: giờ xuất phát làm tròn thành 24:00
+    expect(screen.getByRole("button", { name: "Tiếp tục" })).toBeDisabled();
     await click("Ngày mai"); expect(screen.getByRole("button", { name: "Tiếp tục" })).toBeEnabled();
   });
   it("uses only master-data travel modes and fails master-data honestly", async () => {
@@ -159,6 +162,7 @@ describe("USER-A4.2 preferences, feasibility, generation and prefill", () => {
   it.each([
     ["OutOfServiceArea", "Chọn lại điểm xuất phát", "1"],
     ["DurationTooShort", "Chỉnh thời lượng", "2"],
+    ["NoPlacesOpen", "Chọn giờ khác", "2"],
   ])("keeps %s correction step without extra feasibility requests", async (reason, action, next) => {
     tripService.checkFeasibility.mockResolvedValue({ isFeasible: false, reason });
     await interestsStep(); await click("Cà phê"); await click("Tiếp tục"); expect(screen.getByRole("alert")).toBeInTheDocument();
@@ -174,6 +178,22 @@ describe("USER-A4.2 preferences, feasibility, generation and prefill", () => {
     await click(new RegExp(action)); expect(tripService.checkFeasibility).toHaveBeenCalledTimes(2);
     expect(tripService.checkFeasibility).toHaveBeenLastCalledWith(expect.objectContaining(changed));
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "4");
+  });
+  it("explains Metro service hours and retries with another mode", async () => {
+    tripService.checkFeasibility.mockResolvedValueOnce({ isFeasible: false, reason: "MetroNotRunning",
+      metroServiceHours: { stationOrder: 1, stationName: "Bến Thành", firstDeparture: "05:00:00", lastDeparture: "22:00:00" } });
+    await interestsStep(); await click("Cà phê"); await click("Tiếp tục");
+    expect(screen.getByRole("alert")).toHaveTextContent("Metro ở ga Bến Thành chạy từ 05:00 đến 22:00");
+    expect(screen.getByRole("button", { name: "Chọn giờ khác" })).toBeInTheDocument();
+    await click("Đổi sang Xe máy");
+    expect(tripService.checkFeasibility).toHaveBeenLastCalledWith(expect.objectContaining({ travelMode: "Motorbike" }));
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "4");
+  });
+  it("falls back to the generic Metro message when service hours are missing", async () => {
+    await mount({ error: "Metro", errorCode: "metro_not_running" });
+    expect(screen.getByRole("alert")).toHaveTextContent("Metro không chạy vào giờ bạn xuất phát.");
+    await click("Đổi sang Tự động");
+    expect(context.generateTrip).toHaveBeenCalledWith(expect.objectContaining({ travelMode: "Auto" }));
   });
   it("suggests another travel mode when walking leaves no time, and retries with it", async () => {
     tripService.checkFeasibility.mockResolvedValueOnce({ isFeasible: false, reason: "DurationTooShort" });
@@ -225,7 +245,7 @@ describe("USER-A4.2 preferences, feasibility, generation and prefill", () => {
     const data = { extensions: { limit: 1, used: 1 }, suggestedStations: [{ order: 2 }] };
     context.generateTrip.mockRejectedValue(Object.assign(new Error("Quota"), { code: "generate_quota_exceeded", data }));
     await finalStep(); await click("Tạo lịch trình");
-    expect(navigation).toHaveBeenLastCalledWith("/create", { replace: true, state: { error: "Bạn đã dùng hết lượt tạo lịch trình miễn phí trong tháng này.", errorCode: "generate_quota_exceeded", quotaMetadata: data.extensions, suggestedStations: data.suggestedStations } });
+    expect(navigation).toHaveBeenLastCalledWith("/create", { replace: true, state: { error: "Bạn đã dùng hết lượt tạo lịch trình miễn phí trong tháng này.", errorCode: "generate_quota_exceeded", quotaMetadata: data.extensions, suggestedStations: data.suggestedStations, metroServiceHours: null } });
     expect(context.setCurrentTrip).not.toHaveBeenCalled();
   });
   it("displays original server quota/reset data and preserves subscription route", async () => {

@@ -7,11 +7,12 @@ import AdminPlaceDetailPage from "../src/pages/admin/AdminPlaceDetailPage";
 import PlaceFilterBar from "../src/components/admin/PlaceFilterBar";
 import { PlaceStatusToggle, VerifiedBadge } from "../src/components/admin/VerifiedBadge";
 import DeletePlaceDialog from "../src/components/admin/DeletePlaceDialog";
+import { placeListReturnTo } from "../src/components/admin/placeListReturn";
 
 const mocks = vi.hoisted(() => ({
   auth: { user: { permissions: ["ManagePlaces", "ManageSettings"] } },
   stations: { getStations: vi.fn() },
-  places: { getPlaces: vi.fn(), getPlaceById: vi.fn(), updatePlaceStatus: vi.fn(), deletePlace: vi.fn() },
+  places: { getPlaces: vi.fn(), getPlaceById: vi.fn(), updatePlaceStatus: vi.fn(), deletePlace: vi.fn(), getOpeningHours: vi.fn() },
 }));
 vi.mock("../src/context/AuthContext", () => ({ useAuth: () => mocks.auth }));
 vi.mock("../src/services/adminStationService", () => ({ adminStationService: mocks.stations }));
@@ -19,7 +20,7 @@ vi.mock("../src/services/adminPlaceService", () => ({ adminPlaceService: mocks.p
 const station = (id, order, name) => ({ id, order, name, totals: { active: 5, pending: 2, inactive: 1, total: 8 }, categories: [{ category: "Food", active: 5, pending: 2 }], missingCategories: [], isUnderstocked: false });
 const coverage = { radiusMeters: 800, minActivePlacesPerStation: 5, understockedStationCount: 0, outsideCoverage: { active: 1, pending: 2, inactive: 3, total: 6 }, stations: [station("s2", 9, "Ga đầu từ server"), station("s1", 1, "Bến Thành")] };
 const place = { id: "existing-12345", name: "Địa điểm thật từ API", category: "Food", status: "Pending", isVerified: false, address: "25 Hoàng Sa", estimatedCostMin: 30000, estimatedCostMax: 50000 };
-const defaults = { page: 1, pageSize: 10, search: "", category: "", status: "", stationId: "" };
+const defaults = { page: 1, pageSize: 10, search: "", category: "", status: "", stationId: "", hasOpeningHours: "" };
 const pending = () => { let resolve; const promise = new Promise((r) => { resolve = r; }); return { promise, resolve }; };
 function Location() { return <output aria-label="Đường dẫn">{useLocation().pathname}</output>; }
 const mount = (element, path = "/admin/places") => render(<MemoryRouter initialEntries={[path]}><Routes><Route path="*" element={element} /><Route path="/admin/places/:id" element={element} /></Routes><Location /></MemoryRouter>);
@@ -29,6 +30,7 @@ beforeEach(() => {
   mocks.stations.getStations.mockResolvedValue(coverage);
   mocks.places.getPlaces.mockResolvedValue({ items: [place], page: 1, pageSize: 10, totalCount: 11, totalPages: 2 });
   mocks.places.getPlaceById.mockResolvedValue(place);
+  mocks.places.getOpeningHours.mockResolvedValue({ placeId: place.id, hasData: false, days: [] });
   mocks.places.updatePlaceStatus.mockResolvedValue({});
   mocks.places.deletePlace.mockResolvedValue({});
   vi.spyOn(window, "alert").mockImplementation(() => {});
@@ -86,10 +88,37 @@ describe("A4 Places query and mutation contract", () => {
     fireEvent.click(screen.getByRole("button", { name: /Sau/ }));
     await waitFor(() => expect(mocks.places.getPlaces.mock.lastCall[0]).toEqual({ ...defaults, page: 2 }));
   });
-  it.each([["Danh mục", "Cafe", "category"], ["Trạng thái", "Active", "status"], ["Ga Metro", "s1", "stationId"]])("preserves %s query and page reset", async (label, value, key) => {
+  it.each([["Danh mục", "Cafe", "category"], ["Trạng thái", "Active", "status"], ["Ga Metro", "s1", "stationId"], ["Giờ mở cửa", "false", "hasOpeningHours"]])("preserves %s query and page reset", async (label, value, key) => {
     mount(<AdminPlaceListPage />); await screen.findByRole("heading", { name: place.name });
     fireEvent.change(screen.getByLabelText(label), { target: { value } });
     await waitFor(() => expect(mocks.places.getPlaces.mock.lastCall[0]).toEqual({ ...defaults, [key]: value }));
+  });
+  it("reads page and filters from the URL and passes the way back when opening edit", async () => {
+    function StateProbe() { return <output aria-label="Trạng thái điều hướng">{JSON.stringify(useLocation().state)}</output>; }
+    render(<MemoryRouter initialEntries={["/admin/places?page=3&category=Cafe"]}><Routes>
+      <Route path="/admin/places" element={<AdminPlaceListPage />} />
+      <Route path="/admin/places/edit/:id" element={<StateProbe />} />
+    </Routes></MemoryRouter>);
+    await screen.findByRole("heading", { name: place.name });
+    expect(mocks.places.getPlaces).toHaveBeenCalledWith({ ...defaults, page: 3, category: "Cafe" });
+    fireEvent.click(screen.getAllByRole("button", { name: `Chỉnh sửa ${place.name}` })[0]);
+    expect(screen.getByLabelText("Trạng thái điều hướng")).toHaveTextContent('"returnTo":"/admin/places?page=3&category=Cafe"');
+  });
+  it("detail back link returns to the list page it came from", async () => {
+    render(<MemoryRouter initialEntries={[{ pathname: `/admin/places/${place.id}`, state: { returnTo: "/admin/places?page=3" } }]}>
+      <Routes><Route path="/admin/places/:id" element={<AdminPlaceDetailPage />} /></Routes></MemoryRouter>);
+    await screen.findByRole("heading", { name: place.name });
+    expect(screen.getByRole("link", { name: /Danh sách địa điểm/ })).toHaveAttribute("href", "/admin/places?page=3");
+  });
+  it("ignores a way back that is not the place list", () => {
+    expect(placeListReturnTo({ state: { returnTo: "/admin/users" } })).toBe("/admin/places");
+    expect(placeListReturnTo({ state: null })).toBe("/admin/places");
+    expect(placeListReturnTo({ state: { returnTo: "/admin/places?page=2" } })).toBe("/admin/places?page=2");
+  });
+  it("labels only places the server marks as having no opening hours", async () => {
+    mocks.places.getPlaces.mockResolvedValue({ items: [{ ...place, hasOpeningHours: false }, { ...place, id: "with-hours-1", name: "Có giờ", hasOpeningHours: true }], page: 1, pageSize: 10, totalCount: 2, totalPages: 1 });
+    mount(<AdminPlaceListPage />); await screen.findByRole("heading", { name: place.name });
+    expect(within(screen.getByRole("table")).getAllByText("Chưa có giờ mở cửa")).toHaveLength(1);
   });
   it("search remains 300ms debounced, not client-filtered", async () => {
     vi.useFakeTimers();
@@ -159,7 +188,9 @@ describe("A4 Places query and mutation contract", () => {
 });
 describe("A4 Detail and dialogs", () => {
   it("displays API facts, maps identity, back/edit links", async () => {
-    mocks.places.getPlaceById.mockResolvedValue({ ...place, description: "Mô tả API", latitude: 10.78, longitude: 106.7, googlePlaceId: "google-fact", openingHours: [{ dayOfWeek: "Monday", openTime: "09:00", closeTime: "17:00", isClosed: false }], tags: [{ id: "t1", name: "Thẻ API" }] });
+    mocks.places.getPlaceById.mockResolvedValue({ ...place, description: "Mô tả API", latitude: 10.78, longitude: 106.7, googlePlaceId: "google-fact", tags: [{ id: "t1", name: "Thẻ API" }] });
+    mocks.places.getOpeningHours.mockResolvedValue({ placeId: place.id, hasData: true,
+      days: [{ dayOfWeek: "Monday", isClosed: false, openTime: "09:00:00", closeTime: "17:00:00" }] });
     mount(<AdminPlaceDetailPage />, `/admin/places/${place.id}`);
     await screen.findByRole("heading", { name: place.name });
     expect(screen.getByText("Mô tả API")).toBeInTheDocument();
@@ -167,16 +198,24 @@ describe("A4 Detail and dialogs", () => {
     expect(screen.getByRole("link", { name: /Chỉnh sửa địa điểm/ })).toHaveAttribute("href", `/admin/places/edit/${place.id}`);
     expect(screen.getByRole("link", { name: /Danh sách địa điểm/ })).toHaveAttribute("href", "/admin/places");
     expect(screen.getByRole("link", { name: /Google Maps/ })).toHaveAttribute("href", expect.stringContaining("google-fact"));
-    expect(screen.getByText("09:00 - 17:00")).toBeInTheDocument();
+    expect(screen.getByText("09:00 – 17:00")).toBeInTheDocument();
+    expect(mocks.places.getOpeningHours).toHaveBeenCalledWith(place.id);
     expect(screen.getByText("Pending")).toBeInTheDocument();
   });
   it("missing optional values stay unknown, not stock facts", async () => {
     mount(<AdminPlaceDetailPage />, `/admin/places/${place.id}`);
     await screen.findByRole("heading", { name: place.name });
     expect(screen.getByText("Chưa có ảnh địa điểm")).toBeInTheDocument();
-    expect(screen.getByText("Chưa có thông tin giờ mở cửa")).toBeInTheDocument();
+    expect(screen.getByText("Chưa có thông tin giờ mở cửa.")).toBeInTheDocument();
     expect(screen.queryByText("08:00 - 22:00")).not.toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+  it("opening hours that fail to load are not shown as empty", async () => {
+    mocks.places.getOpeningHours.mockRejectedValue(new Error("down"));
+    mount(<AdminPlaceDetailPage />, `/admin/places/${place.id}`);
+    await screen.findByRole("heading", { name: place.name });
+    expect(screen.getByText("Không tải được giờ mở cửa.")).toBeInTheDocument();
+    expect(screen.queryByText("Chưa có thông tin giờ mở cửa.")).not.toBeInTheDocument();
   });
   it("delete confirmation focuses cancel, traps focus and restores opener", async () => {
     function Harness() {

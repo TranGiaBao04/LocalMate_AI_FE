@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
-import { AdminSurface, AdminField, LoadingState } from "../../components/admin/ui";
+import { useLocation, useNavigate, useParams, Link } from "react-router-dom";
+import { AdminSurface, AdminField, LoadingState, NoticeBanner } from "../../components/admin/ui";
 import { ADMIN_INPUT, ADMIN_SELECT, ADMIN_PRIMARY_BUTTON, ADMIN_SECONDARY_BUTTON } from "../../components/admin/adminStyles";
 import AdminPageHeader from "../../components/admin/AdminPageHeader";
 import { adminPlaceService } from "../../services/adminPlaceService";
@@ -8,6 +8,14 @@ import MapCoordinatePicker from "../../components/admin/MapCoordinatePicker";
 import ValidationAlert from "../../components/admin/ValidationAlert";
 import ImageUploadDropzone from "../../components/admin/ImageUploadDropzone";
 import OpenHoursEditor from "../../components/admin/OpenHoursEditor";
+import {
+  emptyHours,
+  fromOpeningHours,
+  mapServerHoursErrors,
+  toSaveDays,
+  validateHours,
+} from "../../components/admin/openingHoursRows";
+import { placeListReturnTo } from "../../components/admin/placeListReturn";
 import MultiTagSelector from "../../components/admin/MultiTagSelector";
 import ConflictModal from "../../components/admin/ConflictModal";
 
@@ -20,6 +28,8 @@ const CATEGORIES = [
 
 export default function AdminPlaceFormPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = placeListReturnTo(location);
   const { id } = useParams();
   const isEdit = Boolean(id);
 
@@ -33,9 +43,18 @@ export default function AdminPlaceFormPage() {
     estimatedCostMax: "",
     description: "",
     imageUrl: "",
-    openingHours: [],
     selectedTagIds: [],
   });
+
+  // Giờ mở cửa lưu bằng API riêng (PUT .../opening-hours, ghi đè cả tuần), không nằm trong body tạo/sửa
+  const [hours, setHours] = useState(emptyHours);
+  // Bản đang có trên server: chỉ gọi PUT khi admin đổi giờ, tránh ghi đè giờ người khác vừa lưu
+  const [savedHours, setSavedHours] = useState(emptyHours);
+  const [hoursErrors, setHoursErrors] = useState({});
+  const [hoursLoadError, setHoursLoadError] = useState("");
+  // Tạo địa điểm xong mà lưu giờ lỗi: mở trang sửa kèm lời nhắn và giờ admin vừa nhập
+  const [notice, setNotice] = useState(() => location.state?.notice ?? null);
+  const [pendingHours, setPendingHours] = useState(() => location.state?.pendingHours ?? null);
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
@@ -48,7 +67,11 @@ export default function AdminPlaceFormPage() {
     if (!isEdit) return;
     setFetching(true);
     try {
-      const place = await adminPlaceService.getPlaceById(id);
+      const [place, openingHours] = await Promise.all([
+        adminPlaceService.getPlaceById(id),
+        // Không tải được giờ thì khoá khối giờ, không để admin lưu bảng trống đè lên dữ liệu cũ
+        adminPlaceService.getOpeningHours(id).catch(() => null),
+      ]);
       if (place) {
         setForm({
           name: place.name || "",
@@ -60,17 +83,24 @@ export default function AdminPlaceFormPage() {
           estimatedCostMax: place.estimatedCostMax ?? "",
           description: place.description || "",
           imageUrl: place.imageUrl || "",
-          openingHours: place.openingHours || [],
           selectedTagIds: place.tagIds || [],
         });
       }
+      if (openingHours) {
+        const rows = fromOpeningHours(openingHours);
+        setSavedHours(rows);
+        setHours(pendingHours ?? rows);
+        setHoursLoadError("");
+      } else {
+        setHoursLoadError("Không tải được giờ mở cửa. Tải lại trang để chỉnh giờ mở cửa.");
+      }
     } catch (err) {
       alert("Lỗi tải thông tin địa điểm: " + err.message);
-      navigate("/admin/places");
+      navigate(returnTo);
     } finally {
       setFetching(false);
     }
-  }, [id, isEdit, navigate]);
+  }, [id, isEdit, navigate, pendingHours, returnTo]);
 
   useEffect(() => {
     loadPlaceData();
@@ -124,45 +154,68 @@ export default function AdminPlaceFormPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    const formOk = validateForm();
+    const hoursValidation = validateHours(hours);
+    setHoursErrors(hoursValidation);
+    if (!formOk || Object.keys(hoursValidation).length > 0) return;
 
+    const days = toSaveDays(hours);
+    const hoursChanged = !hoursLoadError && JSON.stringify(days) !== JSON.stringify(toSaveDays(savedHours));
     setLoading(true);
+    setNotice(null);
+    const payload = {
+      name: form.name.trim(),
+      address: form.address.trim(),
+      category: form.category,
+      latitude: form.latitude,
+      longitude: form.longitude,
+      estimatedCostMin: form.estimatedCostMin ? Number(form.estimatedCostMin) : 0,
+      estimatedCostMax: form.estimatedCostMax ? Number(form.estimatedCostMax) : 0,
+      description: form.description.trim() || null,
+      imageUrl: form.imageUrl,
+    };
+
+    let placeId = id;
     try {
-      const payload = {
-        name: form.name.trim(),
-        address: form.address.trim(),
-        category: form.category,
-        latitude: form.latitude,
-        longitude: form.longitude,
-        estimatedCostMin: form.estimatedCostMin ? Number(form.estimatedCostMin) : 0,
-        estimatedCostMax: form.estimatedCostMax ? Number(form.estimatedCostMax) : 0,
-        description: form.description.trim() || null,
-        imageUrl: form.imageUrl,
-        openingHours: form.openingHours,
-      };
-
-      if (isEdit) {
-        await adminPlaceService.updatePlace(id, payload);
-      } else {
-        await adminPlaceService.createPlace(payload);
-      }
-
-      navigate("/admin/places");
+      if (isEdit) await adminPlaceService.updatePlace(id, payload);
+      else placeId = (await adminPlaceService.createPlace(payload)).id;
     } catch (err) {
       if (err.status === 409 || err.code === "concurrency_conflict") {
         setShowConflictModal(true);
       } else {
         alert(err.message || "Lưu thông tin địa điểm thất bại.");
       }
-    } finally {
       setLoading(false);
+      return;
     }
+
+    if (hoursChanged) {
+      try {
+        await adminPlaceService.saveOpeningHours(placeId, days);
+      } catch (err) {
+        const failed = {
+          type: "error",
+          message: `Đã lưu thông tin địa điểm nhưng chưa lưu được giờ mở cửa: ${err.message || "lỗi không xác định"}. Hãy kiểm tra rồi bấm lưu lại.`,
+        };
+        setNotice(failed);
+        setHoursErrors(mapServerHoursErrors(err.errors, days));
+        setLoading(false);
+        if (!isEdit) {
+          // Địa điểm đã được tạo: sang trang sửa để lưu lại giờ, bấm lưu lần nữa không tạo trùng
+          setPendingHours(hours);
+          navigate(`/admin/places/edit/${placeId}`, { replace: true, state: { notice: failed, pendingHours: hours, returnTo } });
+        }
+        return;
+      }
+    }
+    navigate(returnTo);
   };
 
   if (fetching) return <LoadingState label="Đang tải thông tin địa điểm..." />;
   return (
     <div className="space-y-6">
-      <AdminPageHeader back={{to:"/admin/places",label:"Danh sách địa điểm"}} title={isEdit ? "Chỉnh sửa địa điểm" : "Thêm địa điểm mới"} description="Thông tin, vị trí và thời gian hoạt động của địa điểm" />
+      <AdminPageHeader back={{to:returnTo,label:"Danh sách địa điểm"}} title={isEdit ? "Chỉnh sửa địa điểm" : "Thêm địa điểm mới"} description="Thông tin, vị trí và thời gian hoạt động của địa điểm" />
+      <NoticeBanner notice={notice} onClose={() => setNotice(null)} />
       <AdminSurface as="form" onSubmit={handleSubmit} className="space-y-6">
         <section className="border-b border-[#DCE2EE] pb-6">
           <h2 className="mb-5 text-lg font-bold leading-[26px]">Thông tin cơ bản</h2>
@@ -180,9 +233,18 @@ export default function AdminPlaceFormPage() {
         </div></section>
         <section className="border-b border-[#DCE2EE] pb-6"><h2 className="mb-5 text-lg font-bold leading-[26px]">Ảnh địa điểm</h2><ImageUploadDropzone value={form.imageUrl} onChange={(url) => handleChange("imageUrl",url)} error={errors.imageUrl} /></section>
         <section className="border-b border-[#DCE2EE] pb-6"><h2 className="mb-5 text-lg font-bold leading-[26px]">Thẻ phân loại</h2><MultiTagSelector selectedTagIds={form.selectedTagIds} onChange={(tags) => handleChange("selectedTagIds",tags)} /></section>
-        <section className="border-b border-[#DCE2EE] pb-6"><h2 className="mb-5 text-lg font-bold leading-[26px]">Thời gian hoạt động</h2><OpenHoursEditor value={form.openingHours} onChange={(hours) => handleChange("openingHours",hours)} /></section>
+        <section className="space-y-4 border-b border-[#DCE2EE] pb-6">
+          <h2 className="text-lg font-bold leading-[26px]">Giờ mở cửa</h2>
+          {hoursLoadError && <NoticeBanner notice={{ type: "warning", message: hoursLoadError }} />}
+          <OpenHoursEditor
+            value={hours}
+            onChange={(rows) => { setHours(rows); setHoursErrors({}); }}
+            errors={hoursErrors}
+            disabled={Boolean(hoursLoadError)}
+          />
+        </section>
         <div className="flex flex-wrap justify-end gap-3 border-t border-[#DCE2EE] pt-5">
-          <Link to="/admin/places" className={ADMIN_SECONDARY_BUTTON}>Hủy bỏ</Link>
+          <Link to={returnTo} className={ADMIN_SECONDARY_BUTTON}>Hủy bỏ</Link>
           <button type="submit" disabled={loading} className={ADMIN_PRIMARY_BUTTON}><span aria-hidden="true" className={`material-symbols-outlined text-[20px] ${loading ? "animate-spin motion-reduce:animate-none" : ""}`}>{loading ? "progress_activity" : "save"}</span>{isEdit ? "Cập nhật địa điểm" : "Tạo địa điểm"}</button>
         </div>
       </AdminSurface>

@@ -37,6 +37,11 @@ export default function FileUploadStep({ onPreviewLoaded }) {
       <div className="min-w-0">
         <h2 className="text-base font-semibold leading-6 text-[#0F2148]">File mẫu địa điểm</h2>
         <p className="mt-1 text-sm leading-[22px] text-[#5C6B8A]">Có sẵn các cột tiêu đề và 3 dòng dữ liệu ví dụ.</p>
+        <p className="mt-2 text-sm leading-[22px] text-[#5C6B8A]">
+          Cột <strong>OpeningHours</strong> (giờ mở cửa): để trống nếu chưa rõ. <code>06:00-21:00</code> là mở cả tuần; ghi thứ bằng 3 chữ tiếng Anh
+          (Mon Tue Wed Thu Fri Sat Sun), ví dụ <code>Tue-Sun 08:00-17:00</code> (thứ Hai nghỉ) hoặc <code>Fri-Mon 18:00-02:00</code> (mở qua đêm).
+          Ô ghi sai vẫn tạo được địa điểm nhưng chưa có giờ mở cửa, và có cảnh báo ở bước xem trước.
+        </p>
       </div>
       <DownloadTemplateButton />
     </AdminSurface>

@@ -7,7 +7,7 @@ import {
   formatCurrencyShort,
   formatDuration,
 } from "../../utils/formatCurrency";
-import { formatPlannedDate } from "../../utils/vnTime";
+import { addDays, formatClock, formatPlannedDate } from "../../utils/vnTime";
 import TimelineItemDirections from "../../components/TimelineItemDirections";
 import { itineraryPurchaseService, canPurchaseSingle, isAvailableSingleEntitlement } from "../../services/itineraryPurchaseService";
 import SingleItineraryPaymentModal from "../../components/itineraryPurchase/SingleItineraryPaymentModal";
@@ -331,6 +331,10 @@ function DraftItineraryPageInner() {
     );
   }
 
+  const closedCount = currentTrip.items.filter((i) => i.openingStatus === "Closed").length;
+  // Chặng đầu tiên sang ngày hôm sau: chèn dòng phân cách phía trên (cần biết ngày đi)
+  const firstNextDayIndex = currentTrip.items.findIndex((i) => i.isNextDay);
+
   return (
     <div className="app-shell flex min-w-0 flex-col">
       <header className="app-header flex h-16 items-center justify-between gap-3 border-b border-border-soft !bg-white px-4 py-2 sm:px-6 lg:px-8">
@@ -391,7 +395,7 @@ function DraftItineraryPageInner() {
           )}
           {currentTrip.endTime && (
             <p className="text-label-md text-on-surface-variant mt-1">
-              Kết thúc dự kiến {currentTrip.endTime} · di chuyển{" "}
+              Kết thúc dự kiến {formatClock(currentTrip.endTime, currentTrip.endsNextDay)} · di chuyển{" "}
               {currentTrip.totalTravelMinutes ?? 0} phút
             </p>
           )}
@@ -411,9 +415,15 @@ function DraftItineraryPageInner() {
           {currentTrip.totalMinutes != null &&
             currentTrip.totalMinutes < currentTrip.durationHours * 60 - 30 && (
               <p className="text-label-md text-on-surface-variant mt-1">
-                Lịch ngắn hơn thời gian bạn chọn vì chưa có thêm địa điểm phù hợp.
+                Lịch ngắn hơn thời gian bạn chọn vì chưa có thêm địa điểm phù hợp hoặc còn mở cửa vào giờ đó.
               </p>
             )}
+          {closedCount > 0 && (
+            <p className="mt-1 flex items-start gap-1.5 break-words text-label-md font-medium text-error">
+              <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[16px]">schedule</span>
+              {closedCount} địa điểm có thể đã đóng cửa vào giờ ghé. Bạn nên thay hoặc xoá các chặng đó.
+            </p>
+          )}
 
           {currentTrip.metroFriendly && (
             <div className="flex items-center gap-1.5 mt-stack-sm">
@@ -456,7 +466,14 @@ function DraftItineraryPageInner() {
 
         <div className="space-y-0">
           {currentTrip.items.map((item, idx) => (
-            <div key={item.id} className="flex min-w-0 gap-3 sm:gap-4">
+            <div key={item.id}>
+              {idx === firstNextDayIndex && currentTrip.plannedDate && (
+                <p className="mb-4 flex items-center gap-2 text-label-md font-semibold text-primary">
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">dark_mode</span>
+                  Sang ngày {formatPlannedDate(addDays(currentTrip.plannedDate, 1))}
+                </p>
+              )}
+            <div className="flex min-w-0 gap-3 sm:gap-4">
               <div className="flex flex-col items-center">
                 <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-[13px] font-semibold text-on-primary">
                   {idx + 1}
@@ -494,7 +511,7 @@ function DraftItineraryPageInner() {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0 flex-1 basis-40">
                       <span className="text-label-md text-primary font-bold">
-                        {item.time}
+                        {formatClock(item.time, item.isNextDay)}
                       </span>
                       <h3 className="mt-1 break-words text-body-lg font-semibold leading-6 text-navy-dark">
                         {item.placeName}
@@ -519,6 +536,13 @@ function DraftItineraryPageInner() {
                       {formatCurrencyShort(item.estimatedCost)}
                     </span>
                   </div>
+
+                  {item.openingStatus === "Closed" && (
+                    <p className="flex items-start gap-2 break-words rounded-[8px] border border-error/20 bg-error-container/10 p-3 text-[13px] leading-5 text-error">
+                      <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[18px]">door_front</span>
+                      Địa điểm có thể đã đóng cửa vào giờ này. Bạn nên thay hoặc xoá chặng này.
+                    </p>
+                  )}
 
                   {/* Chặng vừa thay địa điểm có reason = null cho tới khi nhờ AI viết lại */}
                   {explaining ? (
@@ -590,6 +614,7 @@ function DraftItineraryPageInner() {
                   </div>
                 </div>
               </div>
+            </div>
             </div>
           ))}
         </div>

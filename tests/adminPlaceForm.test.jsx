@@ -4,15 +4,31 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import AdminPlaceFormPage from "../src/pages/admin/AdminPlaceFormPage";
 import MapCoordinatePicker from "../src/components/admin/MapCoordinatePicker";
 import OpenHoursEditor from "../src/components/admin/OpenHoursEditor";
+import { emptyHours, fromOpeningHours, toSaveDays } from "../src/components/admin/openingHoursRows";
 import ImageUploadDropzone from "../src/components/admin/ImageUploadDropzone";
 import MultiTagSelector from "../src/components/admin/MultiTagSelector";
 const mocks = vi.hoisted(() => ({
-  places: { getPlaceById: vi.fn(), createPlace: vi.fn(), updatePlace: vi.fn(), validateDistance: vi.fn(), uploadImage: vi.fn() },
+  places: { getPlaceById: vi.fn(), createPlace: vi.fn(), updatePlace: vi.fn(), validateDistance: vi.fn(), uploadImage: vi.fn(),
+    getOpeningHours: vi.fn(), saveOpeningHours: vi.fn() },
   tags: { getTags: vi.fn() },
 }));
 vi.mock("../src/services/adminPlaceService", () => ({ adminPlaceService: mocks.places }));
 vi.mock("../src/services/tagService", () => ({ tagService: mocks.tags }));
-const saved = { name: "Tên cũ", address: "Địa chỉ cũ", category: "Cafe", latitude: 10.7885, longitude: 106.7025, estimatedCostMin: 0, estimatedCostMax: 40000, description: "Mô tả cũ", imageUrl: "/existing.jpg", openingHours: [{ dayOfWeek: "Monday", openTime: "09:00", closeTime: "18:00", isClosed: false }], tagIds: ["t1"] };
+const saved = { name: "Tên cũ", address: "Địa chỉ cũ", category: "Cafe", latitude: 10.7885, longitude: 106.7025, estimatedCostMin: 0, estimatedCostMax: 40000, description: "Mô tả cũ", imageUrl: "/existing.jpg", tagIds: ["t1"] };
+const blankDay = (dayOfWeek) => ({ dayOfWeek, isClosed: false, openTime: null, closeTime: null });
+const weekHours = (overrides = {}, hasData = true) => ({ placeId: "old-id", hasData,
+  days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((d) => overrides[d] ?? blankDay(d)) });
+const savedHours = weekHours({
+  Monday: { dayOfWeek: "Monday", isClosed: false, openTime: "09:00:00", closeTime: "18:00:00" },
+  Tuesday: { dayOfWeek: "Tuesday", isClosed: true, openTime: null, closeTime: null },
+});
+async function fillRequired() {
+  fireEvent.change(screen.getByLabelText("Tên địa điểm *"), { target: { value: "Quán mới" } });
+  fireEvent.change(screen.getByLabelText("Địa chỉ chi tiết *"), { target: { value: "1 Lê Lợi" } });
+  fireEvent.change(screen.getByLabelText("Ảnh đại diện địa điểm"), { target: { files: [new File(["image"], "photo.png", { type: "image/png" })] } });
+  await screen.findByAltText("Preview địa điểm");
+}
+const setState = (day, state) => fireEvent.change(screen.getByLabelText(`Trạng thái ${day}`), { target: { value: state } });
 function Location() { return <output aria-label="Đường dẫn">{useLocation().pathname}</output>; }
 const mount = (path = "/admin/places/create") => render(<MemoryRouter initialEntries={[path]}><Routes><Route path="/admin/places/create" element={<AdminPlaceFormPage />} /><Route path="/admin/places/edit/:id" element={<AdminPlaceFormPage />} /><Route path="/admin/places" element={<h1>Danh sách đích</h1>} /></Routes><Location /></MemoryRouter>);
 beforeEach(() => {
@@ -22,6 +38,8 @@ beforeEach(() => {
   mocks.places.updatePlace.mockResolvedValue({});
   mocks.places.validateDistance.mockResolvedValue({ hasWarning: false });
   mocks.places.uploadImage.mockResolvedValue({ url: "/uploaded.jpg" });
+  mocks.places.getOpeningHours.mockResolvedValue(savedHours);
+  mocks.places.saveOpeningHours.mockResolvedValue(savedHours);
   mocks.tags.getTags.mockResolvedValue([{ id: "t1", name: "Yên tĩnh" }, { id: "t2", name: "Gia đình" }]);
   vi.spyOn(window, "alert").mockImplementation(() => {});
 });
@@ -34,6 +52,8 @@ describe("A4 Place form frozen payload", () => {
     expect(screen.getByLabelText("Vĩ độ (Latitude)")).toHaveValue(10.7769);
     expect(mocks.places.getPlaceById).not.toHaveBeenCalled();
     expect(screen.getByRole("link", { name: "Hủy bỏ" })).toHaveAttribute("href", "/admin/places");
+    expect(screen.getByLabelText("Trạng thái Thứ Hai")).toHaveValue("unset");
+    expect(mocks.places.getOpeningHours).not.toHaveBeenCalled();
   });
   it("edit initializes persisted values, tags and hours", async () => {
     mount("/admin/places/edit/old-id");
@@ -41,6 +61,9 @@ describe("A4 Place form frozen payload", () => {
     expect(screen.getByLabelText("Danh mục *")).toHaveValue("Cafe");
     expect(screen.getByLabelText("Giá từ (VNĐ)")).toHaveValue(0);
     expect(screen.getByLabelText("Giờ mở cửa Thứ Hai")).toHaveValue("09:00");
+    expect(screen.getByLabelText("Trạng thái Thứ Ba")).toHaveValue("closed");
+    expect(screen.getByLabelText("Trạng thái Thứ Tư")).toHaveValue("unset");
+    expect(mocks.places.getOpeningHours).toHaveBeenCalledWith("old-id");
     expect(await screen.findByRole("button", { name: "Yên tĩnh" })).toHaveAttribute("aria-pressed", "true");
     expect(mocks.places.getPlaceById).toHaveBeenCalledWith("old-id");
   });
@@ -63,7 +86,8 @@ describe("A4 Place form frozen payload", () => {
     await screen.findByAltText("Preview địa điểm");
     fireEvent.click(screen.getByRole("button", { name: /Tạo địa điểm/ }));
     await screen.findByText("Danh sách đích");
-    expect(mocks.places.createPlace).toHaveBeenCalledWith({ name: "Tên mới", address: "Địa chỉ mới", category: "Food", latitude: 10.7769, longitude: 106.7009, estimatedCostMin: 0, estimatedCostMax: 0, description: null, imageUrl: "/uploaded.jpg", openingHours: [] });
+    expect(mocks.places.createPlace).toHaveBeenCalledWith({ name: "Tên mới", address: "Địa chỉ mới", category: "Food", latitude: 10.7769, longitude: 106.7009, estimatedCostMin: 0, estimatedCostMax: 0, description: null, imageUrl: "/uploaded.jpg" });
+    expect(mocks.places.saveOpeningHours).not.toHaveBeenCalled();
   });
   it("edit exact payload retains old terms and does not persist changed tag selections", async () => {
     mount("/admin/places/edit/old-id"); await screen.findByDisplayValue(saved.name);
@@ -73,6 +97,7 @@ describe("A4 Place form frozen payload", () => {
     const expected = { ...saved };
     delete expected.tagIds;
     expect(mocks.places.updatePlace).toHaveBeenCalledWith("old-id", expected);
+    expect(mocks.places.saveOpeningHours).not.toHaveBeenCalled();
   });
   it("price validation stays conditional and prevents inverted nonzero range", async () => {
     mount("/admin/places/edit/old-id"); await screen.findByDisplayValue(saved.name);
@@ -97,6 +122,73 @@ describe("A4 Place form frozen payload", () => {
     await waitFor(() => expect(window.alert).toHaveBeenCalledWith("Trường từ server không hợp lệ"));
     expect(screen.queryByText("Server field")).not.toBeInTheDocument();
   });
+  it("saving or cancelling returns to the list page the admin came from", async () => {
+    function Where() { const { pathname, search } = useLocation(); return <output aria-label="Vị trí">{pathname + search}</output>; }
+    render(<MemoryRouter initialEntries={[{ pathname: "/admin/places/edit/old-id", state: { returnTo: "/admin/places?page=3&status=Active" } }]}>
+      <Routes><Route path="/admin/places/edit/:id" element={<AdminPlaceFormPage />} /><Route path="/admin/places" element={<h1>Danh sách đích</h1>} /></Routes><Where />
+    </MemoryRouter>);
+    await screen.findByDisplayValue(saved.name);
+    expect(screen.getByRole("link", { name: "Hủy bỏ" })).toHaveAttribute("href", "/admin/places?page=3&status=Active");
+    fireEvent.click(screen.getByRole("button", { name: /Cập nhật địa điểm/ }));
+    await screen.findByText("Danh sách đích");
+    expect(screen.getByLabelText("Vị trí")).toHaveTextContent("/admin/places?page=3&status=Active");
+  });
+  it("create saves entered days with the new place id and omits days not entered", async () => {
+    mocks.places.createPlace.mockResolvedValue({ id: "new-id" });
+    mount(); await screen.findByRole("button", { name: "Yên tĩnh" }); await fillRequired();
+    setState("Thứ Hai", "open");
+    fireEvent.change(screen.getByLabelText("Giờ đóng cửa Thứ Hai"), { target: { value: "02:00" } });
+    expect(screen.getByText("Mở qua đêm, đóng lúc 02:00 sáng hôm sau.")).toBeInTheDocument();
+    setState("Chủ Nhật", "closed");
+    fireEvent.click(screen.getByRole("button", { name: /Tạo địa điểm/ }));
+    await screen.findByText("Danh sách đích");
+    expect(mocks.places.saveOpeningHours).toHaveBeenCalledWith("new-id", [
+      { dayOfWeek: "Monday", isClosed: false, openTime: "08:00", closeTime: "02:00" },
+      { dayOfWeek: "Sunday", isClosed: true },
+    ]);
+  });
+  it("create keeps the place and moves to edit with the typed hours when saving hours fails", async () => {
+    mocks.places.createPlace.mockResolvedValue({ id: "new-id" });
+    mocks.places.saveOpeningHours.mockRejectedValue({ message: "Máy chủ lỗi" });
+    mocks.places.getOpeningHours.mockResolvedValue(weekHours({}, false));
+    mount(); await screen.findByRole("button", { name: "Yên tĩnh" }); await fillRequired();
+    setState("Thứ Hai", "open");
+    fireEvent.click(screen.getByRole("button", { name: /Tạo địa điểm/ }));
+    await waitFor(() => expect(screen.getByLabelText("Đường dẫn")).toHaveTextContent("/admin/places/edit/new-id"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("chưa lưu được giờ mở cửa: Máy chủ lỗi");
+    expect(await screen.findByLabelText("Trạng thái Thứ Hai")).toHaveValue("open");
+    expect(mocks.places.createPlace).toHaveBeenCalledTimes(1);
+  });
+  it("edit maps BE opening-hours errors to the day that was sent at that index", async () => {
+    mocks.places.saveOpeningHours.mockRejectedValue({ status: 400, code: "invalid_opening_hours", message: "Dữ liệu không hợp lệ",
+      errors: { "Days[1]": ["Giờ mở bằng giờ đóng."] } });
+    mount("/admin/places/edit/old-id"); await screen.findByDisplayValue(saved.name);
+    fireEvent.change(screen.getByLabelText("Giờ mở cửa Thứ Hai"), { target: { value: "10:00" } });
+    fireEvent.click(screen.getByRole("button", { name: /Cập nhật địa điểm/ }));
+    expect(await screen.findByText("Giờ mở bằng giờ đóng.")).toHaveAttribute("id", "hours-Tuesday-error");
+    expect(screen.getByLabelText("Đường dẫn")).toHaveTextContent("/admin/places/edit/old-id");
+    expect(mocks.places.updatePlace).toHaveBeenCalledTimes(1);
+  });
+  it("blocks an open day without times or with equal times before any request", async () => {
+    mount(); await screen.findByRole("button", { name: "Yên tĩnh" }); await fillRequired();
+    setState("Thứ Hai", "open");
+    fireEvent.change(screen.getByLabelText("Giờ mở cửa Thứ Hai"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: /Tạo địa điểm/ }));
+    expect(screen.getByText("Nhập đủ giờ mở và giờ đóng.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Giờ mở cửa Thứ Hai"), { target: { value: "22:00" } });
+    fireEvent.click(screen.getByRole("button", { name: /Tạo địa điểm/ }));
+    expect(screen.getByText("Giờ mở và giờ đóng không được trùng nhau.")).toBeInTheDocument();
+    expect(mocks.places.createPlace).not.toHaveBeenCalled();
+  });
+  it("hours that fail to load are locked and never overwritten", async () => {
+    mocks.places.getOpeningHours.mockRejectedValue(new Error("down"));
+    mount("/admin/places/edit/old-id"); await screen.findByDisplayValue(saved.name);
+    expect(screen.getByText(/Không tải được giờ mở cửa/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Trạng thái Thứ Hai")).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /Cập nhật địa điểm/ }));
+    await screen.findByText("Danh sách đích");
+    expect(mocks.places.saveOpeningHours).not.toHaveBeenCalled();
+  });
 });
 describe("A4 domain editors", () => {
   it("manual coordinates preserve bounds and shared error association", () => {
@@ -109,18 +201,21 @@ describe("A4 domain editors", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ga Ba Son" }));
     expect(onChange).toHaveBeenLastCalledWith(10.7885, 106.7025);
   });
-  it("opening hours edit emits all seven days with original defaults", () => {
-    const onChange = vi.fn(); render(<OpenHoursEditor value={[]} onChange={onChange} />);
-    fireEvent.change(screen.getByLabelText("Giờ mở cửa Thứ Hai"), { target: { value: "10:00" } });
-    const hours = onChange.mock.lastCall[0];
-    expect(hours).toHaveLength(7);
-    expect(hours[0]).toEqual({ dayOfWeek: "Monday", openTime: "10:00", closeTime: "22:00", isClosed: false });
-    expect(hours[6]).toEqual({ dayOfWeek: "Sunday", openTime: "08:00", closeTime: "22:00", isClosed: false });
+  it("opening hours editor uses three states and sends only entered days", () => {
+    const onChange = vi.fn(); render(<OpenHoursEditor value={emptyHours()} onChange={onChange} />);
+    expect(screen.queryByLabelText("Giờ mở cửa Thứ Hai")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Trạng thái Thứ Hai"), { target: { value: "open" } });
+    const rows = onChange.mock.lastCall[0];
+    expect(rows[0]).toEqual({ dayOfWeek: "Monday", state: "open", openTime: "08:00", closeTime: "22:00" });
+    expect(rows[6]).toEqual({ dayOfWeek: "Sunday", state: "unset", openTime: "", closeTime: "" });
+    expect(toSaveDays(rows)).toEqual([{ dayOfWeek: "Monday", isClosed: false, openTime: "08:00", closeTime: "22:00" }]);
   });
-  it("closed day retains times and original payload", () => {
-    const onChange = vi.fn(); render(<OpenHoursEditor value={saved.openingHours} onChange={onChange} />);
-    fireEvent.click(screen.getByLabelText("Đóng cửa Thứ Hai"));
-    expect(onChange.mock.lastCall[0][0]).toEqual({ ...saved.openingHours[0], isClosed: true });
+  it("copies Monday to the whole week and clears every day", () => {
+    const onChange = vi.fn(); render(<OpenHoursEditor value={fromOpeningHours(savedHours)} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Chép Thứ Hai cho cả tuần" }));
+    expect(onChange.mock.lastCall[0].every((r) => r.state === "open" && r.openTime === "09:00" && r.closeTime === "18:00")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Xoá hết giờ mở cửa" }));
+    expect(onChange.mock.lastCall[0]).toEqual(emptyHours());
   });
   it.each([["bad.svg", 10, /Định dạng ảnh/], ["large.png", 6 * 1024 * 1024, /vượt quá 5MB/]])("image restriction %s remains, no upload", (name, size, message) => {
     render(<ImageUploadDropzone onChange={vi.fn()} />);

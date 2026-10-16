@@ -19,6 +19,11 @@ export function minutesNowInVietnam(now = Date.now()) {
   return get("hour") * 60 + get("minute");
 }
 
+// Thứ trong tuần theo giờ VN, dạng "Monday" … "Sunday" (khớp dayOfWeek của BE)
+export function weekdayInVietnam(now = Date.now()) {
+  return new Intl.DateTimeFormat("en-US", { timeZone: VN_TZ, weekday: "long" }).format(now);
+}
+
 export function roundUpMinutes(minutes, step = 15) {
   return Math.ceil(minutes / step) * step;
 }
@@ -34,6 +39,11 @@ export function minutesToTime(minutes) {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+// Giờ trong ngày, thêm "(hôm sau)" khi đã sang ngày sau ngày đi: ("01:18", true) -> "01:18 (hôm sau)"
+export function formatClock(time, nextDay = false) {
+  return nextDay ? `${time} (hôm sau)` : time;
 }
 
 // "yyyy-MM-dd" + n ngày
