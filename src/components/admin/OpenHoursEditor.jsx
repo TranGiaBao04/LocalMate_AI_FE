@@ -1,12 +1,13 @@
 import { ADMIN_INPUT, ADMIN_SELECT, ADMIN_TERTIARY_BUTTON } from "./adminStyles";
 import { DAYS_OF_WEEK } from "../../utils/openingHours";
 import { timeToMinutes } from "../../utils/vnTime";
-import { emptyHours } from "./openingHoursRows";
+import { emptyHours, looksLikeOldAllDay } from "./openingHoursRows";
 
-// Mỗi thứ: "unset" (chưa nhập, không gửi lên BE) | "open" (có giờ mở/đóng) | "closed" (nghỉ cả ngày)
+// Mỗi thứ: "unset" (chưa nhập, không gửi lên BE) | "open" (có giờ mở/đóng) | "allDay" (24 giờ) | "closed" (nghỉ cả ngày)
 const STATES = [
   { value: "unset", label: "Chưa nhập" },
   { value: "open", label: "Mở cửa" },
+  { value: "allDay", label: "Mở cả ngày (24 giờ)" },
   { value: "closed", label: "Nghỉ cả ngày" },
 ];
 // Giờ điền sẵn khi admin chuyển một thứ sang "Mở cửa"
@@ -34,7 +35,7 @@ export default function OpenHoursEditor({ value, onChange, errors = {}, disabled
   return (
     <div className="space-y-4">
       <p className="text-sm leading-[22px] text-[#5C6B8A]">
-        "Chưa nhập" là chưa có dữ liệu, khác với "Nghỉ cả ngày". Quán đóng sau nửa đêm: nhập giờ đóng nhỏ hơn giờ mở (ví dụ 17:00 → 02:00).
+        "Chưa nhập" là chưa có dữ liệu, khác với "Nghỉ cả ngày". Quán mở 24 giờ: chọn "Mở cả ngày". Quán đóng sau nửa đêm: nhập giờ đóng nhỏ hơn giờ mở (ví dụ 17:00 → 02:00).
       </p>
       <div className="flex flex-wrap gap-2">
         <button type="button" disabled={disabled || monday.state === "unset"} onClick={copyMonday} className={ADMIN_TERTIARY_BUTTON}>
@@ -79,6 +80,11 @@ export default function OpenHoursEditor({ value, onChange, errors = {}, disabled
                 )}
                 {isOvernight(row) && (
                   <p className="text-xs text-[#5C6B8A]">Mở qua đêm, đóng lúc {row.closeTime} sáng hôm sau.</p>
+                )}
+                {looksLikeOldAllDay(row) && (
+                  <p className="text-xs font-medium text-amber-800">
+                    00:00 – 23:59 bị hở 1 phút lúc nửa đêm. Nếu quán mở 24 giờ, hãy chọn "Mở cả ngày (24 giờ)".
+                  </p>
                 )}
                 {error && <p id={errorId} className="text-xs font-medium text-red-700">{error}</p>}
               </div>
