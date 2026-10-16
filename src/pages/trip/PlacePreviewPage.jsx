@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import PlaceBadges from "../../components/ui/PlaceBadges";
 import { placeService } from "../../services/placeService";
 import {
@@ -17,8 +17,13 @@ export default function PlacePreviewPage() {
 
 function PlaceDetail({ placeId }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isFromTimeline = Boolean(location.state?.fromTimeline);
+
   const [place, setPlace] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [clusterPlaces, setClusterPlaces] = useState([]);
+  const [loadingCluster, setLoadingCluster] = useState(false);
 
   useEffect(() => {
     placeService
@@ -27,6 +32,59 @@ function PlaceDetail({ placeId }) {
       .catch(() => setPlace(null))
       .finally(() => setLoading(false));
   }, [placeId]);
+
+  useEffect(() => {
+    if (!place?.nearestStation?.stationId && !place?.nearestStation?.stationName) {
+      setClusterPlaces([]);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingCluster(true);
+    placeService
+      .getMetroClusters()
+      .then((clusters) => {
+        if (cancelled) return;
+        const cluster = clusters?.find(
+          (c) =>
+            (place.nearestStation.stationId && c.stationId === place.nearestStation.stationId) ||
+            (place.nearestStation.stationName && c.stationName === place.nearestStation.stationName),
+        );
+        if (cluster?.places) {
+          const nearby = cluster.places
+            .filter((p) => (p.placeId || p.id) !== place.id)
+            .slice(0, 4);
+          setClusterPlaces(nearby);
+        } else {
+          setClusterPlaces([]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setClusterPlaces([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingCluster(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [place]);
+
+  const handlePlanTrip = () => {
+    const stationOrder = place?.nearestStation?.stationOrder ?? null;
+    navigate("/create", {
+      state: {
+        destinationStationOrder: stationOrder,
+        note: `Ghé thăm ${place.name}`,
+        suggestedPlace: {
+          id: place.id,
+          name: place.name,
+          nearestStation: place.nearestStation,
+        },
+      },
+    });
+  };
 
   if (loading) {
     return (
@@ -221,6 +279,68 @@ function PlaceDetail({ placeId }) {
           />
         </div>
 
+        {/* Gợi ý các địa điểm lân cận cùng cụm ga Metro */}
+        {place.nearestStation && (clusterPlaces.length > 0 || loadingCluster) && (
+          <div className="min-w-0 space-y-4 border-t border-border-soft pt-5">
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-lg font-bold leading-7 text-navy-dark">
+                <span aria-hidden="true" className="material-symbols-outlined text-xl text-primary">
+                  explore
+                </span>
+                Địa điểm nổi bật quanh ga {place.nearestStation.stationName}
+              </h3>
+              <span className="text-xs text-text-muted">Cùng cụm Metro</span>
+            </div>
+
+            {loadingCluster ? (
+              <p className="text-xs text-text-muted">Đang tải địa điểm lân cận...</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {clusterPlaces.map((spot) => {
+                  const spotId = spot.placeId || spot.id;
+                  const spotName = spot.placeName || spot.name;
+                  return (
+                    <button
+                      key={spotId}
+                      type="button"
+                      onClick={() => navigate(`/place/${spotId}`)}
+                      className="group flex flex-col text-left rounded-[8px] border border-border-soft bg-white p-2.5 hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy transition-all"
+                    >
+                      <div className="aspect-[4/3] w-full overflow-hidden rounded-[6px] bg-surface-variant mb-2">
+                        {spot.imageUrl ? (
+                          <img
+                            src={spot.imageUrl}
+                            alt={spotName}
+                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                          />
+                        ) : (
+                          <span className="material-symbols-outlined flex h-full items-center justify-center text-3xl text-navy/30">
+                            location_on
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        title={spotName}
+                        className="line-clamp-1 w-full text-sm font-semibold leading-5 text-navy-dark group-hover:text-primary"
+                      >
+                        {spotName}
+                      </span>
+                      <span className="line-clamp-1 text-xs text-text-muted">
+                        {spot.placeCategory || spot.category}
+                      </span>
+                      {spot.distanceFromStationMeters != null && (
+                        <span className="mt-1 text-[11px] font-medium text-primary">
+                          Cách ga {Math.round(spot.distanceFromStationMeters)}m
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         <PlaceReviews
           placeId={placeId}
           averageRating={place.averageRating}
@@ -243,23 +363,49 @@ function PlaceDetail({ placeId }) {
         </GoogleMapsButton>
 
         <div className="flex items-stretch gap-3">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="min-h-11 min-w-0 flex-1 rounded-[8px] border border-border-soft bg-white px-3 py-3 text-sm font-semibold leading-5 text-navy hover:bg-chip-bg-alt focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
-          >
-            Giữ trong lịch trình
-          </button>
+          {isFromTimeline ? (
+            <>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="min-h-11 min-w-0 flex-1 rounded-[8px] border border-border-soft bg-white px-3 py-3 text-sm font-semibold leading-5 text-navy hover:bg-chip-bg-alt focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+              >
+                Giữ trong lịch trình
+              </button>
 
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="min-h-11 min-w-0 flex-1 rounded-[8px] bg-navy px-3 py-3 text-sm font-semibold leading-5 text-white hover:bg-navy-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
-          >
-            Quay lại timeline
-          </button>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="min-h-11 min-w-0 flex-1 rounded-[8px] bg-navy px-3 py-3 text-sm font-semibold leading-5 text-white hover:bg-navy-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+              >
+                Quay lại timeline
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="min-h-11 min-w-0 flex-1 basis-1/3 rounded-[8px] border border-border-soft bg-white px-3 py-3 text-sm font-semibold leading-5 text-navy hover:bg-chip-bg-alt focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+              >
+                Quay lại
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePlanTrip}
+                className="min-h-11 min-w-0 flex-1 basis-2/3 flex items-center justify-center gap-2 rounded-[8px] bg-navy px-3 py-3 text-sm font-semibold leading-5 text-white hover:bg-navy-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
+                  train
+                </span>
+                Lên lịch trình quanh {place.nearestStation?.stationName ? `ga ${place.nearestStation.stationName}` : "khu vực này"}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 }
+

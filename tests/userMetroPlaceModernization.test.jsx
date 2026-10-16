@@ -195,10 +195,12 @@ function placeData(extra = {}) {
     tags: [{ id: "tag1", name: "Văn hóa" }], description: "Thông tin thật từ API", insights: ["Gần ga Metro"], notes: ["Kiểm tra giờ mở cửa"],
     nearestStation: { stationName: "Bến Thành", distanceMeters: 200 }, isVerified: true, averageRating: 4.3, reviewCount: 0, ...extra };
 }
-function renderPlace(id = "p1") {
-  return render(<MemoryRouter initialEntries={["/previous", `/place/${id}`]} initialIndex={1}><Routes>
+function renderPlace(id = "p1", state = null) {
+  const entry = state ? { pathname: `/place/${id}`, state } : `/place/${id}`;
+  return render(<MemoryRouter initialEntries={["/previous", entry]} initialIndex={1}><Routes>
     <Route path="/place/:placeId" element={<PlacePreviewPage />} />
     <Route path="/previous" element={<h1>Previous timeline</h1>} />
+    <Route path="/create" element={<h1>Create trip page</h1>} />
   </Routes><LocationValue /></MemoryRouter>);
 }
 beforeEach(() => {
@@ -207,6 +209,7 @@ beforeEach(() => {
   vi.spyOn(metroService, "getJourney").mockResolvedValue(journeyData());
   vi.spyOn(metroService, "getDepartures").mockResolvedValue(departureData());
   vi.spyOn(placeService, "getPlaceById").mockResolvedValue(placeData());
+  vi.spyOn(placeService, "getMetroClusters").mockResolvedValue([]);
   vi.spyOn(placeService, "getPlaceReviews").mockResolvedValue({ items: [], totalPages: 0 });
   vi.spyOn(mapsApp, "openGoogleMapsApp").mockImplementation(() => {});
 });
@@ -260,13 +263,53 @@ describe("USER-A3 Place detail contracts", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mở Google Maps", exact: true }));
     expect(mapsApp.openGoogleMapsApp).toHaveBeenLastCalledWith(expect.objectContaining({ lat: 10.77, lng: 106.69, query: "Chợ Bến Thành", placeId: "google-p1", destLat: undefined }));
   });
-  it.each(["Quay lại", "Giữ trong lịch trình", "Quay lại timeline"])("%s remains history back only", async (name) => {
-    renderPlace();
+  it("renders timeline actions when fromTimeline is true and navigates back", async () => {
+    renderPlace("p1", { fromTimeline: true });
     await screen.findByRole("heading", { level: 1 });
-    fireEvent.click(screen.getByRole("button", { name, exact: true }));
+    expect(screen.getByRole("button", { name: "Giữ trong lịch trình" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Quay lại timeline" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Giữ trong lịch trình" }));
     expect(await screen.findByRole("heading", { name: "Previous timeline" })).toBeVisible();
     expect(screen.getByLabelText("Route")).toHaveTextContent("/previous");
-    expect(mapsApp.openGoogleMapsApp).not.toHaveBeenCalled();
+  });
+  it("renders plan trip button when from search/home and navigates to /create", async () => {
+    renderPlace("p1"); // not fromTimeline
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByText("Giữ trong lịch trình")).not.toBeInTheDocument();
+    const planBtn = screen.getByRole("button", { name: /Lên lịch trình quanh ga Bến Thành/i });
+    expect(planBtn).toBeVisible();
+    fireEvent.click(planBtn);
+    expect(await screen.findByRole("heading", { name: "Create trip page" })).toBeVisible();
+    expect(screen.getByLabelText("Route")).toHaveTextContent("/create");
+  });
+  it("navigates back when Quay lại is clicked from search context", async () => {
+    renderPlace("p1");
+    await screen.findByRole("heading", { level: 1 });
+    const backButtons = screen.getAllByRole("button", { name: "Quay lại" });
+    expect(backButtons.length).toBe(2);
+    fireEvent.click(backButtons[1]);
+    expect(await screen.findByRole("heading", { name: "Previous timeline" })).toBeVisible();
+    expect(screen.getByLabelText("Route")).toHaveTextContent("/previous");
+  });
+  it("renders nearby cluster suggestions and navigates on spot click", async () => {
+    placeService.getMetroClusters.mockResolvedValue([
+      {
+        stationId: "st-1",
+        stationName: "Bến Thành",
+        stationOrder: 1,
+        places: [
+          { placeId: "p1", placeName: "Chợ Bến Thành", distanceFromStationMeters: 200 },
+          { placeId: "p2", placeName: "Bảo tàng Mỹ thuật", placeCategory: "Culture", distanceFromStationMeters: 350, imageUrl: "https://example.test/p2.jpg" },
+        ],
+      },
+    ]);
+    renderPlace("p1");
+    expect(await screen.findByText("Địa điểm nổi bật quanh ga Bến Thành")).toBeVisible();
+    expect(screen.getByText("Bảo tàng Mỹ thuật")).toBeVisible();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Bảo tàng Mỹ thuật/i }));
+    });
+    expect(screen.getByLabelText("Route")).toHaveTextContent("/place/p2");
   });
 });
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
@@ -350,6 +393,7 @@ describe("USER-A3 Metro contracts", () => {
     metroService.getJourney.mockReturnValueOnce(pending.promise);
     renderMetro();
     expect(await screen.findByText("Đang tải lịch tàu...")).toHaveAttribute("role", "status");
+    pending.promise.catch(() => {});
     await act(async () => pending.reject(new Error("Lịch tạm thời không sẵn sàng")));
     expect(screen.getByRole("alert")).toHaveTextContent("Lịch tạm thời không sẵn sàng");
     fireEvent.click(screen.getByRole("button", { name: "Thử lại" }));
