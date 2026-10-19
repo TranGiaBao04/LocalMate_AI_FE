@@ -140,14 +140,21 @@ describe("USER-A1 preserved navigation contracts", () => {
     expect(state).toEqual(snapshot);
   });
 
-  it.each([PLAN_CODES.FREE, PLAN_CODES.TRIP_PASS, PLAN_CODES.MEMBERSHIP])("retains server plan presentation and navigation: %s", (plan) => {
-    state.plan.subscription = { plan, planName: `Tên mới ${plan}` };
+  it.each([
+    [PLAN_CODES.FREE, {}, "Nâng cấp"],
+    [PLAN_CODES.TRIP_PASS, { effectiveUntil: "2099-01-01T00:00:00Z" }, "Xem gói"],
+    [PLAN_CODES.MEMBERSHIP, { effectiveUntil: "2099-01-01T00:00:00Z" }, "Xem gói"],
+    [PLAN_CODES.TRIP_PASS, { effectiveUntil: "2099-01-01T00:00:00Z", isTrial: true }, "Nâng cấp"],
+  ])("shows server plan name and plan button: %s %j", (plan, extra, label) => {
+    state.plan.subscription = { plan, planName: `Tên mới ${plan}`, ...extra };
     setup(<SideNavigation />);
-    const badge = plan === PLAN_CODES.FREE ? "Mặc định" : "Đang dùng";
-    const panel = screen.getByRole("button", { name: new RegExp(`Tên mới ${plan} ${badge}`) });
-    panel.focus();
-    expect(panel).toHaveFocus();
-    fireEvent.click(panel);
+    expect(screen.queryByText("Mặc định")).not.toBeInTheDocument();
+    expect(screen.queryByText("Đang dùng")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Nguyễn Minh Tên mới ${plan}` })).toBeInTheDocument();
+    const button = screen.getByRole("button", { name: label });
+    button.focus();
+    expect(button).toHaveFocus();
+    fireEvent.click(button);
     expect(screen.getByTestId("location")).toHaveTextContent("/subscription");
   });
 
@@ -155,15 +162,14 @@ describe("USER-A1 preserved navigation contracts", () => {
     state.plan.subscription = null;
     setup(<SideNavigation />);
     expect(screen.queryByText("Mặc định")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Chưa xác định gói")).toHaveLength(2);
+    expect(screen.getAllByText("Chưa xác định gói")).toHaveLength(1);
   });
 
   it("preserves Demo plan, profile and avatar fallback", () => {
     state.auth = { ...state.auth, user: null, isDemo: true };
     state.plan.subscription = null;
     setup(<SideNavigation />);
-    expect(screen.getByText("Demo")).toBeInTheDocument();
-    expect(screen.getByText("Đăng ký để sử dụng đầy đủ")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nâng cấp" })).toBeInTheDocument();
     const profile = screen.getByRole("button", { name: "Khách Phiên Demo" });
     expect(within(profile).getByText("K")).toBeInTheDocument();
     profile.focus();
@@ -180,7 +186,7 @@ describe("USER-A1 preserved navigation contracts", () => {
     setup(<SideNavigation />);
     expect(screen.getByRole("button", { name: `${name} ${plan}` })).toBeInTheDocument();
     expect(screen.getByText(name)).toHaveAttribute("title", name);
-    expect(screen.getAllByText(plan)).toHaveLength(2);
+    expect(screen.getAllByText(plan)).toHaveLength(1);
     expect(screen.getByAltText("LocalMate AI").getAttribute("src")).toContain("logo.jpg");
   });
 
@@ -204,7 +210,7 @@ describe("USER-A1 shared presentation contracts", () => {
   it("preserves full long header title and existing child actions and handlers", () => {
     const title = "Khám phá thành phố Hồ Chí Minh theo nhịp Metro với hành trình rất dài";
     const action = vi.fn();
-    render(<PageHeader title={title}><div><input aria-label="Tìm kiếm" /></div><button onClick={action}>Làm mới</button></PageHeader>);
+    render(<MemoryRouter><PageHeader title={title}><div><input aria-label="Tìm kiếm" /></div><button onClick={action}>Làm mới</button></PageHeader></MemoryRouter>);
     expect(screen.getByRole("heading", { name: title, level: 1 })).toHaveAttribute("title", title);
     expect(screen.getByRole("textbox", { name: "Tìm kiếm" })).toBeInTheDocument();
     const button = screen.getByRole("button", { name: "Làm mới" });
@@ -215,7 +221,7 @@ describe("USER-A1 shared presentation contracts", () => {
   });
 
   it("preserves non-string header titles and child-free rendering", () => {
-    render(<PageHeader title={<span>Ga Metro</span>} />);
+    render(<MemoryRouter><PageHeader title={<span>Ga Metro</span>} /></MemoryRouter>);
     expect(screen.getByRole("heading", { name: "Ga Metro" })).toBeInTheDocument();
   });
 

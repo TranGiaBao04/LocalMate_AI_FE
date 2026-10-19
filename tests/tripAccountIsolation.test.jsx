@@ -8,6 +8,9 @@ import SavedTripDetailPage from "../src/pages/trip/SavedTripDetailPage";
 import { mapMyTrip, mapTrip } from "../src/utils/tripMapper";
 import { STORAGE_KEYS } from "../src/constants";
 
+// Nhãn gói trên PageHeader cần SubscriptionProvider, các test ở đây không kiểm tra gói
+vi.mock("../src/components/layout/PlanStatusChip", () => ({ default: () => null }));
+
 const mock = vi.hoisted(() => ({ auth: null, refresh: vi.fn(), service: {
   getTrips: vi.fn(), getTripById: vi.fn(), generateTrip: vi.fn(), explainTrip: vi.fn(),
   saveTrip: vi.fn(), deleteTrip: vi.fn(), finalizeTrip: vi.fn(), replaceItem: vi.fn(),

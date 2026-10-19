@@ -80,7 +80,7 @@ describe("A9 honest shared navigation", () => {
     state.trip.savedTrips = []; state.subscription.subscription = { plan: "FuturePlan" };
     mount(<SideNavigation />);
     expect(screen.getByRole("button", { name: "Lịch trình 0 đã lưu" })).toBeInTheDocument();
-    expect(screen.getAllByText("FuturePlan")).toHaveLength(2);
+    expect(screen.getAllByText("FuturePlan")).toHaveLength(1);
   });
 });
 
