@@ -29,4 +29,11 @@ export const adminFeedbackService = {
   // Dòng: { id, tripId, tripDeleted, quickTag, comment, createdAt, user }. sortBy: chỉ createdAt
   getTripFeedback: (params = {}) =>
     adminApiClient.get(`/admin/feedback${toQuery(params, [...LIST_PARAMS, "quickTag"])}`),
+
+  // Dòng: { id, type, typeName, rating, content, pagePath, userAgent, createdAt, user: { userId, fullName, email } }
+  // sortBy: createdAt | rating; type: 1..4; rating: 1..5
+  getAppFeedback: (params = {}) =>
+    adminApiClient.get(`/admin/app-feedback${toQuery(params, [...LIST_PARAMS, "type", "rating"])}`),
+  listAppFeedback: (params = {}) =>
+    adminApiClient.get(`/admin/app-feedback${toQuery(params, [...LIST_PARAMS, "type", "rating"])}`),
 };

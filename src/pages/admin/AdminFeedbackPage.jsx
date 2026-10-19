@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import AdminPageHeader from "../../components/admin/AdminPageHeader";
+import AppFeedbackList from "../../components/admin/feedback/AppFeedbackList";
 import FeedbackList from "../../components/admin/feedback/FeedbackList";
 import FeedbackSummary from "../../components/admin/feedback/FeedbackSummary";
 import { masterDataService } from "../../services/masterDataService";
@@ -8,6 +9,7 @@ const TABS = [
   { key: "summary", label: "Thống kê" },
   { key: "reviews", label: "Đánh giá địa điểm" },
   { key: "tripFeedback", label: "Feedback chuyến đi" },
+  { key: "appFeedback", label: "Góp ý về app" },
 ];
 
 // [{ code, label }] -> { code: label }, giữ thứ tự BE trả
@@ -48,7 +50,7 @@ export default function AdminFeedbackPage() {
       <AdminPageHeader
         eyebrow="Người dùng & Phân quyền"
         title="Phản hồi & đánh giá"
-        description="Xem đánh giá địa điểm và feedback chuyến đi người dùng đã gửi. Trang này chỉ để xem, chưa có thao tác ẩn hay xoá."
+        description="Xem đánh giá địa điểm, feedback chuyến đi và góp ý về ứng dụng người dùng đã gửi. Trang này chỉ để xem, chưa có thao tác ẩn hay xoá."
       />
 
       <div role="tablist" aria-label="Phản hồi & đánh giá" className="flex flex-wrap gap-1 border-b border-[#DCE2EE]">
@@ -80,6 +82,7 @@ export default function AdminFeedbackPage() {
       )}
       {tab === "reviews" && <FeedbackList kind="reviews" tagLabels={tagLabels.review} preset={reviewPreset} />}
       {tab === "tripFeedback" && <FeedbackList kind="tripFeedback" tagLabels={tagLabels.feedback} />}
+      {tab === "appFeedback" && <AppFeedbackList />}
       </div>
     </div>
   );
