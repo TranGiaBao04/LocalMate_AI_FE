@@ -1,4 +1,4 @@
-import { PLAN_CODES, PLAN_DISPLAY_NAMES, formatPlanPrice } from "../../utils/subscriptionUtils";
+import { PLAN_CODES, formatPlanPrice } from "../../utils/subscriptionUtils";
 
 export default function PlanCard({
   plan,
@@ -11,7 +11,7 @@ export default function PlanCard({
 }) {
   const planCode = plan?.code;
   const isCurrentPlan = Boolean(currentPlanCode && currentPlanCode === planCode);
-  const displayName = plan?.name || PLAN_DISPLAY_NAMES[planCode] || planCode;
+  const displayName = plan?.name || planCode;
   const isMembership = planCode === PLAN_CODES.MEMBERSHIP;
   const isTripPass = planCode === PLAN_CODES.TRIP_PASS;
   const isFree =

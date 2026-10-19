@@ -4,42 +4,6 @@ export const PLAN_CODES = {
   MEMBERSHIP: "Membership",
 };
 
-export const PLAN_DISPLAY_NAMES = {
-  [PLAN_CODES.FREE]: "Free",
-  [PLAN_CODES.TRIP_PASS]: "Trip Pass",
-  [PLAN_CODES.MEMBERSHIP]: "Membership",
-};
-
-/**
- * Gói cước tĩnh dự phòng (Static Fallback).
- * LƯU Ý QUAN TRỌNG:
- * Backend `/api/subscriptions/plans` là nguồn chân lý (authoritative source) duy nhất cho giao diện giao dịch / thanh toán.
- * FALLBACK_PLANS chỉ được sử dụng cho mục đích hiển thị marketing tĩnh (như WelcomePage) khi người dùng chưa đăng nhập.
- */
-export const FALLBACK_PLANS = [
-  {
-    code: PLAN_CODES.FREE,
-    price: 0,
-    durationDays: null,
-    generateLimit: 1,
-    savedTripLimit: 1,
-  },
-  {
-    code: PLAN_CODES.TRIP_PASS,
-    price: 19000,
-    durationDays: 7,
-    generateLimit: null,
-    savedTripLimit: 3,
-  },
-  {
-    code: PLAN_CODES.MEMBERSHIP,
-    price: 59000,
-    durationDays: 30,
-    generateLimit: null,
-    savedTripLimit: null,
-  },
-];
-
 const VN_TZ = "Asia/Ho_Chi_Minh";
 
 /**
@@ -169,14 +133,18 @@ export function isGenerateQuotaExhausted(sub, now = Date.now()) {
 }
 
 /**
- * Resolves a presentation-safe display name for a plan code.
- * Preferred order: catalog name -> known display name mapping -> raw plan code.
+ * Tên gói lấy từ danh sách gói (/subscription/plans). Danh sách chưa tải xong thì dùng mã gói.
+ * Tên có thể đổi bất cứ lúc nào, mọi so sánh phải dùng mã gói.
  */
 export function getPlanDisplayName(planCode, catalogPlans = []) {
   if (!planCode) return "";
   const catalogPlan = Array.isArray(catalogPlans)
     ? catalogPlans.find((p) => p.code === planCode)
     : null;
-  if (catalogPlan?.name) return catalogPlan.name;
-  return PLAN_DISPLAY_NAMES[planCode] || planCode;
+  return catalogPlan?.name || planCode;
+}
+
+/** Gói của chính user: dùng planName từ /subscription/me, thiếu thì tra danh sách gói. */
+export function getSubscriptionPlanName(subscription, catalogPlans = []) {
+  return subscription?.planName || getPlanDisplayName(subscription?.plan, catalogPlans);
 }

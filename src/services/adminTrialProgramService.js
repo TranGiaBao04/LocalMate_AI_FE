@@ -1,6 +1,6 @@
 import { adminApiClient } from "../api/adminApiClient";
 
-// Chương trình dùng thử khi đăng ký (quyền ManagePlans). Gói dùng thử luôn là Trip Pass.
+// Chương trình dùng thử khi đăng ký (quyền ManagePlans). Gói dùng thử luôn là gói mã TripPass (tên lấy từ danh sách gói).
 // Dòng: { id, name, startsOn, endsOn (yyyy-MM-dd theo lịch VN), trialDays, maxRecipients (null = không giới hạn),
 //   isEnabled, status: Disabled|Ended|Upcoming|Full|Running, grantedCount, remaining, createdAt, updatedAt }
 // Lỗi: 400 invalid_trial_program (errors.Name/StartsOn/EndsOn/TrialDays/MaxRecipients/IsEnabled),

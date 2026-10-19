@@ -4,7 +4,7 @@ import {
   isPaidSubscription,
   isFreeSubscription,
   isTrialSubscription,
-  getPlanDisplayName,
+  getSubscriptionPlanName,
   getAiQuota,
 } from "../../utils/subscriptionUtils";
 
@@ -48,8 +48,7 @@ export default function SubscriptionSummary({ subscription, loading, onRenew, pl
     );
   }
 
-  const currentPlan = subscription.plan;
-  const planDisplayName = getPlanDisplayName(currentPlan, plans);
+  const planDisplayName = getSubscriptionPlanName(subscription, plans);
 
   const effectiveUntilFormatted = subscription.effectiveUntil
     ? formatVnDateTime(subscription.effectiveUntil)

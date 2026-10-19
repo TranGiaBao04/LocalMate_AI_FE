@@ -462,7 +462,12 @@ describe("FE-UP3: Server-Authoritative Payment Lifecycle", () => {
   // P11: another_pending_order same lifecycle rule
   // ==========================================================================
   it("P11: another_pending_order same lifecycle rule", async () => {
-    mockContexts();
+    mockContexts({
+      plans: [
+        { code: "Membership", price: 59000, durationDays: 30 },
+        { code: "TripPass", name: "Trip Pass", price: 19000, durationDays: 7 },
+      ],
+    });
     vi.spyOn(subscriptionService, "getCheckoutQuote").mockResolvedValue({
       planCode: "Membership",
       type: "Purchase",
@@ -505,7 +510,7 @@ describe("FE-UP3: Server-Authoritative Payment Lifecycle", () => {
 
     await waitFor(() => {
       expect(getOrderSpy).toHaveBeenCalledWith("another-order-p11");
-      // Displays the actual owned planCode from server order (TripPass)
+      // Displays the name (from plan list) of the actual owned planCode from server order (TripPass)
       expect(screen.getByText(/Thanh toán Trip Pass/i)).toBeInTheDocument();
     });
   });

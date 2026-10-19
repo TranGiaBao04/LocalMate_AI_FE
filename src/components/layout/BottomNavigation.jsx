@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTrip } from "../../context/TripContext";
 import { useSubscription } from "../../context/SubscriptionContext";
-import { PLAN_CODES, PLAN_DISPLAY_NAMES } from "../../utils/subscriptionUtils";
+import { PLAN_CODES, getSubscriptionPlanName } from "../../utils/subscriptionUtils";
 import { canAccessAdmin } from "../../utils/adminAccess";
 import { goHomeOrScrollTop } from "../../utils/scrollToTop";
 import logo from "../../assets/logo.jpg";
@@ -90,7 +90,7 @@ export function SideNavigation() {
   const { pathname } = useLocation();
   const { user, isDemo } = useAuth();
   const { savedTrips, tripsLoading, tripsLoaded, tripsError } = useTrip();
-  const { subscription, subscriptionLoading } = useSubscription();
+  const { subscription, subscriptionLoading, plans } = useSubscription();
 
   const navItems = NAV_ITEMS.map((item) => ({
     ...item,
@@ -102,7 +102,7 @@ export function SideNavigation() {
   const initial = displayName.charAt(0).toUpperCase();
 
   const currentPlan = subscription?.plan;
-  const planDisplayName = PLAN_DISPLAY_NAMES[currentPlan] || currentPlan ||
+  const planDisplayName = getSubscriptionPlanName(subscription, plans) ||
     (subscriptionLoading ? "Đang tải gói..." : "Chưa xác định gói");
   const isPaid = currentPlan === PLAN_CODES.TRIP_PASS || currentPlan === PLAN_CODES.MEMBERSHIP;
 

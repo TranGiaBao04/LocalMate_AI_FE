@@ -674,6 +674,7 @@ function SubscriptionPageSession() {
         confirmLoading={actionLoading}
         onRenew={handleRenewFromQuote}
         trialUntil={isTrial ? subscription.effectiveUntil : null}
+        plans={plans}
       />
 
       {/* Payment Checkout & QR Modal */}
@@ -684,6 +685,7 @@ function SubscriptionPageSession() {
         paymentIntent={paymentIntent}
         onSuccess={handlePaymentSuccess}
         onRetryPayment={handleRetryPayment}
+        plans={plans}
       />
     </div>
   );

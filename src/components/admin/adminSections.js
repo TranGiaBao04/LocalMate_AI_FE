@@ -66,7 +66,7 @@ export const ADMIN_SECTIONS = [
     group: "Gói cước & Doanh thu",
     icon: "redeem",
     permissions: [P.MANAGE_PLANS],
-    description: "Tặng Trip Pass dùng thử cho tài khoản đăng ký trong khoảng ngày đã chọn.",
+    description: "Tặng gói dùng thử cho tài khoản đăng ký trong khoảng ngày đã chọn.",
     tone: "bg-lime-50 text-lime-700",
   },
   {

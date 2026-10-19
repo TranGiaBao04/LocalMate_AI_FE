@@ -4,7 +4,7 @@ import { subscriptionService } from "../../services/subscriptionService";
 import { itineraryPurchaseService, singleOrderState } from "../../services/itineraryPurchaseService";
 import { useAuth } from "../../context/AuthContext";
 import { useSubscription } from "../../context/SubscriptionContext";
-import { PLAN_DISPLAY_NAMES } from "../../utils/subscriptionUtils";
+import { getPlanDisplayName } from "../../utils/subscriptionUtils";
 import {
   getSinglePaymentReturnIntent,
   openSinglePaymentCheckout,
@@ -97,7 +97,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const { refreshSubscription } = useSubscription();
+  const { refreshSubscription, plans } = useSubscription();
 
   const searchOrderId = searchParams.get("orderId");
   const checkoutOrderId = searchParams.get("singleCheckout");
@@ -203,7 +203,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
   };
 
   const planDisplayName =
-    PLAN_DISPLAY_NAMES[order?.planCode] || order?.planCode || "Gói dịch vụ";
+    getPlanDisplayName(order?.planCode, plans) || "Gói dịch vụ";
   const isSingleFlow = flow === "single";
 
   if (isSingleFlow) return <SinglePaymentReturn

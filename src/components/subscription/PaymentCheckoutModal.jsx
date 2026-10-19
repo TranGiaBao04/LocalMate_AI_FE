@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useState, useRef, useCallback } from "react";
 import QRCode from "react-qr-code";
 import { subscriptionService } from "../../services/subscriptionService";
-import { PLAN_DISPLAY_NAMES, formatPlanPrice } from "../../utils/subscriptionUtils";
+import { getPlanDisplayName, formatPlanPrice } from "../../utils/subscriptionUtils";
 import { PAYMENT_ORDER_STATUS } from "../../utils/subscriptionUpgradeContract";
 
 const POLLING_INTERVAL_MS = 3000;
@@ -13,6 +13,7 @@ export default function PaymentCheckoutModal({
   onSuccess,
   onRetryPayment,
   onRetryCheckout,
+  plans = [],
 }) {
   const [orderStatus, setOrderStatus] = useState(() => paymentIntent?.status ?? "unknown");
   const [secondsLeft, setSecondsLeft] = useState(() => {
@@ -39,7 +40,7 @@ export default function PaymentCheckoutModal({
   const expiresAt = paymentIntent?.expiresAt;
   const planCode = paymentIntent?.planCode;
   const ownerId = paymentIntent?.ownerId;
-  const planDisplayName = PLAN_DISPLAY_NAMES[planCode] || planCode || "Gói cước";
+  const planDisplayName = getPlanDisplayName(planCode, plans) || "Gói cước";
   const lastOrderIdRef = useRef(orderId);
   const lastOwnerIdRef = useRef(ownerId);
 

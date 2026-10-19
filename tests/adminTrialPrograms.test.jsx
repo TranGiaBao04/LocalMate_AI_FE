@@ -122,11 +122,27 @@ describe("Form tạo/sửa", () => {
     expect(within(dialog).getByText(/Mỗi người dùng thử có 15 lượt AI mỗi ngày \(Free: 3\)/)).toBeInTheDocument();
   });
 
+  it("tên gói dùng thử và gói miễn phí lấy từ /admin/plans (admin đổi tên thì đổi theo)", async () => {
+    mocks.plans.getPlans.mockResolvedValue({
+      items: [
+        { id: "f", code: "FREE", name: "Cơ bản", currentVersion: { aiDailyCallLimit: 3 } },
+        { id: "t", code: "TRIP_PASS", name: "Gói Tuần", currentVersion: { aiDailyCallLimit: 15 } },
+      ],
+    });
+    await mount();
+    expect(await screen.findByText(/được dùng thử gói Gói Tuần\./)).toBeInTheDocument();
+    const dialog = await openCreate();
+    expect(within(dialog).getByText("Gói Tuần")).toBeInTheDocument();
+    expect(within(dialog).getByText(/15 lượt AI mỗi ngày \(Cơ bản: 3\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/Trip Pass/)).not.toBeInTheDocument();
+  });
+
   it("không tải được gói thì dòng nhắc dùng câu chung", async () => {
     mocks.plans.getPlans.mockRejectedValue(new Error("x"));
     await mount();
     const dialog = await openCreate();
-    expect(within(dialog).getByText(/Người dùng thử có nhiều lượt AI hơn gói Free/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Người dùng thử có nhiều lượt AI hơn gói miễn phí/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/được nhận gói dùng thử/)).toBeInTheDocument();
   });
 
   it("chặn ngày kết thúc trước ngày bắt đầu và chương trình đang bật đã qua ngày kết thúc", async () => {

@@ -5,7 +5,7 @@ import App from "../src/App";
 import BottomNavigation, { NavigationItem, SideNavigation } from "../src/components/layout/BottomNavigation";
 import PageHeader from "../src/components/layout/PageHeader";
 import MobileLayout from "../src/components/layout/MobileLayout";
-import { PLAN_CODES, PLAN_DISPLAY_NAMES } from "../src/utils/subscriptionUtils";
+import { PLAN_CODES } from "../src/utils/subscriptionUtils";
 
 const state = vi.hoisted(() => ({ auth: {}, trip: {}, plan: {} }));
 vi.mock("../src/context/AuthContext", () => ({ useAuth: () => state.auth }));
@@ -141,10 +141,10 @@ describe("USER-A1 preserved navigation contracts", () => {
   });
 
   it.each([PLAN_CODES.FREE, PLAN_CODES.TRIP_PASS, PLAN_CODES.MEMBERSHIP])("retains server plan presentation and navigation: %s", (plan) => {
-    state.plan.subscription = { plan };
+    state.plan.subscription = { plan, planName: `Tên mới ${plan}` };
     setup(<SideNavigation />);
     const badge = plan === PLAN_CODES.FREE ? "Mặc định" : "Đang dùng";
-    const panel = screen.getByRole("button", { name: new RegExp(`${PLAN_DISPLAY_NAMES[plan]} ${badge}`) });
+    const panel = screen.getByRole("button", { name: new RegExp(`Tên mới ${plan} ${badge}`) });
     panel.focus();
     expect(panel).toHaveFocus();
     fireEvent.click(panel);
