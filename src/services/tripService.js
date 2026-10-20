@@ -87,25 +87,9 @@ export const tripService = {
     await apiClient.post("/trips/save", { tripId });
     return getTripById(tripId);
   },
-  finalizeTrip: async (tripId, funding = null) => {
-    const input = funding == null
-      ? { fundingSource: "Normal" }
-      : typeof funding === "string" ? { fundingSource: funding } : funding;
-    if (!input || typeof input !== "object" || Array.isArray(input)) {
-      throw new TypeError("Nguồn chốt lịch trình không hợp lệ.");
-    }
-    let body;
-    if (input.fundingSource === "Normal" && !("entitlementId" in input)) {
-      body = { fundingSource: "Normal" };
-    } else if (input.fundingSource === "SingleEntitlement" &&
-      typeof input.entitlementId === "string" &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.entitlementId) &&
-      input.entitlementId !== "00000000-0000-0000-0000-000000000000") {
-      body = { fundingSource: "SingleEntitlement", entitlementId: input.entitlementId };
-    } else {
-      throw new TypeError("Cần chọn rõ Normal hoặc SingleEntitlement cùng quyền hợp lệ.");
-    }
-    await apiClient.post(`/trips/${tripId}/finalize`, body);
+  // Chốt theo lượt lưu của gói, không gửi body (BE mặc định chốt thường)
+  finalizeTrip: async (tripId) => {
+    await apiClient.post(`/trips/${tripId}/finalize`);
     return getTripById(tripId);
   },
   deleteTrip: (tripId) => apiClient.delete(`/trips/${tripId}`),

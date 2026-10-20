@@ -528,7 +528,7 @@ function UserDetail({ userId }) {
         </section>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <StatCard
           label="Chuyến đi"
           value={stats.tripCount ?? 0}
@@ -542,12 +542,6 @@ function UserDetail({ userId }) {
           hint={`${stats.paidOrderCount ?? 0} đơn thành công, chưa trừ hoàn tiền`}
           icon="payments"
           tone="bg-emerald-50 text-emerald-700"
-        />
-        <StatCard
-          label="Lượt mua lẻ chưa dùng"
-          value={stats.unusedSingleItineraryCount ?? 0}
-          icon="confirmation_number"
-          tone="bg-amber-50 text-amber-700"
         />
       </div>
 

@@ -46,7 +46,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-10-08T03:07:00Z"));
   demo = false;
   context = { request: null, setRequest: vi.fn(), generateTrip: vi.fn().mockResolvedValue({ id: "new-trip" }), setCurrentTrip: vi.fn(), noteAiError: vi.fn() };
-  vi.spyOn(Auth, "useAuth").mockImplementation(() => ({ isDemo: demo }));
+  vi.spyOn(Auth, "useAuth").mockImplementation(() => ({ isDemo: demo, isLoggedIn: true }));
   vi.spyOn(Trip, "useTrip").mockImplementation(() => context);
   plan = { subscription: null, refreshSubscription: vi.fn().mockResolvedValue(null) };
   vi.spyOn(Subscription, "useSubscription").mockImplementation(() => plan);
@@ -250,8 +250,10 @@ describe("USER-A4.2 preferences, feasibility, generation and prefill", () => {
   });
   it("displays original server quota/reset data and preserves subscription route", async () => {
     await mount({ error: "Hết lượt", errorCode: "generate_quota_exceeded", quotaMetadata: { limit: 3, used: 3, resetAt: "2026-11-01T00:00:00Z" } });
-    expect(screen.getByRole("alert")).toHaveTextContent("3 / 3 lượt"); expect(screen.getByRole("alert")).toHaveTextContent(/07:00/);
-    await click("Nâng cấp gói dịch vụ"); expect(navigation).toHaveBeenCalledWith("/subscription");
+    // Gói chưa tải lại kịp thì ngày cấp lại lấy từ lỗi của BE
+    const hint = screen.getByRole("region", { name: "Muốn tạo thêm phương án cho chuyến đi?" });
+    expect(hint).toHaveTextContent("Hoặc chờ đến 01/11/2026 để có lượt tạo lịch mới.");
+    await click("Xem các gói"); expect(navigation).toHaveBeenCalledWith("/subscription");
     expect(context.generateTrip).not.toHaveBeenCalled();
   });
   it("preserves generate-error corrective actions and retry overrides", async () => {
@@ -391,9 +393,11 @@ describe("generate quota and daily AI quota from the current plan", () => {
   it("warns up front and locks the AI box when generate quota is used up", async () => {
     plan.subscription = usedUp;
     await mount();
-    const notice = screen.getByRole("alert");
-    expect(notice).toHaveTextContent("Bạn đã dùng hết lượt tạo lịch trình của gói hiện tại.");
-    expect(notice).toHaveTextContent("1 / 1 lượt");
+    const notice = screen.getByRole("region", { name: "Muốn tạo thêm phương án cho chuyến đi?" });
+    expect(notice).toHaveTextContent("Bạn đã dùng 1/1 lượt tạo lịch tháng này.");
+    expect(notice).toHaveTextContent("Hoặc chờ đến 01/11/2026 để có thêm 1 lịch miễn phí.");
+    // Một lời nhắc mỗi màn hình: dòng "còn lượt" và lời nhắc AI không hiện kèm
+    expect(screen.queryByText(/lịch miễn phí tháng này/)).not.toBeInTheDocument();
     const box = screen.getByRole("textbox", { name: /Kể cho LocalMate/ });
     expect(box).toBeDisabled();
     expect(box).toHaveAccessibleDescription("Bạn đã hết lượt tạo lịch trình nên ô này tạm khoá.");

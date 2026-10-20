@@ -386,9 +386,7 @@ function TransactionDetailContent({
                   <div>
                     <span className="text-xs text-[#5C6B8A]">Sản phẩm:</span>
                     <p className="font-semibold text-[#0F2148]">
-                      {transaction.productKind === "SingleItinerary"
-                        ? "Lịch trình đơn lẻ"
-                        : transaction.planName || transaction.planCode || "Gói đăng ký"}
+                      {transaction.planName || transaction.planCode || "Gói đăng ký"}
                     </p>
                   </div>
                   <div>

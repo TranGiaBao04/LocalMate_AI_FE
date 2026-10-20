@@ -8,14 +8,16 @@ import { masterDataService } from "../../services/masterDataService";
 import { placeService } from "../../services/placeService";
 import { tripService, toTripRequestDto } from "../../services/tripService";
 import TripRequestAssistant from "../../components/trip/TripRequestAssistant";
+import UpgradeHint from "../../components/subscription/UpgradeHint";
 // Đồng hồ cập nhật định kỳ để chip buổi/thời lượng tự khoá khi đã qua giờ
 import { useClock } from "../../hooks/useClock";
 import { useAiCooldown } from "../../hooks/useAiCooldown";
 import { formatCurrency, formatDistance } from "../../utils/formatCurrency";
 import {
-  formatVnDateTime,
+  PLAN_CODES,
   getAiQuota,
   isGenerateQuotaExhausted,
+  isTrialSubscription,
 } from "../../utils/subscriptionUtils";
 import {
   DAY_MINUTES,
@@ -269,61 +271,6 @@ function TripIssue({ issue, travelMode, busy, onFix, onGoToStep }) {
   );
 }
 
-// Báo hết lượt tạo lịch trình: ở đầu trang (biết trước từ gói) và ở bước cuối (BE từ chối).
-function GenerateQuotaNotice({ message, description, used, limit, resetAt, onUpgrade, onExplore }) {
-  return (
-    <div
-      role="alert"
-      className="space-y-4 rounded-[8px] border border-error/20 bg-error-container/20 p-4 sm:p-5"
-    >
-      <div className="flex items-start gap-2">
-        <span aria-hidden="true" className="material-symbols-outlined text-error text-[20px] shrink-0 mt-0.5">
-          lock
-        </span>
-        <div className="min-w-0 space-y-2 break-words">
-          <p className="font-semibold text-body-md text-error">{message}</p>
-          <p className="text-body-sm text-on-surface-variant">{description}</p>
-        </div>
-      </div>
-
-      {(limit != null || resetAt) && (
-        <div className="space-y-2 rounded-[8px] border border-border-soft bg-white p-3 text-body-md">
-          {limit != null && (
-            <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-on-surface">
-              <span>Đã sử dụng:</span>
-              <span className="font-semibold">
-                {used ?? limit} / {limit} lượt
-              </span>
-            </div>
-          )}
-          {resetAt && (
-            <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-on-surface-variant">
-              <span>Làm mới vào:</span>
-              <span className="font-medium">{formatVnDateTime(resetAt)}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={onUpgrade}
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[8px] bg-primary px-4 py-3 text-body-md font-semibold text-on-primary transition-colors hover:bg-primary/90 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      >
-        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">workspace_premium</span>
-        Nâng cấp gói dịch vụ
-      </button>
-      <button
-        type="button"
-        onClick={onExplore}
-        className="min-h-11 rounded-[8px] px-1 text-body-md font-semibold text-primary underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      >
-        Xem lịch trình mẫu
-      </button>
-    </div>
-  );
-}
-
 export default function CreateTripPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -333,6 +280,26 @@ export default function CreateTripPage() {
   const { subscription, refreshSubscription } = useSubscription();
   const aiQuota = getAiQuota(subscription);
   const generateExhausted = !isDemo && isGenerateQuotaExhausted(subscription);
+  const aiExhausted = aiQuota?.remaining === 0;
+  // Dòng nhắc nhẹ ở bước 1: chỉ gói Miễn phí (không tính dùng thử) còn lượt tạo lịch
+  const freeGenerateLeft =
+    !isDemo &&
+    subscription?.plan === PLAN_CODES.FREE &&
+    !isTrialSubscription(subscription) &&
+    !generateExhausted &&
+    typeof subscription?.usage?.generateLimit === "number"
+      ? `${Math.max(0, subscription.usage.generateLimit - (subscription.usage.generateUsed ?? 0))}/${subscription.usage.generateLimit}`
+      : null;
+  // Nút phụ của thẻ hết lượt tạo lịch: áp dụng lịch mẫu không tính lượt
+  const exploreButton = (
+    <button
+      type="button"
+      onClick={() => navigate("/explore")}
+      className="min-h-11 rounded-[8px] border border-border-soft px-4 py-2.5 text-body-md font-semibold text-primary transition-colors hover:bg-primary/5 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      Xem lịch trình mẫu
+    </button>
+  );
 
   // Gói trong context chỉ tải lúc đăng nhập: tải lại khi mở trang để biết đúng số lượt còn lại
   useEffect(() => {
@@ -774,15 +741,7 @@ export default function CreateTripPage() {
       <main className="content-shell !mx-auto !max-w-[900px] min-w-0 flex-1 px-4 pb-32 pt-24 sm:px-6 lg:px-8">
         {generateExhausted && generateErrorCode !== "generate_quota_exceeded" && (
           <div className="mb-6">
-            <GenerateQuotaNotice
-              message="Bạn đã dùng hết lượt tạo lịch trình của gói hiện tại."
-              description="Lượt này chỉ tính cho lịch tạo theo yêu cầu. Bạn vẫn có thể bắt đầu từ một lịch trình mẫu, hoặc nâng cấp gói để tạo thêm."
-              used={subscription.usage.generateUsed}
-              limit={subscription.usage.generateLimit}
-              resetAt={subscription.usage.resetAt}
-              onUpgrade={() => navigate("/subscription")}
-              onExplore={() => navigate("/explore")}
-            />
+            <UpgradeHint reason="generate" resetAt={subscription.usage.resetAt}>{exploreButton}</UpgradeHint>
           </div>
         )}
         <ol aria-label="Các bước tạo lịch trình" className="mb-8 grid grid-cols-4 gap-2 border-b border-border-soft pb-5">
@@ -795,6 +754,12 @@ export default function CreateTripPage() {
         </ol>
         {step === 0 && (
           <div className="space-y-stack-lg">
+            {freeGenerateLeft && (
+              <p className="flex items-center gap-1.5 text-[13px] leading-5 text-text-muted">
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">info</span>
+                Bạn còn {freeGenerateLeft} lịch miễn phí tháng này.
+              </p>
+            )}
             {!isDemo && (
               <div className="space-y-stack-sm">
                 <TripRequestAssistant
@@ -809,6 +774,8 @@ export default function CreateTripPage() {
                     refreshSubscription();
                   }}
                   blockedReason={generateExhausted ? "Bạn đã hết lượt tạo lịch trình nên ô này tạm khoá." : ""}
+                  // Đã có thẻ hết lượt tạo lịch ở đầu trang thì không nhắc thêm (mỗi màn hình một lời nhắc)
+                  hint={!generateExhausted && aiExhausted ? <UpgradeHint reason="ai" variant="inline" /> : null}
                 />
                 {aiFilled.length > 0 && (
                   <div
@@ -1217,15 +1184,9 @@ export default function CreateTripPage() {
             {generateError && (
               generateErrorCode === "generate_quota_exceeded" ? (
                 <div className="mt-4">
-                  <GenerateQuotaNotice
-                    message={generateError}
-                    description="Nâng cấp gói dịch vụ để tiếp tục tạo các hành trình khám phá không giới hạn."
-                    used={quotaMetadata?.used}
-                    limit={quotaMetadata?.limit}
-                    resetAt={quotaMetadata?.resetAt}
-                    onUpgrade={() => navigate("/subscription")}
-                    onExplore={() => navigate("/explore")}
-                  />
+                  <UpgradeHint reason="generate" resetAt={subscription?.usage?.resetAt ?? quotaMetadata?.resetAt}>
+                    {exploreButton}
+                  </UpgradeHint>
                 </div>
               ) : (
                 <div className="mt-stack-md">

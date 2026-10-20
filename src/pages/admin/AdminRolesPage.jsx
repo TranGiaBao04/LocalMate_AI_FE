@@ -154,7 +154,7 @@ export default function AdminRolesPage() {
       <NoticeBanner notice={notice} onClose={() => setNotice(null)} />
 
       {response.error && !loading && <AdminErrorState message={response.error} onRetry={reload} />}
-      <div className="hidden md:block [&_table]:min-w-[900px]">
+      <div className="hidden md:block [&_table]:w-full [&_table]:min-w-[900px]">
         <DataTable columns={columns} rows={response.roles} loading={response.key === null} emptyState={{ icon: "admin_panel_settings", title: "Chưa có role nào" }} />
       </div>
       <div aria-label="Danh sách role trên di động" className="space-y-3 md:hidden">

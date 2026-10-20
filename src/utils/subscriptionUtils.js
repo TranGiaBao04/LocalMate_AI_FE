@@ -148,3 +148,48 @@ export function getPlanDisplayName(planCode, catalogPlans = []) {
 export function getSubscriptionPlanName(subscription, catalogPlans = []) {
   return subscription?.planName || getPlanDisplayName(subscription?.plan, catalogPlans);
 }
+
+const UPGRADE_LIMITS = {
+  generate: { planField: "generateLimit", current: (sub) => sub?.usage?.generateLimit },
+  savedTrips: { planField: "savedTripLimit", current: (sub) => sub?.savedTrips?.limit },
+  ai: { planField: "aiDailyCallLimit", current: (sub) => sub?.ai?.dailyLimit },
+};
+
+// Giới hạn của gói có rộng hơn giới hạn đang dùng không. null là không giới hạn,
+// riêng AI null là "chưa đặt riêng cho gói" (dùng số ở Cấu hình hệ thống) nên không tính là rộng hơn
+function isLimitBetter(reason, planLimit, currentLimit) {
+  if (planLimit == null) return reason !== "ai";
+  return typeof currentLimit === "number" && planLimit > currentLimit;
+}
+
+/**
+ * Gói nên gợi ý khi người dùng chạm giới hạn `reason` ("generate" | "savedTrips" | "ai"), rẻ trước.
+ * Gói cao hơn = giá cao hơn gói đang dùng; người đang dùng thử chưa mua gói nào nên thấy mọi gói trả phí.
+ * Chỉ giữ gói mở rộng đúng giới hạn đang chạm.
+ */
+export function getUpgradeOptions(reason, subscription, plans = []) {
+  const limit = UPGRADE_LIMITS[reason];
+  if (!limit || !subscription || !Array.isArray(plans)) return [];
+  const currentPrice = isTrialSubscription(subscription)
+    ? 0
+    : plans.find((p) => p.code === subscription.plan)?.price ?? 0;
+  return plans
+    .filter((p) => typeof p.price === "number" && p.price > currentPrice)
+    .filter((p) => isLimitBetter(reason, p[limit.planField], limit.current(subscription)))
+    .sort((a, b) => a.price - b.price);
+}
+
+/**
+ * % rẻ hơn mỗi ngày so với gói trả phí rẻ nhất có thời hạn, tính từ price/durationDays (không gắn cứng số gói).
+ * Không rẻ hơn hoặc thiếu số thì trả null.
+ */
+export function getPerDaySaving(plan, plans = []) {
+  const perDay = (p) => (p?.price > 0 && p?.durationDays > 0 ? p.price / p.durationDays : null);
+  const own = perDay(plan);
+  const base = (Array.isArray(plans) ? plans : [])
+    .filter((p) => p.code !== plan?.code && perDay(p) != null)
+    .sort((a, b) => a.price - b.price)[0];
+  if (own == null || !base) return null;
+  const percent = Math.round((1 - own / perDay(base)) * 100);
+  return percent >= 1 ? { percent, baseName: base.name || base.code } : null;
+}

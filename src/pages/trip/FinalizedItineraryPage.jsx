@@ -1,15 +1,43 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTrip } from "../../context/TripContext";
 import { useAuth } from "../../context/AuthContext";
+import { useSubscription } from "../../context/SubscriptionContext";
+import UpgradeHint from "../../components/subscription/UpgradeHint";
+import { PLAN_CODES, isTrialSubscription } from "../../utils/subscriptionUtils";
 import { formatCurrencyShort, formatDuration } from "../../utils/formatCurrency";
 import { buildDirectionsUrl } from "../../utils/googleMaps";
-import { formatClock } from "../../utils/vnTime";
+import { formatClock, todayInVietnam } from "../../utils/vnTime";
+
+// Ngày gần nhất đã hiện dải nhắc nâng cấp, theo từng tài khoản. Chỉ là thiết lập hiển thị:
+// trình duyệt chặn lưu thì dải vẫn hiện bình thường.
+const UPGRADE_STRIP_KEY = "localmate_upgrade_strip_shown";
+function readStripDate(userId) {
+  try {
+    return localStorage.getItem(`${UPGRADE_STRIP_KEY}:${userId}`);
+  } catch {
+    return null;
+  }
+}
+function writeStripDate(userId, date) {
+  try {
+    localStorage.setItem(`${UPGRADE_STRIP_KEY}:${userId}`, date);
+  } catch {
+    // Không lưu được thì lần sau vẫn hiện
+  }
+}
 
 export default function FinalizedItineraryPage() {
   const navigate = useNavigate();
   const { currentTrip, savedTrips, saveTrip } = useTrip();
-  const { isLoggedIn, isDemo } = useAuth();
+  const { user, isLoggedIn, isDemo } = useAuth();
+  const { subscription } = useSubscription();
+  const isFreePlan = !isDemo && subscription?.plan === PLAN_CODES.FREE && !isTrialSubscription(subscription);
+  // Gói Miễn phí, mỗi ngày tối đa 1 lần: lần đầu trong ngày thì hiện và ghi lại ngày
+  const [showStrip, setShowStrip] = useState(() => Boolean(user?.id) && readStripDate(user.id) !== todayInVietnam());
+  useEffect(() => {
+    if (showStrip && isFreePlan && user?.id) writeStripDate(user.id, todayInVietnam());
+  }, [showStrip, isFreePlan, user?.id]);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -93,6 +121,29 @@ export default function FinalizedItineraryPage() {
       </header>
 
       <main className="content-shell !mx-auto !max-w-[960px] min-w-0 flex-1 space-y-6 px-4 pb-64 pt-24 sm:px-6 lg:px-8">
+        {showStrip && isFreePlan && (
+          <div className="flex items-center gap-2.5 rounded-[8px] border border-blue-200 bg-blue-50 px-3 py-2 text-[13px] leading-5 text-primary">
+            <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[18px]">auto_awesome</span>
+            <span className="min-w-0 flex-1">
+              Muốn có thêm phương án cho lần đi sau?{" "}
+              <button
+                type="button"
+                onClick={() => navigate("/subscription")}
+                className="rounded-[4px] font-semibold underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                Xem các gói
+              </button>
+            </span>
+            <button
+              type="button"
+              aria-label="Đóng lời nhắc"
+              onClick={() => setShowStrip(false)}
+              className="flex h-9 w-9 flex-none items-center justify-center rounded-full transition-colors hover:bg-blue-100 motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          </div>
+        )}
         <div className="space-y-4 border-b border-border-soft pb-6 text-navy-dark">
           <h2 className="break-words text-[24px] font-bold leading-8 tracking-normal sm:text-[28px] sm:leading-9">{currentTrip.title}</h2>
 
@@ -238,13 +289,10 @@ export default function FinalizedItineraryPage() {
           <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-[8px] border border-error/20 bg-error-container/10 p-3 text-[13px] leading-5 text-error">
             <span className="min-w-0 flex-1 basis-48 break-words">{saveError}</span>
             {saveErrorCode === "saved_trip_quota_exceeded" ? (
-              <button
-                type="button"
-                onClick={() => navigate("/subscription")}
-                className="min-h-11 shrink-0 rounded-[4px] px-2 font-semibold text-primary underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-              >
-                Nâng cấp
-              </button>
+              // Thanh dưới cố định nên chỉ dùng kiểu một dòng
+              <div className="w-full">
+                <UpgradeHint reason="savedTrips" variant="inline" />
+              </div>
             ) : isDemo ? (
               <button type="button" onClick={() => navigate("/login")} className="min-h-11 shrink-0 rounded-[4px] px-2 font-semibold underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
                 Đăng nhập

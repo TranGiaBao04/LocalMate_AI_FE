@@ -210,8 +210,8 @@ function OwnedTripProvider({ children, owner, persisted }) {
     setSavedTrips((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const finalizeTrip = async (tripId, funding = null) => {
-    const updated = await ownedRequest(() => tripService.finalizeTrip(tripId, funding));
+  const finalizeTrip = async (tripId) => {
+    const updated = await ownedRequest(() => tripService.finalizeTrip(tripId));
     syncTrip(updated);
     upsertSavedTrip(updated);
     // BE tạo thông báo "đã chốt lịch trình"
