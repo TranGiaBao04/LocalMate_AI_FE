@@ -268,6 +268,7 @@ function OwnedTripProvider({ children, owner, persisted }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTrip() {
   const ctx = useContext(TripContext);
   if (!ctx) throw new Error("useTrip must be used within TripProvider");

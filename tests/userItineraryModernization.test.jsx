@@ -250,7 +250,7 @@ describe("USER-A5.1 Draft presentation preserves contracts", () => {
     vi.spyOn(tripService, "getItemAlternatives").mockResolvedValue([]);
     fireEvent.click(screen.getAllByRole("button", { name: /Thay thế/ })[1]);
     // Thay ngay trong trang: không chuyển sang /replace, mở ngăn kéo của đúng chặng
-    expect(mock.navigate.mock.calls).toEqual([["/place/place-one"]]);
+    expect(mock.navigate.mock.calls).toEqual([["/place/place-one", { state: { fromTimeline: true } }]]);
     expect(screen.getByRole("dialog", { name: "Thay địa điểm" })).toHaveTextContent('Thay "Bảo tàng"');
     expect(tripService.getItemAlternatives).toHaveBeenCalledWith("trip-one", "item-two", 5);
     expect(mock.trip.deleteItem).not.toHaveBeenCalled(); expect(mock.trip.explainTrip).not.toHaveBeenCalled();

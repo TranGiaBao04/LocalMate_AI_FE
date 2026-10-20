@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { AdminField } from "./ui";
 import { ADMIN_INPUT, ADMIN_SECONDARY_BUTTON } from "./adminStyles";
 
@@ -14,10 +14,13 @@ export default function MapCoordinatePicker({ latitude, longitude, onChange }) {
   const [lngInput, setLngInput] = useState(longitude ? String(longitude) : "106.7009");
   const [coordError, setCoordError] = useState("");
 
-  useEffect(() => {
+  // Toạ độ từ ngoài đổi (tải xong địa điểm) thì cập nhật ô nhập ngay trong render, không qua effect
+  const [prevCoords, setPrevCoords] = useState({ latitude, longitude });
+  if (prevCoords.latitude !== latitude || prevCoords.longitude !== longitude) {
+    setPrevCoords({ latitude, longitude });
     if (latitude) setLatInput(String(latitude));
     if (longitude) setLngInput(String(longitude));
-  }, [latitude, longitude]);
+  }
 
   const handleInputChange = (newLatStr, newLngStr) => {
     setLatInput(newLatStr);

@@ -9,6 +9,7 @@ import PageHeader from "../../components/layout/PageHeader";
 import { tagService } from "../../services/tagService";
 import { userService } from "../../services/userService";
 import NotificationBell from "../../components/notifications/NotificationBell";
+import AppFeedbackDialog from "../../components/feedback/AppFeedbackDialog";
 
 const PREFERENCE_GROUPS = [
   { key: "interestTagIds", type: "Interest", label: "Sở thích", icon: "favorite" },
@@ -52,6 +53,7 @@ function OwnedProfilePage({ auth }) {
   const [tagsReload, setTagsReload] = useState(0);
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [nameError, setNameError] = useState("");
   const [formError, setFormError] = useState("");
   const [success, setSuccess] = useState("");
@@ -287,12 +289,29 @@ function OwnedProfilePage({ auth }) {
               <div className="divide-y divide-border-soft [&_button]:min-h-11 [&_button]:focus-visible:outline [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-primary">
                 <NotificationBell variant="profile" />
                 <Link to="/about" className={"flex min-h-12 items-center gap-3 py-3 text-sm text-on-surface " + focus}><Icon className="text-on-surface-variant">info</Icon><span className="flex-1">Về LocalMate AI</span><Icon className="text-on-surface-variant">chevron_right</Icon></Link>
+                {!isDemo && (
+                  <button
+                    type="button"
+                    onClick={() => setFeedbackOpen(true)}
+                    className={"flex w-full min-h-12 items-center gap-3 py-3 text-left text-sm text-on-surface " + focus}
+                  >
+                    <Icon className="text-on-surface-variant">rate_review</Icon>
+                    <span className="flex-1">Góp ý cho LocalMate</span>
+                    <Icon className="text-on-surface-variant">chevron_right</Icon>
+                  </button>
+                )}
               </div>
               <button type="button" onClick={handleLogout} className={action + " mt-4 w-full border border-error/20 bg-error-container/40 text-error"}><Icon>logout</Icon>Đăng xuất</button>
             </section>
           </div>
         </div>
       </main>
+      {!isDemo && (
+        <AppFeedbackDialog
+          isOpen={feedbackOpen}
+          onClose={() => setFeedbackOpen(false)}
+        />
+      )}
     </MobileLayout>
   );
 }

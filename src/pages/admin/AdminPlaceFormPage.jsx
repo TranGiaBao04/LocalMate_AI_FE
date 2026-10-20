@@ -57,21 +57,21 @@ export default function AdminPlaceFormPage() {
   const [pendingHours, setPendingHours] = useState(() => location.state?.pendingHours ?? null);
 
   const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(false);
+  // Trang sửa bắt đầu ở trạng thái đang tải; không set trong effect
+  const [fetching, setFetching] = useState(isEdit);
   const [errors, setErrors] = useState({});
   const [distanceWarning, setDistanceWarning] = useState("");
   const [showConflictModal, setShowConflictModal] = useState(false);
 
   // Load existing place if editing
-  const loadPlaceData = useCallback(async () => {
-    if (!isEdit) return;
-    setFetching(true);
-    try {
-      const [place, openingHours] = await Promise.all([
-        adminPlaceService.getPlaceById(id),
-        // Không tải được giờ thì khoá khối giờ, không để admin lưu bảng trống đè lên dữ liệu cũ
-        adminPlaceService.getOpeningHours(id).catch(() => null),
-      ]);
+  // Viết bằng .then (không async/await) để lint thấy setState chỉ chạy sau khi có dữ liệu, không chạy ngay trong effect
+  const loadPlaceData = useCallback(() => {
+    if (!isEdit) return Promise.resolve();
+    return Promise.all([
+      adminPlaceService.getPlaceById(id),
+      // Không tải được giờ thì khoá khối giờ, không để admin lưu bảng trống đè lên dữ liệu cũ
+      adminPlaceService.getOpeningHours(id).catch(() => null),
+    ]).then(([place, openingHours]) => {
       if (place) {
         setForm({
           name: place.name || "",
@@ -94,12 +94,12 @@ export default function AdminPlaceFormPage() {
       } else {
         setHoursLoadError("Không tải được giờ mở cửa. Tải lại trang để chỉnh giờ mở cửa.");
       }
-    } catch (err) {
+    }).catch((err) => {
       alert("Lỗi tải thông tin địa điểm: " + err.message);
       navigate(returnTo);
-    } finally {
+    }).finally(() => {
       setFetching(false);
-    }
+    });
   }, [id, isEdit, navigate, pendingHours, returnTo]);
 
   useEffect(() => {
@@ -248,7 +248,7 @@ export default function AdminPlaceFormPage() {
           <button type="submit" disabled={loading} className={ADMIN_PRIMARY_BUTTON}><span aria-hidden="true" className={`material-symbols-outlined text-[20px] ${loading ? "animate-spin motion-reduce:animate-none" : ""}`}>{loading ? "progress_activity" : "save"}</span>{isEdit ? "Cập nhật địa điểm" : "Tạo địa điểm"}</button>
         </div>
       </AdminSurface>
-      <ConflictModal isOpen={showConflictModal} onClose={() => setShowConflictModal(false)} onReload={() => { setShowConflictModal(false); loadPlaceData(); }} />
+      <ConflictModal isOpen={showConflictModal} onClose={() => setShowConflictModal(false)} onReload={() => { setShowConflictModal(false); setFetching(true); loadPlaceData(); }} />
     </div>
   );
 }

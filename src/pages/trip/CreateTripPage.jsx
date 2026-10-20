@@ -371,7 +371,7 @@ export default function CreateTripPage() {
   const [selectedTagIds, setSelectedTagIds] = useState(
     () => initial?.tagIds ?? [...(initial?.interests ?? []), ...(initial?.travelStyles ?? [])],
   );
-  const [note, setNote] = useState(() => initial?.note ?? "");
+  const [note, setNote] = useState(() => location.state?.note ?? initial?.note ?? "");
   // fields của lần AI đọc câu nhập gần nhất, để hiện lại những gì đã điền
   const [aiFields, setAiFields] = useState(null);
 
