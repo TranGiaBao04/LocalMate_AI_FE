@@ -83,10 +83,7 @@ export function buildTransactionColumns({ onOpenDetail, showCustomer = true } = 
       header: "Sản phẩm",
       sortable: true,
       render: (row) => {
-        const displayName =
-          row.productKind === "SingleItinerary"
-            ? "Lịch trình đơn lẻ"
-            : row.planName || row.planCode || "Gói đăng ký";
+        const displayName = row.planName || row.planCode || "Gói đăng ký";
         return (
           <span className="inline-flex min-h-11 items-center rounded-[8px] bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
             {displayName}

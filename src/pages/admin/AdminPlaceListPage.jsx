@@ -12,6 +12,7 @@ import DeletePlaceDialog from "../../components/admin/DeletePlaceDialog";
 // Trang + bộ lọc nằm trên URL (?page=3&category=Cafe…) để xem/sửa xong quay về đúng chỗ, F5 cũng giữ
 const PAGE_SIZE = 10;
 const FILTER_KEYS = ["search", "category", "status", "stationId", "hasOpeningHours"];
+const EMPTY_PAGE = { items: [], page: 1, pageSize: PAGE_SIZE, totalCount: 0, totalPages: 0 };
 
 function readFilters(searchParams) {
   const page = Number(searchParams.get("page"));
@@ -37,9 +38,13 @@ export default function AdminPlaceListPage() {
   const filters = useMemo(() => readFilters(searchParams), [searchParams]);
   // Mở chi tiết/sửa/tạo kèm đường về đúng trang + bộ lọc hiện tại
   const returnState = { returnTo: `${location.pathname}${location.search}` };
-  const [data, setData] = useState({ items: [], page: 1, pageSize: 10, totalCount: 0, totalPages: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [reloadCount, setReloadCount] = useState(0);
+  const [response, setResponse] = useState({ key: null, data: EMPTY_PAGE, error: "" });
+  // Đang tải = kết quả hiện có chưa ứng với bộ lọc hiện tại (giống AdminUsersPage)
+  const queryKey = `${JSON.stringify(filters)}#${reloadCount}`;
+  const loading = response.key !== queryKey;
+  const data = response.data;
+  const error = loading ? "" : response.error;
   const [stations, setStations] = useState([]);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -60,23 +65,22 @@ export default function AdminPlaceListPage() {
   }, []);
 
   // Fetch paginated place list from server
-  const fetchPlaces = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await adminPlaceService.getPlaces(filters);
-      setData(res || { items: [], page: 1, pageSize: 10, totalCount: 0, totalPages: 0 });
-    } catch (err) {
-      console.error("Lỗi tải danh sách địa điểm:", err);
-      setError(err.message || "Không thể tải danh sách địa điểm.");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
-
   useEffect(() => {
-    fetchPlaces();
-  }, [fetchPlaces]);
+    let active = true;
+    adminPlaceService.getPlaces(filters)
+      .then((res) => {
+        if (active) setResponse({ key: queryKey, data: res || EMPTY_PAGE, error: "" });
+      })
+      .catch((err) => {
+        console.error("Lỗi tải danh sách địa điểm:", err);
+        // Lỗi thì giữ dữ liệu cũ như trước
+        if (active) setResponse((prev) => ({ key: queryKey, data: prev.data, error: err.message || "Không thể tải danh sách địa điểm." }));
+      });
+    return () => { active = false; };
+  }, [filters, queryKey]);
+
+  // Tải lại trang hiện tại (sau khi đổi trạng thái/xoá, hoặc bấm Thử lại)
+  const fetchPlaces = useCallback(() => setReloadCount((count) => count + 1), []);
 
   const handleFilterChange = (newFilters) => {
     // replace: đổi trang/bộ lọc không chồng thêm lịch sử, nút Back của trình duyệt vẫn ra khỏi danh sách

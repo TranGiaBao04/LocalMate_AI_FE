@@ -5,7 +5,7 @@ import {
   extractErrorCode,
   getCustomerErrorMessage,
 } from "../../utils/subscriptionUpgradeContract";
-import { PLAN_DISPLAY_NAMES, formatPlanPrice, formatVnDate } from "../../utils/subscriptionUtils";
+import { getPlanDisplayName, formatPlanPrice, formatVnDate } from "../../utils/subscriptionUtils";
 
 /**
  * Dialog displaying authoritative server checkout quote preview before payment confirmation.
@@ -26,6 +26,7 @@ import { PLAN_DISPLAY_NAMES, formatPlanPrice, formatVnDate } from "../../utils/s
  * @param {boolean} [props.confirmLoading]
  * @param {() => void} [props.onRenew]
  * @param {string|null} [props.trialUntil] Lúc hết dùng thử (UTC) khi đang dùng thử, để cảnh báo phần còn lại bị bỏ
+ * @param {Array} [props.plans] Danh sách gói để lấy tên theo mã gói của báo giá
  */
 export default function CheckoutQuoteDialog({
   isOpen,
@@ -37,6 +38,7 @@ export default function CheckoutQuoteDialog({
   confirmLoading = false,
   onRenew,
   trialUntil = null,
+  plans = [],
 }) {
   const dialogRef = useRef(null);
   useEffect(() => {
@@ -92,9 +94,7 @@ export default function CheckoutQuoteDialog({
     (status === 400 || status === null);
 
   const targetPlanCode = quote?.planCode;
-  const displayName = targetPlanCode
-    ? PLAN_DISPLAY_NAMES[targetPlanCode] || targetPlanCode
-    : "Gói cước";
+  const displayName = getPlanDisplayName(targetPlanCode, plans) || "Gói cước";
 
   const isUpgrade = quote?.type === CHECKOUT_QUOTE_TYPE.UPGRADE;
   const isPurchase = quote?.type === CHECKOUT_QUOTE_TYPE.PURCHASE;

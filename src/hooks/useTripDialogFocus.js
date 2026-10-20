@@ -8,6 +8,8 @@ export default function useTripDialogFocus(open, returnFocusRef) {
     const dialog = dialogRef.current;
     if (!dialog) return undefined;
     const previous = document.activeElement;
+    // Lấy nút gọi dialog lúc mở, dùng lại khi đóng
+    const returnTarget = returnFocusRef?.current;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const controls = () => Array.from(dialog.querySelectorAll(
@@ -37,7 +39,7 @@ export default function useTripDialogFocus(open, returnFocusRef) {
       document.removeEventListener("focusin", containFocus);
       document.body.style.overflow = overflow;
       if (previous?.isConnected) previous.focus();
-      else returnFocusRef?.current?.focus();
+      else returnTarget?.focus();
     };
   }, [open, returnFocusRef]);
   useLayoutEffect(() => {

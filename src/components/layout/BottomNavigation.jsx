@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTrip } from "../../context/TripContext";
 import { useSubscription } from "../../context/SubscriptionContext";
-import { PLAN_CODES, PLAN_DISPLAY_NAMES } from "../../utils/subscriptionUtils";
+import { getSubscriptionPlanName, isPaidSubscription, isTrialSubscription } from "../../utils/subscriptionUtils";
 import { canAccessAdmin } from "../../utils/adminAccess";
 import { goHomeOrScrollTop } from "../../utils/scrollToTop";
 import logo from "../../assets/logo.jpg";
@@ -90,7 +90,7 @@ export function SideNavigation() {
   const { pathname } = useLocation();
   const { user, isDemo } = useAuth();
   const { savedTrips, tripsLoading, tripsLoaded, tripsError } = useTrip();
-  const { subscription, subscriptionLoading } = useSubscription();
+  const { subscription, subscriptionLoading, plans } = useSubscription();
 
   const navItems = NAV_ITEMS.map((item) => ({
     ...item,
@@ -101,10 +101,9 @@ export function SideNavigation() {
   const displayName = user?.fullName || "Khách";
   const initial = displayName.charAt(0).toUpperCase();
 
-  const currentPlan = subscription?.plan;
-  const planDisplayName = PLAN_DISPLAY_NAMES[currentPlan] || currentPlan ||
+  const planDisplayName = getSubscriptionPlanName(subscription, plans) ||
     (subscriptionLoading ? "Đang tải gói..." : "Chưa xác định gói");
-  const isPaid = currentPlan === PLAN_CODES.TRIP_PASS || currentPlan === PLAN_CODES.MEMBERSHIP;
+  const hasPaidPlan = !isDemo && isPaidSubscription(subscription) && !isTrialSubscription(subscription);
 
   return (
     <aside aria-label="LocalMate AI" className="fixed inset-y-0 left-0 z-50 hidden w-[220px] flex-col gap-6 border-r border-border-soft bg-surface-container-lowest px-3 py-5 lg:flex">
@@ -163,65 +162,37 @@ export function SideNavigation() {
           </button>
         )}
 
-        {/* Hộp thông tin gói dịch vụ */}
-        {isDemo ? (
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
-            className="w-full rounded-[8px] border border-border-soft bg-surface-container-low p-3 text-left transition-colors hover:bg-chip-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy motion-reduce:transition-none"
-            onClick={() => navigate("/subscription")}
+            className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-[8px] p-2 text-left transition-colors hover:bg-surface-container-low focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy motion-reduce:transition-none"
+            onClick={() => navigate("/profile")}
           >
-            <span className="flex items-start justify-between gap-2 text-[13px] leading-5">
-              <span className="font-bold text-navy-dark">Gói hội viên</span>{" "}
-              <span className="flex-none rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                Demo
+            <span aria-hidden="true" className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-chip-bg text-[14px] font-bold text-navy">
+              {initial}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span title={displayName} className="block truncate text-[13px] font-semibold leading-5 text-navy-dark">
+                {displayName}
+              </span>{" "}
+              <span title={isDemo ? "Phiên Demo" : planDisplayName} className="block truncate text-[12px] leading-5 text-text-muted">
+                {isDemo ? "Phiên Demo" : planDisplayName}
               </span>
-            </span>{" "}
-            <span className="mt-2 block text-[12px] leading-5 text-text-muted">
-              Đăng ký để sử dụng đầy đủ
             </span>
           </button>
-        ) : (
+          {/* Gói trả phí (không tính dùng thử) chỉ xem gói, còn lại mời nâng cấp */}
           <button
             type="button"
-            className="w-full rounded-[8px] border border-border-soft bg-surface-container-low p-3 text-left transition-colors hover:bg-chip-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy motion-reduce:transition-none"
             onClick={() => navigate("/subscription")}
+            className={`flex-none rounded-full border px-3 py-1.5 text-[12px] font-bold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy motion-reduce:transition-none ${
+              hasPaidPlan
+                ? "border-border-soft bg-surface-container-lowest text-navy-dark hover:bg-surface-container-low"
+                : "border-accent bg-accent text-navy-darkest hover:bg-accent-dark"
+            }`}
           >
-            <span className="flex items-start justify-between gap-2 text-[13px] leading-5">
-              <span className="min-w-0 font-bold text-navy-dark [overflow-wrap:anywhere]">{planDisplayName}</span>{" "}
-              <span
-                className={`flex-none rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                  isPaid ? "bg-primary text-white" : "bg-border-soft text-text-muted"
-                }`}
-              >
-                {isPaid ? "Đang dùng" : currentPlan === PLAN_CODES.FREE ? "Mặc định" : "Chưa xác nhận"}
-              </span>
-            </span>{" "}
-            <span className="mt-2 block text-[12px] leading-5 text-text-muted">
-              {isPaid ? "Quản lý gói & gia hạn" : currentPlan === PLAN_CODES.FREE ? "Nâng cấp gói tạo không giới hạn" : "Xem thông tin gói hội viên"}
-            </span>
+            {hasPaidPlan ? "Xem gói" : "Nâng cấp"}
           </button>
-        )}
-
-        <button
-          type="button"
-          className="flex min-h-11 w-full items-center gap-2.5 rounded-[8px] p-2 text-left transition-colors hover:bg-surface-container-low focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy motion-reduce:transition-none"
-          onClick={() => navigate("/profile")}
-        >
-          <span aria-hidden="true" className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-chip-bg text-[14px] font-bold text-navy">
-            {initial}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span title={displayName} className="block truncate text-[13px] font-semibold leading-5 text-navy-dark">
-              {displayName}
-            </span>{" "}
-            <span title={isDemo ? "Phiên Demo" : planDisplayName} className="block truncate text-[12px] leading-5 text-text-muted">
-              {isDemo ? "Phiên Demo" : planDisplayName}
-            </span>
-          </span>
-          <span aria-hidden="true" className="material-symbols-outlined flex-none text-[20px] text-text-muted">
-            settings
-          </span>
-        </button>
+        </div>
       </div>
     </aside>
   );

@@ -135,6 +135,7 @@ describe("FE-UP2: Subscription Checkout Quote & Classification UX", () => {
         onClose={vi.fn()}
         quote={quote}
         onConfirm={vi.fn()}
+        plans={[{ code: "TripPass", name: "Trip Pass" }]}
       />
     );
 
@@ -769,7 +770,7 @@ describe("FE-UP2: Subscription Checkout Quote & Classification UX", () => {
     });
 
     vi.spyOn(SubscriptionContextModule, "useSubscription").mockReturnValue({
-      plans: [{ code: "TripPass", price: 19000, durationDays: 7 }],
+      plans: [{ code: "TripPass", name: "Trip Pass", price: 19000, durationDays: 7 }],
       subscription: { plan: "Free" },
       plansLoading: false,
       plansError: null,
@@ -964,7 +965,7 @@ describe("FE-UP2: Subscription Checkout Quote & Classification UX", () => {
     // New code MUST allow selecting TripPass so backend can classify/block!
     const { rerender } = render(
       <PlanCard
-        plan={{ code: "TripPass", price: 19000, durationDays: 7 }}
+        plan={{ code: "TripPass", name: "Trip Pass", price: 19000, durationDays: 7 }}
         currentPlanCode="Membership"
         onSelect={onSelectMock}
         onRenew={onRenewMock}

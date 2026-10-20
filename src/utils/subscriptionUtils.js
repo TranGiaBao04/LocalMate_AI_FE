@@ -4,42 +4,6 @@ export const PLAN_CODES = {
   MEMBERSHIP: "Membership",
 };
 
-export const PLAN_DISPLAY_NAMES = {
-  [PLAN_CODES.FREE]: "Free",
-  [PLAN_CODES.TRIP_PASS]: "Trip Pass",
-  [PLAN_CODES.MEMBERSHIP]: "Membership",
-};
-
-/**
- * Gói cước tĩnh dự phòng (Static Fallback).
- * LƯU Ý QUAN TRỌNG:
- * Backend `/api/subscriptions/plans` là nguồn chân lý (authoritative source) duy nhất cho giao diện giao dịch / thanh toán.
- * FALLBACK_PLANS chỉ được sử dụng cho mục đích hiển thị marketing tĩnh (như WelcomePage) khi người dùng chưa đăng nhập.
- */
-export const FALLBACK_PLANS = [
-  {
-    code: PLAN_CODES.FREE,
-    price: 0,
-    durationDays: null,
-    generateLimit: 1,
-    savedTripLimit: 1,
-  },
-  {
-    code: PLAN_CODES.TRIP_PASS,
-    price: 19000,
-    durationDays: 7,
-    generateLimit: null,
-    savedTripLimit: 3,
-  },
-  {
-    code: PLAN_CODES.MEMBERSHIP,
-    price: 59000,
-    durationDays: 30,
-    generateLimit: null,
-    savedTripLimit: null,
-  },
-];
-
 const VN_TZ = "Asia/Ho_Chi_Minh";
 
 /**
@@ -169,14 +133,63 @@ export function isGenerateQuotaExhausted(sub, now = Date.now()) {
 }
 
 /**
- * Resolves a presentation-safe display name for a plan code.
- * Preferred order: catalog name -> known display name mapping -> raw plan code.
+ * Tên gói lấy từ danh sách gói (/subscription/plans). Danh sách chưa tải xong thì dùng mã gói.
+ * Tên có thể đổi bất cứ lúc nào, mọi so sánh phải dùng mã gói.
  */
 export function getPlanDisplayName(planCode, catalogPlans = []) {
   if (!planCode) return "";
   const catalogPlan = Array.isArray(catalogPlans)
     ? catalogPlans.find((p) => p.code === planCode)
     : null;
-  if (catalogPlan?.name) return catalogPlan.name;
-  return PLAN_DISPLAY_NAMES[planCode] || planCode;
+  return catalogPlan?.name || planCode;
+}
+
+/** Gói của chính user: dùng planName từ /subscription/me, thiếu thì tra danh sách gói. */
+export function getSubscriptionPlanName(subscription, catalogPlans = []) {
+  return subscription?.planName || getPlanDisplayName(subscription?.plan, catalogPlans);
+}
+
+const UPGRADE_LIMITS = {
+  generate: { planField: "generateLimit", current: (sub) => sub?.usage?.generateLimit },
+  savedTrips: { planField: "savedTripLimit", current: (sub) => sub?.savedTrips?.limit },
+  ai: { planField: "aiDailyCallLimit", current: (sub) => sub?.ai?.dailyLimit },
+};
+
+// Giới hạn của gói có rộng hơn giới hạn đang dùng không. null là không giới hạn,
+// riêng AI null là "chưa đặt riêng cho gói" (dùng số ở Cấu hình hệ thống) nên không tính là rộng hơn
+function isLimitBetter(reason, planLimit, currentLimit) {
+  if (planLimit == null) return reason !== "ai";
+  return typeof currentLimit === "number" && planLimit > currentLimit;
+}
+
+/**
+ * Gói nên gợi ý khi người dùng chạm giới hạn `reason` ("generate" | "savedTrips" | "ai"), rẻ trước.
+ * Gói cao hơn = giá cao hơn gói đang dùng; người đang dùng thử chưa mua gói nào nên thấy mọi gói trả phí.
+ * Chỉ giữ gói mở rộng đúng giới hạn đang chạm.
+ */
+export function getUpgradeOptions(reason, subscription, plans = []) {
+  const limit = UPGRADE_LIMITS[reason];
+  if (!limit || !subscription || !Array.isArray(plans)) return [];
+  const currentPrice = isTrialSubscription(subscription)
+    ? 0
+    : plans.find((p) => p.code === subscription.plan)?.price ?? 0;
+  return plans
+    .filter((p) => typeof p.price === "number" && p.price > currentPrice)
+    .filter((p) => isLimitBetter(reason, p[limit.planField], limit.current(subscription)))
+    .sort((a, b) => a.price - b.price);
+}
+
+/**
+ * % rẻ hơn mỗi ngày so với gói trả phí rẻ nhất có thời hạn, tính từ price/durationDays (không gắn cứng số gói).
+ * Không rẻ hơn hoặc thiếu số thì trả null.
+ */
+export function getPerDaySaving(plan, plans = []) {
+  const perDay = (p) => (p?.price > 0 && p?.durationDays > 0 ? p.price / p.durationDays : null);
+  const own = perDay(plan);
+  const base = (Array.isArray(plans) ? plans : [])
+    .filter((p) => p.code !== plan?.code && perDay(p) != null)
+    .sort((a, b) => a.price - b.price)[0];
+  if (own == null || !base) return null;
+  const percent = Math.round((1 - own / perDay(base)) * 100);
+  return percent >= 1 ? { percent, baseName: base.name || base.code } : null;
 }

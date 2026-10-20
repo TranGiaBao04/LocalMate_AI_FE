@@ -3,12 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTrip } from "../../context/TripContext";
 import { useSubscription } from "../../context/SubscriptionContext";
-import { formatVnDate, formatVnDateTime, isPaidSubscription, isFreeSubscription, isTrialSubscription, getPlanDisplayName, getAiQuota } from "../../utils/subscriptionUtils";
+import { formatVnDate, formatVnDateTime, isPaidSubscription, isFreeSubscription, isTrialSubscription, getSubscriptionPlanName, getAiQuota } from "../../utils/subscriptionUtils";
 import MobileLayout from "../../components/layout/MobileLayout";
 import PageHeader from "../../components/layout/PageHeader";
 import { tagService } from "../../services/tagService";
 import { userService } from "../../services/userService";
 import NotificationBell from "../../components/notifications/NotificationBell";
+import AppFeedbackDialog from "../../components/feedback/AppFeedbackDialog";
 
 const PREFERENCE_GROUPS = [
   { key: "interestTagIds", type: "Interest", label: "Sở thích", icon: "favorite" },
@@ -52,6 +53,7 @@ function OwnedProfilePage({ auth }) {
   const [tagsReload, setTagsReload] = useState(0);
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [nameError, setNameError] = useState("");
   const [formError, setFormError] = useState("");
   const [success, setSuccess] = useState("");
@@ -269,7 +271,7 @@ function OwnedProfilePage({ auth }) {
                 : subscriptionLoading ? <p role="status" data-testid="profile-subscription-loading" className="text-sm text-on-surface-variant">Đang tải thông tin gói...</p>
                   : subscriptionError || !validSubscription ? <div role="alert" data-testid="profile-subscription-unavailable" className="space-y-2"><p className="text-sm font-semibold text-on-surface">Không thể tải thông tin gói</p><p className="break-words text-sm text-on-surface-variant">{subscriptionError || "Chưa có thông tin gói dịch vụ từ máy chủ."}</p></div>
                     : <div className="space-y-4">
-                      <div><p className="text-xs text-on-surface-variant">Gói hiện tại</p><p className="mt-1 flex flex-wrap items-center gap-2 break-words text-xl font-bold text-primary">{getPlanDisplayName(subscription.plan, plans)}{isTrial && <span className="rounded-full bg-primary-fixed px-2.5 py-0.5 text-xs font-bold text-on-primary-fixed">Dùng thử</span>}</p></div>
+                      <div><p className="text-xs text-on-surface-variant">Gói hiện tại</p><p className="mt-1 flex flex-wrap items-center gap-2 break-words text-xl font-bold text-primary">{getSubscriptionPlanName(subscription, plans)}{isTrial && <span className="rounded-full bg-primary-fixed px-2.5 py-0.5 text-xs font-bold text-on-primary-fixed">Dùng thử</span>}</p></div>
                       {(effectiveDate || endDate) && <dl className="space-y-2 text-sm text-on-surface-variant">
                         {effectiveDate && <div><dt>{isTrial ? "Dùng thử đến" : "Kỳ hiện tại"}</dt><dd className="mt-0.5 font-medium text-on-surface">{effectiveDate}</dd></div>}
                         {endDate && (!effectiveDate || subscription.effectiveUntil !== subscription.endsAt) && <div><dt>{effectiveDate ? "Thanh toán đến" : "Hết hạn"}</dt><dd className="mt-0.5 font-medium text-on-surface">{endDate}</dd></div>}
@@ -287,12 +289,29 @@ function OwnedProfilePage({ auth }) {
               <div className="divide-y divide-border-soft [&_button]:min-h-11 [&_button]:focus-visible:outline [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-primary">
                 <NotificationBell variant="profile" />
                 <Link to="/about" className={"flex min-h-12 items-center gap-3 py-3 text-sm text-on-surface " + focus}><Icon className="text-on-surface-variant">info</Icon><span className="flex-1">Về LocalMate AI</span><Icon className="text-on-surface-variant">chevron_right</Icon></Link>
+                {!isDemo && (
+                  <button
+                    type="button"
+                    onClick={() => setFeedbackOpen(true)}
+                    className={"flex w-full min-h-12 items-center gap-3 py-3 text-left text-sm text-on-surface " + focus}
+                  >
+                    <Icon className="text-on-surface-variant">rate_review</Icon>
+                    <span className="flex-1">Góp ý cho LocalMate</span>
+                    <Icon className="text-on-surface-variant">chevron_right</Icon>
+                  </button>
+                )}
               </div>
               <button type="button" onClick={handleLogout} className={action + " mt-4 w-full border border-error/20 bg-error-container/40 text-error"}><Icon>logout</Icon>Đăng xuất</button>
             </section>
           </div>
         </div>
       </main>
+      {!isDemo && (
+        <AppFeedbackDialog
+          isOpen={feedbackOpen}
+          onClose={() => setFeedbackOpen(false)}
+        />
+      )}
     </MobileLayout>
   );
 }

@@ -163,8 +163,9 @@ export default function UserAiUsageTab({ userId }) {
       </AdminField>
       {Object.entries(errors).filter(([field, error]) => error && ["page", "pageSize", "sortBy"].includes(field)).map(([field, error]) => <p key={field} role="alert" className="text-sm text-red-700">{FIELD_LABELS[field]}: {error}</p>)}
       {calls.status === "loading" ? <LoadingState label="Đang tải nhật ký AI..." /> : calls.status === "error" ? <SourceError source={calls} label="nhật ký AI" /> : callData ? <>
-        <p role="status" className="text-xs text-[#5C6B8A]">{count(callData.totalCount)} lượt gọi · Trang {callData.page} / {callData.totalPages}</p>
-        <div className="hidden min-w-0 max-w-full md:block [&_table]:min-w-[880px]">
+        <p role="status" className="text-xs text-[#5C6B8A]">{count(callData.totalCount)} lượt gọi · Trang {callData.page} / {Math.max(1, callData.totalPages)}</p>
+        {/* w-full: bảng giãn hết khung, min-w chỉ giữ độ rộng tối thiểu để cuộn ngang trên màn hẹp */}
+        <div className="hidden min-w-0 max-w-full md:block [&_table]:w-full [&_table]:min-w-[880px]">
           <DataTable tableLabel="Nhật ký AI" columns={columns} rows={callData.items} rowKey={rowKey} emptyState={{ title: "Không có lượt gọi AI trên trang này" }} />
         </div>
         <div aria-label="Nhật ký AI trên di động" className="min-w-0 space-y-3 md:hidden">

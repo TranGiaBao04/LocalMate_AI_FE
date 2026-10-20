@@ -14,6 +14,9 @@ import HomeSearch from "../src/components/home/HomeSearch";
 import { searchService } from "../src/services/searchService";
 import { formatVnDate } from "../src/utils/subscriptionUtils";
 
+// Nhãn gói trên PageHeader cần SubscriptionProvider, các test ở đây không kiểm tra gói
+vi.mock("../src/components/layout/PlanStatusChip", () => ({ default: () => null }));
+
 const stations = Array.from({ length: 14 }, (_, index) => ({ id: `s${index + 1}`, order: index + 1, name: index === 0 ? "Bến Thành" : index === 13 ? "Bến xe Suối Tiên" : `Ga số ${index + 1}` }));
 const deferred = () => {
   let resolve, reject;
@@ -335,7 +338,8 @@ describe("USER-A3 Place detail contracts", () => {
     ]);
     renderPlace("p1");
     expect(await screen.findByText("Địa điểm nổi bật quanh ga Bến Thành")).toBeVisible();
-    expect(screen.getByText("Bảo tàng Mỹ thuật")).toBeVisible();
+    // Tiêu đề hiện ngay lúc đang tải, nên phải chờ danh sách
+    expect(await screen.findByText("Bảo tàng Mỹ thuật")).toBeVisible();
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Bảo tàng Mỹ thuật/i }));
     });

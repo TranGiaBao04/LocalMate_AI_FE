@@ -3,24 +3,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import Draft from "../src/pages/trip/DraftItineraryPage";
 import Finalized from "../src/pages/trip/FinalizedItineraryPage";
-import { toParseBase } from "../src/services/tripService";
+import { toParseBase, tripService } from "../src/services/tripService";
 import { buildDirectionsUrl } from "../src/utils/googleMaps";
 import { formatCurrencyShort } from "../src/utils/formatCurrency";
+import { todayInVietnam } from "../src/utils/vnTime";
 
 const mock = vi.hoisted(() => ({
   navigate: vi.fn(), auth: {}, trip: {}, refresh: vi.fn(), subscription: null,
-  availability: vi.fn(), entitlements: vi.fn(), checkout: vi.fn(),
-  assistantProps: null, paymentProps: null, directionProps: [],
+  assistantProps: null, directionProps: [],
 }));
 vi.mock("react-router-dom", async (original) => ({ ...(await original()), useNavigate: () => mock.navigate }));
 vi.mock("../src/context/AuthContext", () => ({ useAuth: () => mock.auth }));
 vi.mock("../src/context/TripContext", () => ({ useTrip: () => mock.trip }));
 vi.mock("../src/context/SubscriptionContext", () => ({ useSubscription: () => ({ subscription: mock.subscription, refreshSubscription: mock.refresh }) }));
-vi.mock("../src/services/itineraryPurchaseService", async (original) => ({
-  ...(await original()), itineraryPurchaseService: {
-    getAvailability: mock.availability, getMyEntitlements: mock.entitlements, checkout: mock.checkout,
-  },
-}));
 vi.mock("../src/components/trip/TripRequestAssistant", () => ({ default: (props) => {
   mock.assistantProps = props;
   return <section aria-label={props.title}>{props.placeholder}</section>;
@@ -29,17 +24,12 @@ vi.mock("../src/components/TimelineItemDirections", () => ({ default: (props) =>
   mock.directionProps.push(props);
   return <div>Directions {props.currentStop.placeName}</div>;
 } }));
-vi.mock("../src/components/itineraryPurchase/SingleItineraryPaymentModal", () => ({ default: (props) => {
-  mock.paymentProps = props;
-  return <div role="dialog" aria-label="Payment mock"><button onClick={props.onClose}>Close payment</button></div>;
-} }));
 
-const entitlement = { entitlementId: "owned-one", available: true, consumedAt: null, consumedTripId: null };
-const availability = { productKind: "SingleItinerary", currency: "VND", price: 37000, purchaseAllowed: true,
-  normalFinalizeAvailable: true, unusedEntitlementCount: 0, normalSavedTripsUsed: 1, normalSavedTripLimit: 2 };
 const deferred = () => { let resolve; let reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const flush = async () => { await act(async () => {}); };
 const mount = (Page = Draft) => render(<MemoryRouter><Page /></MemoryRouter>);
+// Màn hẹp (jsdom không có matchMedia): khung "Muốn đổi gì?" nằm trong ngăn kéo mở từ nút nổi "Hỏi AI"
+const openAi = () => fireEvent.click(screen.getByRole("button", { name: "Hỏi AI" }));
 const openFinalize = async () => { fireEvent.click(screen.getByRole("button", { name: /Chốt lịch trình/ })); await flush(); return screen.getByRole("dialog", { name: "Chốt lịch trình" }); };
 function realShapeTrip() {
   return { id: "trip-one", title: "Một ngày quanh Bến Thành", summary: "Cà phê và văn hoá", mainArea: "Bến Thành",
@@ -60,117 +50,66 @@ beforeEach(() => {
   mock.trip = { currentTrip: realShapeTrip(), savedTrips: [], explainingTripIds: [],
     finalizeTrip: vi.fn().mockResolvedValue({}), deleteItem: vi.fn().mockResolvedValue([]),
     explainTrip: vi.fn().mockResolvedValue({}), saveTrip: vi.fn().mockResolvedValue({}), noteAiError: vi.fn() };
-  mock.refresh.mockResolvedValue({}); mock.availability.mockResolvedValue(availability);
-  mock.entitlements.mockResolvedValue({ entitlements: [] });
-  mock.assistantProps = null; mock.paymentProps = null; mock.directionProps = []; mock.subscription = null;
+  mock.refresh.mockResolvedValue({});
+  mock.assistantProps = null; mock.directionProps = []; mock.subscription = null;
 });
 
-describe("USER-A5.2 authoritative finalize decision", () => {
-  it("opening fetches availability and entitlements in parallel, disables unknown availability", async () => {
-    const a = deferred(); const e = deferred(); mock.availability.mockReturnValue(a.promise); mock.entitlements.mockReturnValue(e.promise);
+// Chốt lịch chỉ theo lượt lưu của gói (savedTrips từ /subscription/me); đã gỡ mua lẻ
+describe("USER-A5.2 finalize by plan saved-trip quota", () => {
+  it("opening reloads the plan and locks Finalize until it answers", async () => {
+    const pending = deferred(); mock.refresh.mockReturnValue(pending.promise);
     mount(); const dialog = await openFinalize();
-    expect(mock.availability).toHaveBeenCalledTimes(1); expect(mock.entitlements).toHaveBeenCalledTimes(1);
-    expect(within(dialog).getByRole("status")).toHaveTextContent("Đang kiểm tra");
+    expect(mock.refresh).toHaveBeenCalledTimes(1);
+    expect(within(dialog).getByRole("status")).toHaveTextContent("Đang kiểm tra lượt lưu");
     expect(within(dialog).getByRole("button", { name: "Chốt lịch trình" })).toBeDisabled();
-    await act(async () => { a.resolve(availability); e.resolve({ entitlements: [] }); });
+    await act(async () => pending.resolve({}));
     expect(within(dialog).getByRole("button", { name: "Chốt lịch trình" })).toBeEnabled();
   });
-  it("Normal uses exact funding, duplicate lock, refresh and navigation", async () => {
+  it("finalizes with the trip id only, guards double clicks, reloads the plan and navigates", async () => {
+    mock.subscription = { plan: "Free", savedTrips: { used: 0, limit: 1 } };
     const pending = deferred(); mock.trip.finalizeTrip.mockReturnValue(pending.promise); mount(); const dialog = await openFinalize();
     const button = within(dialog).getByRole("button", { name: "Chốt lịch trình" }); fireEvent.click(button); fireEvent.click(button);
-    expect(mock.trip.finalizeTrip).toHaveBeenCalledExactlyOnceWith("trip-one", { fundingSource: "Normal" });
+    expect(mock.trip.finalizeTrip).toHaveBeenCalledExactlyOnceWith("trip-one");
     expect(button).toBeDisabled(); await act(async () => pending.resolve({}));
-    expect(mock.refresh).toHaveBeenCalledTimes(1); expect(mock.availability).toHaveBeenCalledTimes(2);
-    expect(mock.navigate).toHaveBeenCalledWith("/finalized"); expect(mock.paymentProps).toBeNull();
+    expect(mock.refresh).toHaveBeenCalledTimes(2);
+    expect(mock.navigate).toHaveBeenCalledWith("/finalized");
   });
   it("Normal failure retains error and retry without success navigation", async () => {
     mock.trip.finalizeTrip.mockRejectedValue({ code: "trip_finalized" }); mount(); const dialog = await openFinalize();
     fireEvent.click(within(dialog).getByRole("button", { name: "Chốt lịch trình" })); await flush();
     expect(within(dialog).getByRole("alert")).toHaveTextContent("Lịch trình đã chốt"); expect(mock.navigate).not.toHaveBeenCalled();
   });
-  it("quota failure refreshes authority and exposes exhausted purchase branch", async () => {
+  it("BE quota refusal switches to the upgrade card, reloads the plan, never offers a single purchase", async () => {
     mock.trip.finalizeTrip.mockRejectedValue({ code: "saved_trip_quota_exceeded" });
-    mock.availability.mockResolvedValueOnce(availability).mockResolvedValue({ ...availability, normalFinalizeAvailable: false });
     mount(); const dialog = await openFinalize(); fireEvent.click(within(dialog).getByRole("button", { name: "Chốt lịch trình" })); await flush();
-    expect(mock.availability).toHaveBeenCalledTimes(2); expect(screen.getByText("Đã đạt giới hạn lưu lịch trình")).toBeInTheDocument();
-    expect(mock.trip.finalizeTrip).toHaveBeenCalledTimes(1);
-  });
-  it("availability failure retains explicit retry and no fallback purchase", async () => {
-    mock.availability.mockRejectedValueOnce(new Error("offline")).mockResolvedValue(availability); mount(); const dialog = await openFinalize();
-    expect(within(dialog).getByRole("status")).toHaveTextContent("Chưa thể tải");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Tải lại thông tin khả dụng" })); await flush();
-    expect(mock.availability).toHaveBeenCalledTimes(2); expect(mock.checkout).not.toHaveBeenCalled();
-  });
-  it("newer availability generation wins over obsolete response", async () => {
-    const old = deferred(); mock.availability.mockReturnValueOnce(old.promise).mockResolvedValue({ ...availability, normalFinalizeAvailable: false });
-    mount(); let dialog = await openFinalize(); fireEvent.click(within(dialog).getByRole("button", { name: "Quay lại" }));
-    dialog = await openFinalize(); await act(async () => old.resolve(availability));
     expect(within(dialog).getByText("Đã đạt giới hạn lưu lịch trình")).toBeInTheDocument();
-    expect(mock.trip.finalizeTrip).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole("region", { name: "Muốn lưu thêm lịch trình?" })).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Mua thêm|mua lẻ/)).not.toBeInTheDocument();
+    expect(mock.refresh).toHaveBeenCalledTimes(2); expect(mock.trip.finalizeTrip).toHaveBeenCalledTimes(1);
+  });
+  it("a full plan shows the upgrade card up front and sends nothing", async () => {
+    mock.subscription = { plan: "Free", savedTrips: { used: 1, limit: 1 } };
+    mount(); const dialog = await openFinalize();
+    expect(within(dialog).getByRole("region", { name: "Muốn lưu thêm lịch trình?" })).toHaveTextContent("Bạn đã lưu 1/1 lịch");
+    expect(within(dialog).queryByRole("button", { name: "Chốt lịch trình" })).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Xem các gói" }));
+    expect(mock.navigate).toHaveBeenCalledWith("/subscription"); expect(mock.trip.finalizeTrip).not.toHaveBeenCalled();
+  });
+  it("unlimited saving never blocks", async () => {
+    mock.subscription = { plan: "Membership", savedTrips: { used: 40, limit: null } };
+    mount(); const dialog = await openFinalize();
+    expect(within(dialog).getByRole("button", { name: "Chốt lịch trình" })).toBeEnabled();
+  });
+  it("a failed plan reload still lets the server decide", async () => {
+    mock.refresh.mockRejectedValue(new Error("offline"));
+    mount(); const dialog = await openFinalize();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Chốt lịch trình" })); await flush();
+    expect(mock.trip.finalizeTrip).toHaveBeenCalledExactlyOnceWith("trip-one");
   });
   it("unmount suppresses finalize navigation and refresh", async () => {
     const pending = deferred(); mock.trip.finalizeTrip.mockReturnValue(pending.promise); const view = mount(); const dialog = await openFinalize();
     fireEvent.click(within(dialog).getByRole("button", { name: "Chốt lịch trình" })); view.unmount();
-    await act(async () => pending.resolve({})); expect(mock.navigate).not.toHaveBeenCalled(); expect(mock.refresh).not.toHaveBeenCalled();
-  });
-  it("Normal availability does not consume a spare entitlement", async () => {
-    mock.availability.mockResolvedValue({ ...availability, unusedEntitlementCount: 2 }); mock.entitlements.mockResolvedValue({ entitlements: [entitlement] });
-    mount(); const dialog = await openFinalize(); expect(within(dialog).getByText(/lượt mua lẻ dự phòng/)).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Chốt lịch trình" })); await flush();
-    expect(mock.trip.finalizeTrip).toHaveBeenCalledWith("trip-one", { fundingSource: "Normal" });
-  });
-  it("Single branch filters used entitlements and re-fetches exact funding before use", async () => {
-    mock.availability.mockResolvedValue({ ...availability, normalFinalizeAvailable: false, unusedEntitlementCount: 2 });
-    mock.entitlements.mockResolvedValue({ entitlements: [{ ...entitlement, entitlementId: "used", consumedAt: "yesterday" }, entitlement] });
-    mount(); const dialog = await openFinalize(); expect(within(dialog).getByText(/Bạn đang có 2 lượt/)).toBeInTheDocument();
-    expect(mock.trip.finalizeTrip).not.toHaveBeenCalled();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Dùng 1 lượt để chốt" })); await flush();
-    expect(mock.entitlements).toHaveBeenCalledTimes(3);
-    expect(mock.trip.finalizeTrip).toHaveBeenCalledExactlyOnceWith("trip-one", { fundingSource: "SingleEntitlement", entitlementId: "owned-one" });
-    expect(mock.navigate).toHaveBeenCalledWith("/finalized");
-  });
-  it("server count without eligible evidence cannot enable consumption", async () => {
-    mock.availability.mockResolvedValue({ ...availability, normalFinalizeAvailable: false, unusedEntitlementCount: 1 });
-    mock.entitlements.mockResolvedValue({ entitlements: [{ ...entitlement, consumedTripId: "another-trip" }] }); mount(); const dialog = await openFinalize();
-    expect(within(dialog).getByRole("button", { name: "Dùng 1 lượt để chốt" })).toBeDisabled(); expect(mock.trip.finalizeTrip).not.toHaveBeenCalled();
-  });
-  it("stale entitlement fails safely and refreshes without consumption", async () => {
-    mock.availability.mockResolvedValue({ ...availability, normalFinalizeAvailable: false, unusedEntitlementCount: 1 });
-    mock.entitlements.mockResolvedValueOnce({ entitlements: [entitlement] }).mockResolvedValue({ entitlements: [] });
-    mount(); const dialog = await openFinalize(); fireEvent.click(within(dialog).getByRole("button", { name: "Dùng 1 lượt để chốt" })); await flush();
-    expect(within(dialog).getByRole("alert")).toHaveTextContent("Không tìm thấy lượt mua lẻ khả dụng");
-    expect(mock.trip.finalizeTrip).not.toHaveBeenCalled(); expect(mock.availability).toHaveBeenCalledTimes(2);
-  });
-  it.each([{ purchaseAllowed: false }, { currency: "USD" }, { productKind: "Membership" }, { price: null }])("invalid purchase authority remains disabled (%j)", async (fields) => {
-    mock.availability.mockResolvedValue({ ...availability, normalFinalizeAvailable: false, ...fields }); mount(); const dialog = await openFinalize();
-    expect(within(dialog).getByRole("button", { name: /Mua thêm lịch trình chưa khả dụng/ })).toBeDisabled();
-    expect(mock.paymentProps).toBeNull(); expect(mock.checkout).not.toHaveBeenCalled();
-  });
-  it("server price and exact payment props retained; close refreshes without checkout", async () => {
-    const data = { ...availability, normalFinalizeAvailable: false }; mock.availability.mockResolvedValue(data);
-    mount(); const dialog = await openFinalize(); fireEvent.click(within(dialog).getByRole("button", { name: /37.000/ }));
-    expect(mock.paymentProps).toMatchObject({ isOpen: true, draftTripId: "trip-one", availability: data,
-      onClose: expect.any(Function), onUseEntitlement: expect.any(Function) });
-    expect(mock.checkout).not.toHaveBeenCalled(); fireEvent.click(screen.getByRole("button", { name: "Close payment" })); await flush();
-    expect(screen.queryByRole("dialog", { name: "Payment mock" })).not.toBeInTheDocument(); expect(mock.availability).toHaveBeenCalledTimes(2);
-  });
-  it("purchased entitlement callback must match authoritative owned evidence", async () => {
-    mock.availability.mockResolvedValue({ ...availability, normalFinalizeAvailable: false });
-    mount(); const dialog = await openFinalize(); fireEvent.click(within(dialog).getByRole("button", { name: /37.000/ }));
-    mock.entitlements.mockResolvedValue({ entitlements: [entitlement, { ...entitlement, entitlementId: "chosen-two" }] });
-    await act(async () => mock.paymentProps.onUseEntitlement({ ...entitlement, entitlementId: "chosen-two" }));
-    expect(mock.trip.finalizeTrip).toHaveBeenCalledWith("trip-one", { fundingSource: "SingleEntitlement", entitlementId: "chosen-two" });
-  });
-  it("invalid purchased evidence returns to confirmation without finalize", async () => {
-    mock.availability.mockResolvedValue({ ...availability, normalFinalizeAvailable: false }); mount(); const dialog = await openFinalize();
-    fireEvent.click(within(dialog).getByRole("button", { name: /37.000/ }));
-    await act(async () => mock.paymentProps.onUseEntitlement({ ...entitlement, available: false }));
-    expect(screen.getByRole("dialog", { name: "Chốt lịch trình" })).toBeInTheDocument(); expect(mock.trip.finalizeTrip).not.toHaveBeenCalled();
-  });
-  it("subscription remains explicit destination and cancellation does not finalize", async () => {
-    mock.availability.mockResolvedValue({ ...availability, normalFinalizeAvailable: false }); mount(); const dialog = await openFinalize();
-    fireEvent.click(within(dialog).getByRole("button", { name: /Nâng cấp gói dịch vụ/ }));
-    expect(mock.navigate).toHaveBeenCalledWith("/subscription"); expect(mock.trip.finalizeTrip).not.toHaveBeenCalled();
+    await act(async () => pending.resolve({})); expect(mock.navigate).not.toHaveBeenCalled(); expect(mock.refresh).toHaveBeenCalledTimes(1);
   });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -232,11 +171,11 @@ describe("USER-A5.3 Finalized save/share contracts", () => {
     mock.auth.isLoggedIn = false; mount(Finalized); fireEvent.click(screen.getByRole("button", { name: /Lưu lịch trình/ }));
     expect(mock.navigate).toHaveBeenCalledWith("/login"); expect(mock.trip.saveTrip).not.toHaveBeenCalled();
   });
-  it("saved quota keeps subscription action and no entitlement checkout", async () => {
+  it("saved quota points to the plans page only", async () => {
     mock.trip.saveTrip.mockRejectedValue({ code: "saved_trip_quota_exceeded" }); mount(Finalized);
     fireEvent.click(screen.getByRole("button", { name: /Lưu lịch trình/ })); await flush();
-    expect(screen.getByRole("alert")).toHaveTextContent("đạt giới hạn"); fireEvent.click(screen.getByRole("button", { name: "Nâng cấp" }));
-    expect(mock.navigate).toHaveBeenCalledWith("/subscription"); expect(mock.checkout).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("đạt giới hạn"); fireEvent.click(screen.getByRole("button", { name: "Xem các gói" }));
+    expect(mock.navigate).toHaveBeenCalledWith("/subscription"); expect(screen.queryByText(/Mua thêm|mua lẻ/)).not.toBeInTheDocument();
   });
   it.each([[404, "Không tìm thấy lịch trình"], [401, "Phiên đăng nhập"], [403, "Phiên đăng nhập"], [500, "Không thể lưu"]])("save HTTP %s error retains baseline mapping", async (status, text) => {
     mock.trip.saveTrip.mockRejectedValue({ status }); mount(Finalized); fireEvent.click(screen.getByRole("button", { name: /Lưu lịch trình/ })); await flush();
@@ -308,10 +247,14 @@ describe("USER-A5.1 Draft presentation preserves contracts", () => {
   });
   it("view/replace retain exact item destinations; no mutation on render", () => {
     mount(); fireEvent.click(screen.getAllByRole("button", { name: /Xem thông tin/ })[0]);
+    vi.spyOn(tripService, "getItemAlternatives").mockResolvedValue([]);
     fireEvent.click(screen.getAllByRole("button", { name: /Thay thế/ })[1]);
-    expect(mock.navigate.mock.calls).toEqual([["/place/place-one", { state: { fromTimeline: true } }], ["/replace/item-two"]]);
+    // Thay ngay trong trang: không chuyển sang /replace, mở ngăn kéo của đúng chặng
+    expect(mock.navigate.mock.calls).toEqual([["/place/place-one", { state: { fromTimeline: true } }]]);
+    expect(screen.getByRole("dialog", { name: "Thay địa điểm" })).toHaveTextContent('Thay "Bảo tàng"');
+    expect(tripService.getItemAlternatives).toHaveBeenCalledWith("trip-one", "item-two", 5);
     expect(mock.trip.deleteItem).not.toHaveBeenCalled(); expect(mock.trip.explainTrip).not.toHaveBeenCalled();
-    expect(mock.trip.finalizeTrip).not.toHaveBeenCalled(); expect(mock.availability).not.toHaveBeenCalled();
+    expect(mock.trip.finalizeTrip).not.toHaveBeenCalled();
   });
   it("delete retains trip/item arguments, busy guard and success toast timeout", async () => {
     const pending = deferred(); mock.trip.deleteItem.mockReturnValue(pending.promise); mount();
@@ -341,10 +284,11 @@ describe("USER-A5.1 Draft presentation preserves contracts", () => {
   });
   it("Demo hides explanation and parse assistant", () => {
     mock.auth.isDemo = true; mount(); expect(mock.assistantProps).toBeNull();
+    expect(screen.queryByRole("button", { name: "Hỏi AI" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Nhờ AI/ })).not.toBeInTheDocument();
   });
   it("assistant no-change is a no-op, changed result preserves origin/base and original trip", () => {
-    mount(); const original = JSON.stringify(mock.trip.currentTrip);
+    mount(); openAi(); const original = JSON.stringify(mock.trip.currentTrip);
     expect(mock.assistantProps.base).toEqual(toParseBase(mock.trip.currentTrip));
     mock.assistantProps.onParsed({ changed: [] }); expect(mock.navigate).not.toHaveBeenCalled();
     const result = { changed: ["durationHours"], fields: { durationHours: 3, note: null }, missing: ["startTime"] };
@@ -361,8 +305,8 @@ describe("USER-A5.1 Draft presentation preserves contracts", () => {
   });
   it("daily AI quota shows remaining calls, reloads after a call and locks at zero", async () => {
     const ai = (dailyUsed) => ({ plan: "Free", ai: { dailyUsed, dailyLimit: 3, resetAt: "2999-01-01T00:00:00Z" } });
-    mock.subscription = ai(2); mount();
-    expect(screen.getByText(/Còn 1\/3 lượt hôm nay/)).toBeInTheDocument();
+    mock.subscription = ai(2); mount(); openAi();
+    expect(screen.getAllByText(/Còn 1\/3 lượt hôm nay/).length).toBeGreaterThan(0);
     expect(mock.assistantProps.aiQuota).toMatchObject({ used: 2, limit: 3, remaining: 1 });
     fireEvent.click(screen.getByRole("button", { name: /Nhờ AI viết lý do/ })); await flush();
     expect(mock.trip.explainTrip).toHaveBeenCalledExactlyOnceWith("trip-one"); expect(mock.refresh).toHaveBeenCalledTimes(1);
@@ -371,7 +315,7 @@ describe("USER-A5.1 Draft presentation preserves contracts", () => {
     expect(screen.getByText(/Bạn đã dùng hết lượt AI hôm nay/)).toBeInTheDocument();
   });
   it("AI cooldown locks the explain button, counts down and reaches the change assistant", () => {
-    mock.trip.aiCooldownUntil = Date.now() + 16000; mount();
+    mock.trip.aiCooldownUntil = Date.now() + 16000; mount(); openAi();
     expect(screen.getByRole("button", { name: /Nhờ AI viết lý do/ })).toBeDisabled();
     expect(screen.getByText(/AI vừa gặp lỗi\. Thử lại sau 16 giây\./)).toBeInTheDocument();
     expect(mock.assistantProps.cooldownSeconds).toBe(16);
@@ -381,15 +325,61 @@ describe("USER-A5.1 Draft presentation preserves contracts", () => {
     expect(mock.trip.explainTrip).not.toHaveBeenCalled();
   });
   it("a failed change-assistant call is reported to the Trip context before the plan reloads", () => {
-    mount(); const error = { code: "ai_cooldown", data: { retryAfterSeconds: 16 } };
+    mount(); openAi(); const error = { code: "ai_cooldown", data: { retryAfterSeconds: 16 } };
     mock.assistantProps.onSettled(error);
     expect(mock.trip.noteAiError).toHaveBeenCalledExactlyOnceWith(error); expect(mock.refresh).toHaveBeenCalledTimes(1);
     mock.assistantProps.onSettled(undefined);
     expect(mock.trip.noteAiError).toHaveBeenCalledTimes(1); expect(mock.refresh).toHaveBeenCalledTimes(2);
   });
   it("used-up generate quota blocks the change assistant, otherwise it stays open", () => {
-    mount(); expect(mock.assistantProps.blockedReason).toBe("");
-    cleanup(); mock.subscription = { plan: "Free", usage: { generateUsed: 1, generateLimit: 1, resetAt: "2999-01-01T00:00:00Z" } }; mount();
+    mount(); openAi(); expect(mock.assistantProps.blockedReason).toBe("");
+    cleanup(); mock.subscription = { plan: "Free", usage: { generateUsed: 1, generateLimit: 1, resetAt: "2999-01-01T00:00:00Z" } }; mount(); openAi();
     expect(mock.assistantProps.blockedReason).toMatch(/hết lượt tạo lịch trình/);
+  });
+});
+
+describe("Dải nhắc nâng cấp sau khi chốt lịch", () => {
+  const STRIP = /Muốn có thêm phương án cho lần đi sau\?/;
+  beforeEach(() => {
+    try { localStorage.clear(); } catch { /* bỏ qua */ }
+    mock.subscription = { plan: "Free", usage: { generateUsed: 1, generateLimit: 1 } };
+  });
+
+  it("gói Miễn phí: hiện một lần trong ngày, ghi lại ngày đã hiện", () => {
+    mount(Finalized);
+    expect(screen.getByText(STRIP)).toBeInTheDocument();
+    expect(localStorage.getItem("localmate_upgrade_strip_shown:user-one")).toBe(todayInVietnam());
+    cleanup(); mount(Finalized);
+    expect(screen.queryByText(STRIP)).not.toBeInTheDocument();
+  });
+
+  it("đóng được và nút Xem các gói mở trang Gói", () => {
+    mount(Finalized);
+    fireEvent.click(screen.getByRole("button", { name: "Xem các gói" }));
+    expect(mock.navigate).toHaveBeenCalledWith("/subscription");
+    fireEvent.click(screen.getByRole("button", { name: "Đóng lời nhắc" }));
+    expect(screen.queryByText(STRIP)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["gói trả phí", { plan: "TripPass", effectiveUntil: "2099-01-01T00:00:00Z" }],
+    ["đang dùng thử", { plan: "TripPass", isTrial: true, effectiveUntil: "2099-01-01T00:00:00Z" }],
+  ])("không hiện với %s", (_, subscription) => {
+    mock.subscription = subscription;
+    mount(Finalized);
+    expect(screen.queryByText(STRIP)).not.toBeInTheDocument();
+  });
+
+  it("không hiện với phiên demo", () => {
+    mock.auth = { ...mock.auth, isDemo: true };
+    mount(Finalized);
+    expect(screen.queryByText(STRIP)).not.toBeInTheDocument();
+  });
+
+  it("trình duyệt chặn localStorage thì vẫn hiện bình thường", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("blocked"); });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("blocked"); });
+    mount(Finalized);
+    expect(screen.getByText(STRIP)).toBeInTheDocument();
   });
 });

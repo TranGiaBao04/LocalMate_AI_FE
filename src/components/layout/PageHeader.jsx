@@ -1,3 +1,5 @@
+import PlanStatusChip from "./PlanStatusChip";
+
 // Thanh tiêu đề cố định dùng chung cho các trang cấp 1 (các mục trên sidebar)
 export default function PageHeader({ title, children }) {
   return (
@@ -5,6 +7,7 @@ export default function PageHeader({ title, children }) {
       <h1 title={typeof title === "string" ? title : undefined} className="min-w-0 truncate text-[20px] font-bold leading-7 text-navy-dark sm:text-[22px] sm:leading-8">
         {title}
       </h1>
+      <PlanStatusChip />
       {children}
     </header>
   );

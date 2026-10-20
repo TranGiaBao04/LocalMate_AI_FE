@@ -5,8 +5,6 @@ import PaymentCheckoutModal from "../src/components/subscription/PaymentCheckout
 import SubscriptionPage from "../src/pages/subscription/SubscriptionPage";
 import PaymentReturnPage from "../src/pages/subscription/PaymentReturnPage";
 import { subscriptionService } from "../src/services/subscriptionService";
-import { itineraryPurchaseService } from "../src/services/itineraryPurchaseService";
-import { saveSinglePaymentIntent } from "../src/utils/itineraryPurchaseSession";
 import * as AuthContextModule from "../src/context/AuthContext";
 import * as SubscriptionContextModule from "../src/context/SubscriptionContext";
 import {
@@ -462,7 +460,12 @@ describe("FE-UP3: Server-Authoritative Payment Lifecycle", () => {
   // P11: another_pending_order same lifecycle rule
   // ==========================================================================
   it("P11: another_pending_order same lifecycle rule", async () => {
-    mockContexts();
+    mockContexts({
+      plans: [
+        { code: "Membership", price: 59000, durationDays: 30 },
+        { code: "TripPass", name: "Trip Pass", price: 19000, durationDays: 7 },
+      ],
+    });
     vi.spyOn(subscriptionService, "getCheckoutQuote").mockResolvedValue({
       planCode: "Membership",
       type: "Purchase",
@@ -505,7 +508,7 @@ describe("FE-UP3: Server-Authoritative Payment Lifecycle", () => {
 
     await waitFor(() => {
       expect(getOrderSpy).toHaveBeenCalledWith("another-order-p11");
-      // Displays the actual owned planCode from server order (TripPass)
+      // Displays the name (from plan list) of the actual owned planCode from server order (TripPass)
       expect(screen.getByText(/Thanh toán Trip Pass/i)).toBeInTheDocument();
     });
   });
@@ -1343,7 +1346,7 @@ describe("FE-UP3: Server-Authoritative Payment Lifecycle", () => {
   // ==========================================================================
   // P35: unknown subscription lookup error does not fall back to Single
   // ==========================================================================
-  it("P35: unknown subscription lookup error does not fall back to Single", async () => {
+  it("P35: unknown subscription lookup error is shown as is", async () => {
     saveSubscriptionPaymentSession("user-123", {
       orderId: "sub-order-p35",
       status: PAYMENT_ORDER_STATUS.PENDING,
@@ -1351,7 +1354,6 @@ describe("FE-UP3: Server-Authoritative Payment Lifecycle", () => {
 
     mockContexts();
     vi.spyOn(subscriptionService, "getOrder").mockRejectedValue(new Error("500 Internal Error"));
-    const singleGetOrderSpy = vi.spyOn(itineraryPurchaseService, "getOrder");
 
     render(
       <MemoryRouter initialEntries={["/payment/success?orderId=sub-order-p35"]}>
@@ -1363,8 +1365,6 @@ describe("FE-UP3: Server-Authoritative Payment Lifecycle", () => {
 
     await waitFor(() => {
       expect(screen.getByText("500 Internal Error")).toBeInTheDocument();
-      // Must NOT fallback to Single
-      expect(singleGetOrderSpy).not.toHaveBeenCalled();
       expect(screen.queryByText(/Thanh toán lịch trình thành công/i)).not.toBeInTheDocument();
     });
   });
@@ -1521,14 +1521,10 @@ describe("FE-UP3: Server-Authoritative Payment Lifecycle", () => {
   });
 
   // ==========================================================================
-  // P40: payment return page with mismatched query orderId does not fall back to Single
+  // P40: payment return page looks up the subscription order named in the URL
   // ==========================================================================
-  it("P40: payment return page with mismatched query orderId does not fall back to Single", async () => {
-    // Single intent exists for different order
-    saveSinglePaymentIntent("user-123", { orderId: "single-existing-123", productKind: "SingleItinerary" });
-
+  it("P40: payment return page looks up the subscription order named in the URL", async () => {
     mockContexts();
-    const singleGetOrderSpy = vi.spyOn(itineraryPurchaseService, "getOrder");
     const subGetOrderSpy = vi.spyOn(subscriptionService, "getOrder").mockResolvedValue({
       orderId: "sub-unrelated-456",
       status: PAYMENT_ORDER_STATUS.PAID,
@@ -1545,9 +1541,7 @@ describe("FE-UP3: Server-Authoritative Payment Lifecycle", () => {
     );
 
     await waitFor(() => {
-      // Must route to subscription, NOT single
       expect(subGetOrderSpy).toHaveBeenCalledWith("sub-unrelated-456");
-      expect(singleGetOrderSpy).not.toHaveBeenCalled();
       expect(screen.getByText("Thanh toán thành công!")).toBeInTheDocument();
       expect(screen.queryByText(/chốt lịch trình/i)).not.toBeInTheDocument();
     });
