@@ -31,17 +31,6 @@ const TYPE_CONFIG = {
   4: { label: "Khác", variant: "neutral", icon: "chat_bubble" },
 };
 
-function shortenUserAgent(ua) {
-  if (!ua) return "";
-  if (ua.includes("iPhone")) return "iPhone";
-  if (ua.includes("iPad")) return "iPad";
-  if (ua.includes("Android")) return "Android";
-  if (ua.includes("Windows")) return "Windows PC";
-  if (ua.includes("Macintosh")) return "Mac";
-  if (ua.includes("Linux")) return "Linux";
-  return ua.slice(0, 24);
-}
-
 function FilterButton({ label, onClick }) {
   return (
     <button type="button" title={label} aria-label={label} onClick={onClick} className={ADMIN_ICON_BUTTON}>
@@ -89,28 +78,8 @@ function AuthorCell({ author, canOpen, onFilter }) {
 
 function ContentCell({ row }) {
   return (
-    <div className="min-w-0 max-w-md space-y-1.5">
+    <div className="min-w-0 max-w-md">
       <p className="whitespace-pre-line break-words text-sm text-[#0F2148]">{row.content}</p>
-      <div className="flex flex-wrap items-center gap-2 pt-0.5">
-        {row.pagePath && (
-          <span
-            title="Đường dẫn trang lúc gửi"
-            className="inline-flex items-center gap-1 rounded bg-[#F4F6FA] px-1.5 py-0.5 text-[11px] font-mono text-[#5C6B8A]"
-          >
-            <span className="material-symbols-outlined text-[12px]">link</span>
-            {row.pagePath}
-          </span>
-        )}
-        {row.userAgent && (
-          <span
-            title={row.userAgent}
-            className="inline-flex items-center gap-1 text-[11px] text-[#8993AC] cursor-help"
-          >
-            <span className="material-symbols-outlined text-[12px]">devices</span>
-            {shortenUserAgent(row.userAgent)}
-          </span>
-        )}
-      </div>
     </div>
   );
 }
@@ -413,16 +382,6 @@ export default function AppFeedbackList() {
                           {row.content}
                         </dd>
                       </div>
-                      {(row.pagePath || row.userAgent) && (
-                        <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-[#8993AC]">
-                          {row.pagePath && (
-                            <span className="rounded bg-[#F4F6FA] px-1.5 py-0.5 font-mono text-[#5C6B8A]">
-                              {row.pagePath}
-                            </span>
-                          )}
-                          {row.userAgent && <span>{shortenUserAgent(row.userAgent)}</span>}
-                        </div>
-                      )}
                       <div>
                         <dt className="text-[#8993AC]">Ngày gửi</dt>
                         <dd className="text-[#5C6B8A]">{formatDateTimeInVietnam(row.createdAt)}</dd>

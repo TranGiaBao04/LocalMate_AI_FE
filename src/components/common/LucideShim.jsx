@@ -1,5 +1,3 @@
-import React from 'react';
-
 const ICON_MAP = {
   ArrowLeft: 'arrow_back',
   ArrowRight: 'arrow_forward',

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTrip } from "../../context/TripContext";
 import { useSubscription } from "../../context/SubscriptionContext";
-import { formatVnDate, formatVnDateTime, isPaidSubscription, isFreeSubscription, isTrialSubscription, getPlanDisplayName, getAiQuota } from "../../utils/subscriptionUtils";
+import { formatVnDate, formatVnDateTime, isPaidSubscription, isFreeSubscription, isTrialSubscription, getSubscriptionPlanName, getAiQuota } from "../../utils/subscriptionUtils";
 import MobileLayout from "../../components/layout/MobileLayout";
 import PageHeader from "../../components/layout/PageHeader";
 import { tagService } from "../../services/tagService";
@@ -271,7 +271,7 @@ function OwnedProfilePage({ auth }) {
                 : subscriptionLoading ? <p role="status" data-testid="profile-subscription-loading" className="text-sm text-on-surface-variant">Đang tải thông tin gói...</p>
                   : subscriptionError || !validSubscription ? <div role="alert" data-testid="profile-subscription-unavailable" className="space-y-2"><p className="text-sm font-semibold text-on-surface">Không thể tải thông tin gói</p><p className="break-words text-sm text-on-surface-variant">{subscriptionError || "Chưa có thông tin gói dịch vụ từ máy chủ."}</p></div>
                     : <div className="space-y-4">
-                      <div><p className="text-xs text-on-surface-variant">Gói hiện tại</p><p className="mt-1 flex flex-wrap items-center gap-2 break-words text-xl font-bold text-primary">{getPlanDisplayName(subscription.plan, plans)}{isTrial && <span className="rounded-full bg-primary-fixed px-2.5 py-0.5 text-xs font-bold text-on-primary-fixed">Dùng thử</span>}</p></div>
+                      <div><p className="text-xs text-on-surface-variant">Gói hiện tại</p><p className="mt-1 flex flex-wrap items-center gap-2 break-words text-xl font-bold text-primary">{getSubscriptionPlanName(subscription, plans)}{isTrial && <span className="rounded-full bg-primary-fixed px-2.5 py-0.5 text-xs font-bold text-on-primary-fixed">Dùng thử</span>}</p></div>
                       {(effectiveDate || endDate) && <dl className="space-y-2 text-sm text-on-surface-variant">
                         {effectiveDate && <div><dt>{isTrial ? "Dùng thử đến" : "Kỳ hiện tại"}</dt><dd className="mt-0.5 font-medium text-on-surface">{effectiveDate}</dd></div>}
                         {endDate && (!effectiveDate || subscription.effectiveUntil !== subscription.endsAt) && <div><dt>{effectiveDate ? "Thanh toán đến" : "Hết hạn"}</dt><dd className="mt-0.5 font-medium text-on-surface">{endDate}</dd></div>}

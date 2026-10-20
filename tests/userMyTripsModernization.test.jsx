@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MyTripsPage from "../src/pages/trip/MyTripsPage";
 import { mapMyTrip } from "../src/utils/tripMapper";
 
+// Nhãn gói trên PageHeader cần SubscriptionProvider, các test ở đây không kiểm tra gói
+vi.mock("../src/components/layout/PlanStatusChip", () => ({ default: () => null }));
+
 const boundary = vi.hoisted(() => ({ trip: null, demo: false }));
 vi.mock("../src/context/TripContext", () => ({ useTrip: () => boundary.trip }));
 vi.mock("../src/context/AuthContext", () => ({ useAuth: () => ({ user: { id: "test-owner" }, isLoggedIn: true, isDemo: boundary.demo }) }));

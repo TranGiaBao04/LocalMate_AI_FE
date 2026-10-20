@@ -8,9 +8,9 @@ import {
   TRIAL_DAYS_MAX, TRIAL_DAYS_MIN, TRIAL_ERROR_MESSAGES, TRIAL_MAX_RECIPIENTS_MAX, TRIAL_NAME_MAX_LENGTH, getTrialFieldErrors,
 } from "./trialProgramLabels";
 
-// program = null ⇒ tạo mới. aiHint: dòng nhắc cạnh ô giới hạn số người nhận (trang cha dựng từ /admin/plans).
+// program = null ⇒ tạo mới. aiHint: dòng nhắc cạnh ô giới hạn số người nhận, planName: tên gói dùng thử (trang cha lấy từ /admin/plans).
 // Thành công thì onSaved(chương trình, isEdit). 404 thì onNotFound(), trang cha đóng dialog và tải lại.
-export default function TrialProgramFormDialog({ program, aiHint, onClose, onSaved, onNotFound }) {
+export default function TrialProgramFormDialog({ program, aiHint, planName, onClose, onSaved, onNotFound }) {
   const isEdit = Boolean(program);
   const today = todayInVietnam();
   const [form, setForm] = useState(() => ({
@@ -89,7 +89,7 @@ export default function TrialProgramFormDialog({ program, aiHint, onClose, onSav
       </>}>
       <form id="trial-program-form" onSubmit={handleSubmit} className="space-y-5">
         <p className="text-sm leading-[22px] text-[#5C6B8A]">
-          Tài khoản tạo mới trong khoảng ngày này (tính cả hai đầu, theo lịch Việt Nam) được dùng thử <strong className="text-[#0F2148]">Trip Pass</strong>.
+          Tài khoản tạo mới trong khoảng ngày này (tính cả hai đầu, theo lịch Việt Nam) {planName ? <>được dùng thử gói <strong className="text-[#0F2148]">{planName}</strong></> : "được nhận gói dùng thử"}.
           {isEdit && program.grantedCount > 0 && ` Đã có ${program.grantedCount.toLocaleString("vi-VN")} người nhận, sửa chương trình không ảnh hưởng tới họ.`}
         </p>
         <AdminField id="trial-name" label="Tên chương trình *" error={errorOf("name")} hint={`${name.length}/${TRIAL_NAME_MAX_LENGTH}`}>

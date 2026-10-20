@@ -216,15 +216,18 @@ describe("FE-UP5 admin financial evidence A01-A50", () => {
     expect(valueFor("Credit đã áp dụng:", within(dialog))).toHaveTextContent("—");
     expect(valueFor("Credit đã áp dụng:", within(dialog))).not.toHaveTextContent("0đ");
   });
-  it("A19 Single with null plan identity has an explicit product label", async () => {
+  // Đã gỡ mua lẻ: mọi giao dịch là gói, thiếu tên/mã gói thì ghi chung "Gói đăng ký" (kể cả dữ liệu cũ còn productKind lẻ)
+  it("A19 missing plan identity shows the generic plan label, never a single-itinerary label", async () => {
     rows = [transaction({ productKind: "SingleItinerary", operationType: "Purchase", planCode: null, planName: null })];
-    expect(within(await openPage()).getByText("Lịch trình đơn lẻ")).toBeInTheDocument();
+    const page = await openPage();
+    expect(within(page).getByText("Gói đăng ký")).toBeInTheDocument();
+    expect(page).not.toHaveTextContent("Lịch trình đơn lẻ");
   });
-  it("A20 Single never fabricates TripPass", async () => {
+  it("A20 detail with missing plan identity never fabricates TripPass", async () => {
     detail.transaction = transaction({ productKind: "SingleItinerary", operationType: "Purchase", planCode: null, planName: null });
     const dialog = await openDetail();
-    expect(valueFor("Sản phẩm:", within(dialog))).toHaveTextContent("Lịch trình đơn lẻ");
-    expect(dialog).not.toHaveTextContent(/Trip ?Pass/);
+    expect(valueFor("Sản phẩm:", within(dialog))).toHaveTextContent("Gói đăng ký");
+    expect(dialog).not.toHaveTextContent(/Trip ?Pass|Lịch trình đơn lẻ/);
   });
   it("A21 Single never fabricates Membership", async () => {
     rows = [transaction({ productKind: "SingleItinerary", planCode: null, planName: null })];

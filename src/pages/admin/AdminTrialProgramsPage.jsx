@@ -8,22 +8,26 @@ import { TRIAL_ERROR_MESSAGES, TRIAL_STATUS_BADGE, formatIsoDate, getTrialErrorM
 import { adminPlanService } from "../../services/adminPlanService";
 import { adminTrialProgramService } from "../../services/adminTrialProgramService";
 
-// Dòng nhắc lượt AI: số lấy từ phiên bản hiện hành của gói (mã nội bộ của /admin/plans), không gắn cứng
-function buildAiHint(limits) {
+// Dòng nhắc lượt AI: số và tên lấy từ gói (mã nội bộ của /admin/plans), không gắn cứng
+function buildAiHint(plans) {
   const tail = "Hạn mức AI miễn phí của cả hệ thống có giới hạn, nên đặt giới hạn số người nhận.";
-  if (typeof limits?.trial !== "number") return `Người dùng thử có nhiều lượt AI hơn gói Free. ${tail}`;
-  const free = typeof limits.free === "number" ? ` (Free: ${limits.free})` : "";
-  return `Mỗi người dùng thử có ${limits.trial} lượt AI mỗi ngày${free}. ${tail}`;
+  const trialLimit = plans?.trial?.currentVersion?.aiDailyCallLimit;
+  const freeLimit = plans?.free?.currentVersion?.aiDailyCallLimit;
+  const freeName = plans?.free?.name || "gói miễn phí";
+  if (typeof trialLimit !== "number") return `Người dùng thử có nhiều lượt AI hơn ${freeName}. ${tail}`;
+  const free = typeof freeLimit === "number" ? ` (${freeName}: ${freeLimit})` : "";
+  return `Mỗi người dùng thử có ${trialLimit} lượt AI mỗi ngày${free}. ${tail}`;
 }
 
 export default function AdminTrialProgramsPage() {
   const [reloadCount, setReloadCount] = useState(0);
   const [response, setResponse] = useState({ key: null, programs: [], error: "" });
-  const [aiLimits, setAiLimits] = useState(null);
+  const [trialPlans, setTrialPlans] = useState(null); // { trial, free }: gói TRIP_PASS, FREE từ /admin/plans
   const [formTarget, setFormTarget] = useState(null); // { program: null (tạo mới) | program }
   const [togglingId, setTogglingId] = useState(null);
   const [notice, setNotice] = useState(null);
   const loading = response.key !== reloadCount;
+  const trialPlanName = trialPlans?.trial?.name;
 
   useEffect(() => {
     let active = true;
@@ -38,14 +42,14 @@ export default function AdminTrialProgramsPage() {
     return () => { active = false; };
   }, [reloadCount]);
 
-  // Chỉ để dựng dòng nhắc, lỗi thì dùng câu chung
+  // Chỉ để lấy tên gói dùng thử và dựng dòng nhắc, lỗi thì dùng câu chung
   useEffect(() => {
     let active = true;
     adminPlanService.getPlans({ pageSize: 100 })
       .then((data) => {
         if (!active) return;
-        const limitOf = (code) => data?.items?.find((plan) => plan.code === code)?.currentVersion?.aiDailyCallLimit;
-        setAiLimits({ trial: limitOf("TRIP_PASS"), free: limitOf("FREE") });
+        const planOf = (code) => data?.items?.find((plan) => plan.code === code);
+        setTrialPlans({ trial: planOf("TRIP_PASS"), free: planOf("FREE") });
       })
       .catch(() => {});
     return () => { active = false; };
@@ -152,7 +156,7 @@ export default function AdminTrialProgramsPage() {
       <AdminPageHeader
         eyebrow="Gói cước & Doanh thu"
         title="Dùng thử khi đăng ký"
-        description="Tài khoản tạo mới trong thời gian chương trình đang bật được dùng thử Trip Pass. Mỗi tài khoản nhận tối đa một lần, tài khoản có từ trước không được cấp bù. Muốn dừng thì tắt chương trình (không xoá được)."
+        description={`Tài khoản tạo mới trong thời gian chương trình đang bật ${trialPlanName ? `được dùng thử gói ${trialPlanName}` : "được nhận gói dùng thử"}. Mỗi tài khoản nhận tối đa một lần, tài khoản có từ trước không được cấp bù. Muốn dừng thì tắt chương trình (không xoá được).`}
       >
         <button type="button" onClick={() => setFormTarget({ program: null })} disabled={response.key === null} className={ADMIN_PRIMARY_BUTTON}>
           <span className="material-symbols-outlined text-[20px]">add</span>
@@ -182,7 +186,8 @@ export default function AdminTrialProgramsPage() {
       {formTarget && (
         <TrialProgramFormDialog
           program={formTarget.program}
-          aiHint={buildAiHint(aiLimits)}
+          aiHint={buildAiHint(trialPlans)}
+          planName={trialPlanName}
           onClose={closeForm}
           onSaved={handleSaved}
           onNotFound={handleNotFound}

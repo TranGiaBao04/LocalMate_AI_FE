@@ -14,7 +14,7 @@ import { ADMIN_PERMISSIONS } from "../../constants";
 import { useAuth } from "../../context/AuthContext";
 import { adminUserService } from "../../services/adminUserService";
 import { hasAnyPermission } from "../../utils/adminAccess";
-import { formatPlanPrice, formatVnDateTime, getPlanDisplayName } from "../../utils/subscriptionUtils";
+import { formatPlanPrice, formatVnDateTime, getSubscriptionPlanName } from "../../utils/subscriptionUtils";
 import { formatPlannedDate } from "../../utils/vnTime";
 
 const PAGE_SIZE = 10;
@@ -528,7 +528,7 @@ function UserDetail({ userId }) {
         </section>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <StatCard
           label="Chuyến đi"
           value={stats.tripCount ?? 0}
@@ -542,12 +542,6 @@ function UserDetail({ userId }) {
           hint={`${stats.paidOrderCount ?? 0} đơn thành công, chưa trừ hoàn tiền`}
           icon="payments"
           tone="bg-emerald-50 text-emerald-700"
-        />
-        <StatCard
-          label="Lượt mua lẻ chưa dùng"
-          value={stats.unusedSingleItineraryCount ?? 0}
-          icon="confirmation_number"
-          tone="bg-amber-50 text-amber-700"
         />
       </div>
 
@@ -564,7 +558,7 @@ function UserDetail({ userId }) {
           <h2 className="font-bold text-[#0F2148]">Gói hiện tại</h2>
           <dl className="mt-2">
             <InfoRow label="Gói">
-              {getPlanDisplayName(subscription?.plan) || "—"}
+              {getSubscriptionPlanName(subscription) || "—"}
               {subscription?.isTrial && <span className="ml-1.5 text-xs font-semibold text-blue-700">· Dùng thử</span>}
             </InfoRow>
             <InfoRow label={subscription?.isTrial ? "Dùng thử đến" : "Hiệu lực đến"}>{planUntil ? formatVnDateTime(planUntil) : "—"}</InfoRow>

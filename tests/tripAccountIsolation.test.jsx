@@ -8,6 +8,9 @@ import SavedTripDetailPage from "../src/pages/trip/SavedTripDetailPage";
 import { mapMyTrip, mapTrip } from "../src/utils/tripMapper";
 import { STORAGE_KEYS } from "../src/constants";
 
+// Nhãn gói trên PageHeader cần SubscriptionProvider, các test ở đây không kiểm tra gói
+vi.mock("../src/components/layout/PlanStatusChip", () => ({ default: () => null }));
+
 const mock = vi.hoisted(() => ({ auth: null, refresh: vi.fn(), service: {
   getTrips: vi.fn(), getTripById: vi.fn(), generateTrip: vi.fn(), explainTrip: vi.fn(),
   saveTrip: vi.fn(), deleteTrip: vi.fn(), finalizeTrip: vi.fn(), replaceItem: vi.fn(),
@@ -192,7 +195,7 @@ describe("owner generations, storage and normal Trip contracts", () => {
     ["generateTrip", "generateTrip", (ctx) => ctx.generateTrip(requestA)],
     ["saveTrip", "saveTrip", (ctx) => ctx.saveTrip(tripA)],
     ["deleteTrip", "deleteTrip", (ctx) => ctx.deleteTrip(tripA.id)],
-    ["finalizeTrip", "finalizeTrip", (ctx) => ctx.finalizeTrip(tripA.id, { fundingSource: "SingleEntitlement", entitlementId: "entitlement-a" })],
+    ["finalizeTrip", "finalizeTrip", (ctx) => ctx.finalizeTrip(tripA.id)],
     ["replaceItem", "replaceItem", (ctx) => ctx.replaceItem(tripA.id, "item-a", "place-new")],
     ["deleteItem", "deleteItem", (ctx) => ctx.deleteItem(tripA.id, "item-a")],
     ["markVisited", "markVisited", (ctx) => ctx.markVisited(tripA.id, "item-a")],
@@ -216,20 +219,18 @@ describe("owner generations, storage and normal Trip contracts", () => {
     let result; await act(async () => { result = await consume(invoke(current)); });
     expect(result.error).toBe(error); expect(mock.refresh).not.toHaveBeenCalled();
   });
-  it("normal save/finalize/upsert and update workflows preserve IDs, funding and refresh", async () => {
+  it("normal save/finalize/upsert and update workflows preserve IDs and refresh", async () => {
     mount(); await settled(); act(() => current.setCurrentTrip(tripA));
     mock.service.saveTrip.mockResolvedValue(tripA);
     mock.service.finalizeTrip.mockResolvedValue({ ...tripA, status: "finalized" });
     mock.service.replaceItem.mockResolvedValue({ warnings: [] });
     mock.service.deleteItem.mockResolvedValue(null); mock.service.markVisited.mockResolvedValue(null);
     mock.service.deleteTrip.mockResolvedValue(null);
-    const funding = { fundingSource: "SingleEntitlement", entitlementId: "entitlement-a" };
     await act(async () => { await current.saveTrip(tripA); await current.saveTrip(tripA); });
     expect(state().saved).toEqual([tripA.id]); expect(mock.service.saveTrip).toHaveBeenCalledWith(tripA.id);
-    await act(async () => { await current.finalizeTrip(tripA.id, funding); });
-    expect(mock.service.finalizeTrip).toHaveBeenCalledWith(tripA.id, funding); expect(mock.refresh).toHaveBeenCalledTimes(1);
-    await act(async () => { await current.finalizeTrip(tripA.id, { fundingSource: "Normal" }); });
-    expect(mock.service.finalizeTrip).toHaveBeenLastCalledWith(tripA.id, { fundingSource: "Normal" });
+    // Chốt chỉ theo lượt lưu của gói: không còn tham số nguồn thanh toán
+    await act(async () => { await current.finalizeTrip(tripA.id); });
+    expect(mock.service.finalizeTrip).toHaveBeenCalledExactlyOnceWith(tripA.id); expect(mock.refresh).toHaveBeenCalledTimes(1);
     await act(async () => {
       expect(await current.replaceItem(tripA.id, "item", "place")).toEqual({ warnings: [] });
       expect(await current.deleteItem(tripA.id, "item")).toEqual(tripA.items);

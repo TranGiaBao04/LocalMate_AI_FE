@@ -297,7 +297,8 @@ describe("FE3 actual User Detail AI history", () => {
     mocks.ai.getUserCalls.mockResolvedValue({ items: [], page: 1, pageSize: 10, totalCount: 0, totalPages: 0 });
     mocks.ai.getUserSummary.mockResolvedValue({ ...summary(), today: {}, totals: {} });
     await mount(); await openAi();
-    expect(aiPanel()).toHaveTextContent("0 lượt gọi · Trang 1 / 0");
+    // totalCount 0 giữ nguyên; totalPages 0 hiện là 1 trang để không ra "Trang 1 / 0"
+    expect(aiPanel()).toHaveTextContent("0 lượt gọi · Trang 1 / 1");
     expect(screen.getByLabelText("Lượt AI hôm nay")).toHaveTextContent("— / —");
     expect(metric("Thất bại trong kỳ")).toHaveTextContent("—");
     expect(history().getAllByRole("row")).toHaveLength(1);

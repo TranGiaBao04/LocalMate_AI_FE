@@ -29,8 +29,11 @@ function PlaceDetail({ placeId }) {
 
   const [place, setPlace] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [clusterPlaces, setClusterPlaces] = useState([]);
-  const [loadingCluster, setLoadingCluster] = useState(false);
+  // null = chưa tải xong danh sách quanh ga; trạng thái đang tải suy ra từ đây, không set trong effect
+  const [nearbyPlaces, setNearbyPlaces] = useState(null);
+  const hasStation = Boolean(place?.nearestStation?.stationId || place?.nearestStation?.stationName);
+  const loadingCluster = hasStation && nearbyPlaces === null;
+  const clusterPlaces = nearbyPlaces ?? [];
   const now = useClock(CLOCK_TICK_MS);
 
   useEffect(() => {
@@ -42,13 +45,9 @@ function PlaceDetail({ placeId }) {
   }, [placeId]);
 
   useEffect(() => {
-    if (!place?.nearestStation?.stationId && !place?.nearestStation?.stationName) {
-      setClusterPlaces([]);
-      return;
-    }
+    if (!place?.nearestStation?.stationId && !place?.nearestStation?.stationName) return undefined;
 
     let cancelled = false;
-    setLoadingCluster(true);
     placeService
       .getMetroClusters()
       .then((clusters) => {
@@ -62,16 +61,13 @@ function PlaceDetail({ placeId }) {
           const nearby = cluster.places
             .filter((p) => (p.placeId || p.id) !== place.id)
             .slice(0, 4);
-          setClusterPlaces(nearby);
+          setNearbyPlaces(nearby);
         } else {
-          setClusterPlaces([]);
+          setNearbyPlaces([]);
         }
       })
       .catch(() => {
-        if (!cancelled) setClusterPlaces([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingCluster(false);
+        if (!cancelled) setNearbyPlaces([]);
       });
 
     return () => {

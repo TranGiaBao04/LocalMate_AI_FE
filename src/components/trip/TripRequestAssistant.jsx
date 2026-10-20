@@ -13,7 +13,9 @@ const MAX_TEXT_LENGTH = 500;
 // aiQuota: kết quả getAiQuota (null khi chưa có số). blockedReason: câu giải thích khi trang muốn khoá ô này.
 // cooldownSeconds: số giây còn phải chờ sau một lần AI lỗi; chỉ khoá nút gửi, vẫn cho gõ.
 // onSettled(err): gọi sau mỗi lần gửi để trang tải lại số lượt; err là lỗi của lần gửi đó, nếu có.
-export default function TripRequestAssistant({ title, placeholder, submitLabel, base, onParsed, aiQuota = null, blockedReason = "", cooldownSeconds = 0, onSettled }) {
+// hint: lời nhắc một dòng đặt dưới câu lý do (trang quyết định có hiện hay không).
+// description: dòng ghi chú ngay dưới tiêu đề (trang Nháp dùng để nói rõ là tạo lịch mới).
+export default function TripRequestAssistant({ title, description = null, placeholder, submitLabel, base, onParsed, aiQuota = null, blockedReason = "", cooldownSeconds = 0, onSettled, hint = null }) {
   const inputId = useId();
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -54,6 +56,7 @@ export default function TripRequestAssistant({ title, placeholder, submitLabel, 
         <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[22px] text-primary">auto_awesome</span>
         {title}
       </label>
+      {description && <p className="text-[13px] leading-5 text-text-muted">{description}</p>}
       <textarea
         id={inputId}
         value={text}
@@ -79,6 +82,7 @@ export default function TripRequestAssistant({ title, placeholder, submitLabel, 
           {loading ? "AI đang đọc…" : coolingDown ? `Thử lại sau ${cooldownSeconds} giây` : submitLabel}
         </button>
       </div>
+      {hint}
       {message && <p role="status" className="break-words border-t border-border-soft pt-3 text-body-md leading-6 text-text-muted">{message}</p>}
       {error && <p role="alert" className="break-words rounded-[8px] border border-error/20 bg-error-container/20 p-3 text-body-md leading-6 text-error">{error}</p>}
     </form>

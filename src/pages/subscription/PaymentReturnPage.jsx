@@ -1,132 +1,26 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { subscriptionService } from "../../services/subscriptionService";
-import { itineraryPurchaseService, singleOrderState } from "../../services/itineraryPurchaseService";
 import { useAuth } from "../../context/AuthContext";
 import { useSubscription } from "../../context/SubscriptionContext";
-import { PLAN_DISPLAY_NAMES } from "../../utils/subscriptionUtils";
-import {
-  getSinglePaymentReturnIntent,
-  openSinglePaymentCheckout,
-  saveSinglePaymentIntent,
-} from "../../utils/itineraryPurchaseSession";
+import { getPlanDisplayName } from "../../utils/subscriptionUtils";
 import {
   getSubscriptionPaymentSession,
   clearSubscriptionPaymentSession,
 } from "../../utils/subscriptionPaymentSession";
 import { PAYMENT_ORDER_STATUS } from "../../utils/subscriptionUpgradeContract";
 
-function SinglePaymentReturn({ ownerId, orderId, attemptId, draftTripId, openCheckout }) {
-  const navigate = useNavigate();
-  const [order, setOrder] = useState(null);
-  const [error, setError] = useState("");
-  const [reading, setReading] = useState(true);
-  const [retry, setRetry] = useState(0);
-  const inFlight = useRef(false);
-
-  useEffect(() => {
-    let active = true;
-    let timer;
-    const current = () => {
-      const session = getSinglePaymentReturnIntent(ownerId, orderId);
-      return active && session?.orderId === orderId &&
-        (session?.clientAttemptId ?? null) === attemptId;
-    };
-    const read = async () => {
-      if (!current() || inFlight.current) return;
-      inFlight.current = true;
-      setReading(true);
-      try {
-        const data = await itineraryPurchaseService.getOrder(orderId);
-        if (!current()) return;
-        if (data?.orderId !== orderId || data.productKind !== "SingleItinerary") {
-          throw new Error("Invalid owned order");
-        }
-        setOrder(data);
-        setError("");
-        if (!saveSinglePaymentIntent(ownerId, { ...data, clientAttemptId: attemptId, draftTripId })) {
-          throw new Error("Cannot persist owned order context");
-        }
-        if (openCheckout && data.status === "Pending" && data.checkoutUrl) {
-          openSinglePaymentCheckout(data.checkoutUrl);
-          return;
-        }
-        if (data.status === "Pending" || (data.status === "Paid" && data.entitlement == null)) {
-          timer = setTimeout(read, 2500);
-        }
-      } catch {
-        if (current()) setError("Chưa thể kiểm tra đơn hàng. Vui lòng thử kiểm tra lại.");
-      } finally {
-        inFlight.current = false;
-        if (current()) setReading(false);
-      }
-    };
-    timer = setTimeout(read, 0);
-    return () => { active = false; clearTimeout(timer); };
-  }, [ownerId, orderId, attemptId, draftTripId, openCheckout, retry]);
-
-  const state = singleOrderState(order);
-  const title = state === "ENTITLEMENT_GRANTED" ? "Thanh toán lịch trình thành công!" :
-    state === "VERIFYING" ? "Đang xác nhận quyền chốt lịch trình..." :
-    state === "FAILED" ? "Thanh toán lịch trình chưa hoàn tất" :
-    state === "EXPIRED" ? "Giao dịch mua lịch trình đã hết hạn" :
-    state === "PAYMENT_READY" || state === "PREPARING" ? "Giao dịch đang chờ thanh toán" :
-    reading ? "Đang kiểm tra đơn hàng đã sở hữu..." : "Thông tin thanh toán lịch trình";
-  return <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 [&_button]:min-h-11 [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-primary">
-    <div aria-live="polite" className="w-full max-w-lg rounded-[8px] bg-surface p-5 sm:p-8 border border-outline-variant/40 shadow-sm text-center space-y-5 break-words">
-      <span className={`material-symbols-outlined text-[40px] ${state === "ENTITLEMENT_GRANTED" ? "text-emerald-600" : "text-primary"}`}>
-        {state === "ENTITLEMENT_GRANTED" ? "check_circle" : reading ? "progress_activity" : "info"}
-      </span>
-      <h2 className="text-title-md font-bold">{title}</h2>
-      {state === "ENTITLEMENT_GRANTED" && <p className="text-body-md text-on-surface-variant">
-        Quyền chốt đã được xác nhận. Lượt mua chưa gắn với lịch trình; bạn có thể để dành và chọn dùng sau.
-      </p>}
-      {state === "VERIFYING" && <p className="text-body-md text-on-surface-variant">Thanh toán đã được ghi nhận. Đang xác nhận bằng chứng quyền chốt.</p>}
-      {(state === "PAYMENT_READY" || state === "PREPARING") && <p className="text-body-md text-on-surface-variant">Đơn hàng vẫn Pending trên máy chủ. Hệ thống sẽ tiếp tục kiểm tra.</p>}
-      {error && <p role="alert" className="text-body-sm text-error">{error}</p>}
-      <button type="button" disabled={reading} onClick={() => setRetry((value) => value + 1)}
-        className="w-full rounded-lg border px-4 py-3 disabled:opacity-50">Thử kiểm tra lại</button>
-      {draftTripId && <button type="button" onClick={() => navigate("/draft")}
-        className="w-full rounded-lg bg-primary text-on-primary px-4 py-3 font-semibold">Quay lại lịch trình nháp</button>}
-      <button type="button" onClick={() => navigate("/trips")} className="w-full rounded-lg border px-4 py-3">Xem lịch trình</button>
-    </div>
-  </div>;
-}
-
 export default function PaymentReturnPage({ mode = "success" }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const { refreshSubscription } = useSubscription();
+  const { refreshSubscription, plans } = useSubscription();
 
   const searchOrderId = searchParams.get("orderId");
-  const checkoutOrderId = searchParams.get("singleCheckout");
-  const singleIntent = getSinglePaymentReturnIntent(user?.id, searchOrderId || checkoutOrderId);
   const subscriptionSession = getSubscriptionPaymentSession(user?.id);
   const subscriptionOrderId = subscriptionSession?.orderId;
-
-  // Xác định luồng sản phẩm tách biệt rõ ràng
-  // TUYỆT ĐỐI KHÔNG fallback sang Single khi gặp lỗi Subscription
-  const flow = useMemo(() => {
-    if (checkoutOrderId) return singleIntent?.orderId === checkoutOrderId ? "single" : "unresolved";
-    // 1. Khớp chính xác orderId với Single intent
-    if (singleIntent?.orderId && searchOrderId === singleIntent.orderId) return "single";
-    // 2. Khớp chính xác orderId với Subscription session
-    if (subscriptionOrderId && searchOrderId === subscriptionOrderId) return "subscription";
-    // 3. Nếu không có query orderId, ưu tiên khôi phục intent cục bộ
-    if (!searchOrderId) {
-      if (subscriptionOrderId) return "subscription";
-      if (singleIntent?.orderId) return "single";
-    }
-    // 4. Khi có orderId lạ không khớp, mặc định là subscription (sản phẩm chính) - KHÔNG suy diễn Single
-    return "subscription";
-  }, [singleIntent?.orderId, subscriptionOrderId, searchOrderId, checkoutOrderId]);
-
-  const targetOrderId =
-    (flow === "unresolved" ? null : searchOrderId || checkoutOrderId ||
-    (flow === "single" ? singleIntent?.orderId : subscriptionOrderId));
-
-  const draftTripId = singleIntent?.draftTripId || null;
+  // Chỉ còn thanh toán gói: orderId trên URL, không có thì khôi phục từ phiên thanh toán đã lưu
+  const targetOrderId = searchOrderId || subscriptionOrderId || null;
 
   const [loading, setLoading] = useState(() => Boolean(targetOrderId));
   const [order, setOrder] = useState(null);
@@ -147,7 +41,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
     };
   }, [stopPolling]);
 
-  const targetScope = `${user?.id ?? ""}:${flow}:${targetOrderId ?? ""}`;
+  const targetScope = `${user?.id ?? ""}:${targetOrderId ?? ""}`;
   const [prevTargetScope, setPrevTargetScope] = useState(targetScope);
   if (prevTargetScope !== targetScope) {
     setPrevTargetScope(targetScope);
@@ -159,7 +53,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
   // Luôn tra cứu đơn hàng từ server cho cả luồng return và cancel
   // Redirect query hoặc cancel param KHÔNG được tự ý gán Paid/Failed/Expired
   useEffect(() => {
-    if (!targetOrderId || flow === "single") return undefined;
+    if (!targetOrderId) return undefined;
 
     let active = true;
 
@@ -181,7 +75,6 @@ export default function PaymentReturnPage({ mode = "success" }) {
         }
       } catch (err) {
         if (!active) return;
-        // KHÔNG BAO GIỜ fallback sang Single khi gặp lỗi tra cứu subscription
         setError(err.message || "Không thể kiểm tra trạng thái đơn hàng.");
       } finally {
         if (active) setLoading(false);
@@ -194,7 +87,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
       active = false;
       stopPolling();
     };
-  }, [targetOrderId, flow, user?.id, refreshSubscription, stopPolling, retryTrigger]);
+  }, [targetOrderId, user?.id, refreshSubscription, stopPolling, retryTrigger]);
 
   const handleRetryLookup = () => {
     setLoading(true);
@@ -203,15 +96,7 @@ export default function PaymentReturnPage({ mode = "success" }) {
   };
 
   const planDisplayName =
-    PLAN_DISPLAY_NAMES[order?.planCode] || order?.planCode || "Gói dịch vụ";
-  const isSingleFlow = flow === "single";
-
-  if (isSingleFlow) return <SinglePaymentReturn
-    key={`${targetScope}:${singleIntent?.clientAttemptId ?? ""}`}
-    ownerId={user?.id} orderId={targetOrderId}
-    attemptId={singleIntent?.clientAttemptId ?? null} draftTripId={draftTripId}
-    openCheckout={checkoutOrderId === targetOrderId}
-  />;
+    getPlanDisplayName(order?.planCode, plans) || "Gói dịch vụ";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 [&_button]:rounded-[8px] [&_button]:min-h-11 [&_button:focus-visible]:outline [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-primary">

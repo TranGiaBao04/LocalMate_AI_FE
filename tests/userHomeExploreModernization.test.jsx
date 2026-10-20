@@ -18,6 +18,9 @@ import { itineraryService } from "../src/services/itineraryService";
 import * as Trip from "../src/context/TripContext";
 import * as VietnamTime from "../src/utils/vnTime";
 
+// Nhãn gói trên PageHeader cần SubscriptionProvider, các test ở đây không kiểm tra gói
+vi.mock("../src/components/layout/PlanStatusChip", () => ({ default: () => null }));
+
 const itinerary = (id = "curated-a", extra = {}) => ({
   id, title: `Lịch trình ${id}`, description: "Khám phá văn hóa và cà phê quanh Metro",
   stationName: "Bến Thành", coverImageUrl: "/existing-cover.jpg", estimatedDurationMinutes: 90,

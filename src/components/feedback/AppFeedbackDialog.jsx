@@ -41,7 +41,13 @@ const RATING_LABELS = {
   5: "Rất hài lòng",
 };
 
+// Form chỉ được dựng khi mở, nên mỗi lần mở là state mới, không cần reset trong effect
 export default function AppFeedbackDialog({ isOpen, onClose }) {
+  if (!isOpen) return null;
+  return <AppFeedbackForm onClose={onClose} />;
+}
+
+function AppFeedbackForm({ onClose }) {
   const location = useLocation();
   const [type, setType] = useState(2); // Default to Suggestion
   const [rating, setRating] = useState(null);
@@ -55,30 +61,20 @@ export default function AppFeedbackDialog({ isOpen, onClose }) {
   const closeButtonRef = useRef(null);
   const previousFocusRef = useRef(null);
 
-  // Reset form when dialog opens
+  // Focus vào nút đóng khi mở, trả focus về chỗ cũ khi đóng
   useEffect(() => {
-    if (!isOpen) return undefined;
     previousFocusRef.current = document.activeElement;
     closeButtonRef.current?.focus();
-    setType(2);
-    setRating(null);
-    setHoverRating(null);
-    setContent("");
-    setError(null);
-    setIsSuccess(false);
-    setIsSubmitting(false);
 
     return () => {
       if (previousFocusRef.current?.isConnected) {
         previousFocusRef.current.focus();
       }
     };
-  }, [isOpen]);
+  }, []);
 
   // Trap focus and handle ESC key
   useEffect(() => {
-    if (!isOpen) return undefined;
-
     const handleKeyDown = (e) => {
       if (e.key === "Escape" && !isSubmitting) {
         onClose();
@@ -103,9 +99,7 @@ export default function AppFeedbackDialog({ isOpen, onClose }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isSubmitting, onClose]);
-
-  if (!isOpen) return null;
+  }, [isSubmitting, onClose]);
 
   const currentTypeConfig =
     FEEDBACK_TYPES.find((item) => item.value === type) ?? FEEDBACK_TYPES[1];

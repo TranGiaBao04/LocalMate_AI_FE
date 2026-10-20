@@ -6,12 +6,11 @@ import CuratedItineraryCard from "../../components/trip/CuratedItineraryCard";
 import { masterDataService } from "../../services/masterDataService";
 import { placeService } from "../../services/placeService";
 import { itineraryService } from "../../services/itineraryService";
-import { subscriptionService } from "../../services/subscriptionService";
 import { publicStatsService } from "../../services/publicStatsService";
 import { publicReviewService } from "../../services/publicReviewService";
+import { useSubscription } from "../../context/SubscriptionContext";
 import RatingStars from "../../components/ui/RatingStars";
 import {
-  FALLBACK_PLANS,
   PLAN_CODES,
   formatPlanPrice,
   getPlanDisplayName,
@@ -503,9 +502,10 @@ function StationCarousel({ clusters, onSelect }) {
 export default function WelcomePage() {
   const navigate = useNavigate();
   const { isLoggedIn, loginDemo } = useAuth();
+  // Danh sách gói dùng chung với cả app (SubscriptionProvider đã tải), không gọi lại API
+  const { plans, plansLoading } = useSubscription();
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [error, setError] = useState("");
-  const [plans, setPlans] = useState(FALLBACK_PLANS);
 
   const [stations, setStations] = useState([]);
   const [clusters, setClusters] = useState([]);
@@ -518,21 +518,6 @@ export default function WelcomePage() {
   // Người đã đăng nhập xem landing (qua /about) thì các nút dẫn thẳng vào app
   const createPath = isLoggedIn ? "/create" : "/login";
   const signupPath = isLoggedIn ? "/create" : "/register";
-
-  // Backend /api/subscriptions/plans là nguồn chân lý (authoritative) cho giao dịch thực tế.
-  // WelcomePage giữ FALLBACK_PLANS làm marketing copy tĩnh để trang đích không bị crash khi chưa có mạng.
-  useEffect(() => {
-    subscriptionService
-      .getPlans()
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setPlans(data);
-        }
-      })
-      .catch(() => {
-        // Giữ lại FALLBACK_PLANS cho trang đích marketing (không thực hiện giao dịch ở đây)
-      });
-  }, []);
 
   // Dữ liệu công khai (không cần đăng nhập). Phần nào lỗi thì ẩn phần đó.
   useEffect(() => {
@@ -941,63 +926,82 @@ export default function WelcomePage() {
               title="Dùng miễn phí, nâng cấp khi cần"
               desc="Phù hợp cho cả người ở thành phố muốn đi chơi cuối tuần và du khách lần đầu tới TP.HCM."
             />
-            <Reveal className="mx-auto grid max-w-5xl grid-cols-1 items-stretch gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {plans.map((plan) => {
-                const isFree = plan.code === PLAN_CODES.FREE;
-                const highlighted = plan.code === PLAN_CODES.MEMBERSHIP;
-                return (
-                  <div
-                    key={plan.code}
-                    className={`flex flex-col rounded-3xl bg-white p-7 ${
-                      highlighted ? "border-2 border-accent" : "border border-border-soft"
-                    }`}
-                  >
-                    <h3 className="text-lg font-bold text-navy-darkest">
-                      {getPlanDisplayName(plan.code, plans)}
-                    </h3>
-                    <div className="mt-3 border-b border-border-soft pb-5">
-                      <span className="text-3xl font-extrabold text-navy-darkest sm:text-4xl">
-                        {formatPlanPrice(plan.price)}
-                      </span>
-                      <span className="text-xs text-text-muted">
-                        {" "}
-                        / {plan.durationDays ? `${plan.durationDays} ngày` : "Không thời hạn"}
-                      </span>
-                    </div>
-                    <ul className="mt-5 flex-1 space-y-3 text-sm text-text-muted">
-                      {getPlanBenefits(plan).map((benefit) => (
-                        <li key={benefit} className="flex items-start gap-2.5">
-                          <span
-                            aria-hidden="true"
-                            className="material-symbols-outlined material-symbols-filled mt-px text-[18px] text-navy"
-                          >
-                            check_circle
-                          </span>
-                          <span>{benefit}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        navigate(isLoggedIn ? "/subscription" : isFree ? "/register" : "/login")
-                      }
-                      className={`mt-8 w-full rounded-full py-3 text-sm font-bold transition-colors ${
-                        highlighted
-                          ? "bg-accent text-navy-darkest hover:bg-accent-dark"
-                          : "bg-chip-bg text-navy-darkest hover:bg-chip-bg-alt"
+            {plans.length > 0 ? (
+              <Reveal className="mx-auto grid max-w-5xl grid-cols-1 items-stretch gap-5 md:grid-cols-2 lg:grid-cols-3">
+                {plans.map((plan) => {
+                  const isFree = plan.code === PLAN_CODES.FREE;
+                  const highlighted = plan.code === PLAN_CODES.MEMBERSHIP;
+                  return (
+                    <div
+                      key={plan.code}
+                      className={`flex flex-col rounded-3xl bg-white p-7 ${
+                        highlighted ? "border-2 border-accent" : "border border-border-soft"
                       }`}
                     >
-                      {isLoggedIn
-                        ? "Xem trong Gói hội viên"
-                        : isFree
-                          ? "Đăng ký miễn phí"
-                          : "Đăng nhập để chọn gói"}
-                    </button>
-                  </div>
-                );
-              })}
-            </Reveal>
+                      <h3 className="text-lg font-bold text-navy-darkest">
+                        {getPlanDisplayName(plan.code, plans)}
+                      </h3>
+                      <div className="mt-3 border-b border-border-soft pb-5">
+                        <span className="text-3xl font-extrabold text-navy-darkest sm:text-4xl">
+                          {formatPlanPrice(plan.price)}
+                        </span>
+                        <span className="text-xs text-text-muted">
+                          {" "}
+                          / {plan.durationDays ? `${plan.durationDays} ngày` : "Không thời hạn"}
+                        </span>
+                      </div>
+                      <ul className="mt-5 flex-1 space-y-3 text-sm text-text-muted">
+                        {getPlanBenefits(plan).map((benefit) => (
+                          <li key={benefit} className="flex items-start gap-2.5">
+                            <span
+                              aria-hidden="true"
+                              className="material-symbols-outlined material-symbols-filled mt-px text-[18px] text-navy"
+                            >
+                              check_circle
+                            </span>
+                            <span>{benefit}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(isLoggedIn ? "/subscription" : isFree ? "/register" : "/login")
+                        }
+                        className={`mt-8 w-full rounded-full py-3 text-sm font-bold transition-colors ${
+                          highlighted
+                            ? "bg-accent text-navy-darkest hover:bg-accent-dark"
+                            : "bg-chip-bg text-navy-darkest hover:bg-chip-bg-alt"
+                        }`}
+                      >
+                        {isLoggedIn
+                          ? "Xem trong Gói hội viên"
+                          : isFree
+                            ? "Đăng ký miễn phí"
+                            : "Đăng nhập để chọn gói"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </Reveal>
+            ) : plansLoading ? (
+              <div
+                aria-busy="true"
+                aria-label="Đang tải gói dịch vụ"
+                className="mx-auto grid max-w-5xl grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3"
+              >
+                {Array.from({ length: 3 }, (_, i) => (
+                  <div
+                    key={i}
+                    className="min-h-[380px] animate-pulse rounded-3xl border border-border-soft bg-surface-container-low"
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-sm text-text-muted">
+                Chưa tải được thông tin gói. Vui lòng thử lại sau.
+              </p>
+            )}
           </div>
         </section>
 
