@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import MobileLayout from "../../components/layout/MobileLayout";
 import PageHeader from "../../components/layout/PageHeader";
 import GuestTourCard from "../../components/home/GuestTourCard";
+import AccountRequiredDialog from "../../components/auth/AccountRequiredDialog";
 import HomeSearch from "../../components/home/HomeSearch";
 import NotificationBell from "../../components/notifications/NotificationBell";
 import CuratedItineraryCard from "../../components/trip/CuratedItineraryCard";
@@ -31,7 +32,14 @@ const HERO_FIELDS = [
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
+  const [showAccountRequired, setShowAccountRequired] = useState(false);
+
+  // Phiên demo không tạo được lịch trình: báo ngay, không cho vào các bước
+  const startCreateTrip = () => {
+    if (isDemo) setShowAccountRequired(true);
+    else navigate("/create");
+  };
   const [activeStationId, setActiveStationId] = useState(null);
   const [clusters, setClusters] = useState([]);
   const [clustersLoading, setClustersLoading] = useState(true);
@@ -120,7 +128,7 @@ export default function HomePage() {
         </div>
 
         {/* Guest Tour banner / quick guide */}
-        {showGuestTour && <GuestTourCard onDismiss={handleDismissTour} />}
+        {showGuestTour && <GuestTourCard onDismiss={handleDismissTour} onStart={startCreateTrip} />}
 
         {/* Hero — AI trip planner */}
         <section aria-labelledby="home-planner-title" className="flex min-w-0 flex-col gap-6 border-b border-border-soft pb-8">
@@ -172,7 +180,7 @@ export default function HomePage() {
               </a>
               <button
                 type="button"
-                onClick={() => navigate("/create")}
+                onClick={startCreateTrip}
                 className="flex min-h-11 items-center justify-center gap-2 rounded-[8px] bg-navy px-4 py-3 text-sm font-semibold text-white hover:bg-navy-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
               >
                 Thiết kế lịch trình với AI
@@ -202,7 +210,7 @@ export default function HomePage() {
             </div>
             <button
               type="button"
-              onClick={() => navigate("/create")}
+              onClick={startCreateTrip}
               className="min-h-11 rounded-[8px] px-2 text-left text-sm font-semibold text-navy hover:bg-chip-bg-alt focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
             >
               Tự thiết kế lịch trình ›
@@ -300,11 +308,12 @@ export default function HomePage() {
       <button
         type="button"
         aria-label="Tạo lịch trình"
-        onClick={() => navigate("/create")}
+        onClick={startCreateTrip}
         className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-navy text-white shadow-lg hover:bg-navy-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy lg:hidden"
       >
         <span aria-hidden="true" className="material-symbols-outlined text-[28px]">add</span>
       </button>
+      {showAccountRequired && <AccountRequiredDialog onClose={() => setShowAccountRequired(false)} />}
     </MobileLayout>
   );
 }

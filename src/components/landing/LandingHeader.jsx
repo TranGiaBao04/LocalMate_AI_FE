@@ -220,10 +220,10 @@ export default function LandingHeader({ isLoggedIn, contentReady, onNavigate, on
           }}>Đăng nhập</a>}
           <button type="button" className="lm-header-primary" onClick={() => {
             setOpenMenu(null);
-            onNavigate(isLoggedIn ? "/home" : "/login");
+            onNavigate(isLoggedIn ? "/home" : "/register");
           }}>
-            <span className="lm-header-cta-full">{isLoggedIn ? "Vào ứng dụng" : "Tạo lịch trình"}</span>
-            <span className="lm-header-cta-short">{isLoggedIn ? "Vào app" : "Bắt đầu"}</span>
+            <span className="lm-header-cta-full">{isLoggedIn ? "Vào ứng dụng" : "Đăng ký"}</span>
+            <span className="lm-header-cta-short">{isLoggedIn ? "Vào app" : "Đăng ký"}</span>
             <HeaderIcon name="arrow" />
           </button>
           <button

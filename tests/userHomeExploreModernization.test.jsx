@@ -269,6 +269,17 @@ describe("USER-A2.1 Home and guest guide", () => {
     expect(screen.getByLabelText("current route")).toHaveTextContent("/create|");
     await screen.findByText("Địa điểm a-0");
   });
+  it.each(["Bắt đầu tạo lịch trình", "Thiết kế lịch trình với AI", "Tự thiết kế lịch trình ›", "Tạo lịch trình"])("Demo %s opens the account dialog without leaving Home", async (name) => {
+    auth.isDemo = true; mount(<HomePage />); fireEvent.click(screen.getByRole("button", { name, exact: true }));
+    const dialog = screen.getByRole("dialog", { name: "Cần tài khoản để tạo lịch trình" });
+    expect(screen.getByLabelText("current route")).toHaveTextContent("/home|");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Để sau" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name, exact: true }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Đăng ký" }));
+    expect(screen.getByLabelText("current route")).toHaveTextContent("/register|");
+    await screen.findByText("Địa điểm a-0");
+  });
   it("keeps both search instances, profile action and actual NotificationBell", async () => {
     mount(<HomePage />);
     expect(screen.getAllByRole("searchbox", { name: "Tìm ga, địa điểm, lịch trình mẫu" })).toHaveLength(2);
@@ -340,10 +351,10 @@ describe("USER-A2.1 Home and guest guide", () => {
     await screen.findByText("Địa điểm a-0");
   });
   it("keeps three guide steps and the create action independent from dismissal", () => {
-    const dismiss = vi.fn(); mount(<GuestTourCard onDismiss={dismiss} />);
+    const dismiss = vi.fn(); const start = vi.fn(); mount(<GuestTourCard onDismiss={dismiss} onStart={start} />);
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
     fireEvent.click(screen.getByRole("button", { name: "Bắt đầu tạo lịch trình" }));
     expect(dismiss).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("current route")).toHaveTextContent("/create|");
+    expect(start).toHaveBeenCalledTimes(1);
   });
 });

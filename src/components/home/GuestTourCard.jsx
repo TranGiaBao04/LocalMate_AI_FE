@@ -1,8 +1,4 @@
-import { useNavigate } from "react-router-dom";
-
-export default function GuestTourCard({ onDismiss }) {
-  const navigate = useNavigate();
-
+export default function GuestTourCard({ onDismiss, onStart }) {
   return (
     <section
       aria-labelledby="guest-tour-title"
@@ -99,7 +95,7 @@ export default function GuestTourCard({ onDismiss }) {
             </button>
             <button
               type="button"
-              onClick={() => navigate("/create")}
+              onClick={onStart}
               className="flex min-h-11 items-center justify-center gap-2 rounded-[8px] bg-navy px-4 py-3 text-sm font-semibold text-white hover:bg-navy-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
             >
               <span>Bắt đầu tạo lịch trình</span>

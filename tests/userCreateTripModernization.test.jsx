@@ -236,10 +236,15 @@ describe("USER-A4.2 preferences, feasibility, generation and prefill", () => {
     expect(navigation.mock.calls).toEqual([["/loading"], ["/draft", { replace: true }]]);
     expect(context.setCurrentTrip).toHaveBeenCalledWith({ id: "new-trip" });
   });
-  it("keeps Demo assistant hidden and final CTA login-only", async () => {
-    demo = true; await finalStep(); expect(screen.queryByRole("textbox", { name: /Kể cho/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("Phiên demo"); await click("Đăng nhập để tạo");
-    expect(navigation).toHaveBeenCalledWith("/login"); expect(context.generateTrip).not.toHaveBeenCalled();
+  it("blocks Demo at entry with the account dialog instead of the wizard", async () => {
+    demo = true; await mount();
+    expect(screen.getByRole("dialog", { name: "Cần tài khoản để tạo lịch trình" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Các bước tạo lịch trình" })).not.toBeInTheDocument();
+    expect(masterDataService.getMasterData).not.toHaveBeenCalled();
+    await click("Đăng ký"); expect(navigation).toHaveBeenLastCalledWith("/register");
+    await click("Đăng nhập"); expect(navigation).toHaveBeenLastCalledWith("/login");
+    await click("Để sau"); expect(navigation).toHaveBeenLastCalledWith("/home", { replace: true });
+    expect(context.generateTrip).not.toHaveBeenCalled();
   });
   it("propagates generation failure code, suggestions and quota metadata via replace", async () => {
     const data = { extensions: { limit: 1, used: 1 }, suggestedStations: [{ order: 2 }] };
