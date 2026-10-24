@@ -10,7 +10,7 @@
 .lm-story *, .lm-story *::before, .lm-story *::after { box-sizing: border-box; }
 .lm-story-container { width: 100%; max-width: 1152px; margin: 0 auto; padding: 0 32px; }
 .lm-problems { background: #f7f8fc; }
-.lm-team { background: #fffdf9; }
+.lm-team { background: #f4f6fa; }
 .lm-section-intro { display: grid; grid-template-columns: 1.4fr 1fr; align-items: end; gap: 48px; margin-bottom: 36px; }
 .lm-eyebrow { display: flex; align-items: center; gap: 9px; margin: 0 0 20px; font-size: 11px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
 .lm-eyebrow > span { width: 8px; height: 8px; border-radius: 50%; background: #eead50; box-shadow: 0 0 0 5px #eead501c; }
