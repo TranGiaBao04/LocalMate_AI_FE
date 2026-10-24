@@ -74,7 +74,7 @@ export default function AiUsagePanel({ source, canManageUsers }) {
                       : <p className="font-semibold">{user.fullName || "Người dùng"}</p>}
                     {user.email && <p className="text-xs text-[#5C6B8A]">{user.email}</p>}
                   </div>
-                  <p className="min-w-0 text-xs leading-5 tabular-nums text-[#5C6B8A] [overflow-wrap:anywhere]">
+                  <p className="min-w-0 text-xs leading-5 tabular-nums text-[#5C6B8A] [overflow-wrap:anywhere] sm:shrink-0 sm:text-right">
                     <strong className="text-sm text-[#0F2148]">{count(user.calls)} lượt</strong><br />
                     {count(user.inputTokens)} token vào · {count(user.outputTokens)} token ra
                   </p>
