@@ -8,6 +8,7 @@ import { masterDataService } from "../../services/masterDataService";
 import { placeService } from "../../services/placeService";
 import { tripService, toTripRequestDto } from "../../services/tripService";
 import TripRequestAssistant from "../../components/trip/TripRequestAssistant";
+import AccountRequiredDialog from "../../components/auth/AccountRequiredDialog";
 import UpgradeHint from "../../components/subscription/UpgradeHint";
 // Đồng hồ cập nhật định kỳ để chip buổi/thời lượng tự khoá khi đã qua giờ
 import { useClock } from "../../hooks/useClock";
@@ -271,7 +272,21 @@ function TripIssue({ issue, travelMode, busy, onFix, onGoToStep }) {
   );
 }
 
+// Phiên demo không tạo được lịch trình: vào trang từ đâu cũng chỉ thấy hộp thoại
 export default function CreateTripPage() {
+  const navigate = useNavigate();
+  const { isDemo } = useAuth();
+  if (isDemo) {
+    return (
+      <div className="app-shell min-h-screen">
+        <AccountRequiredDialog onClose={() => navigate("/home", { replace: true })} />
+      </div>
+    );
+  }
+  return <CreateTripWizard />;
+}
+
+function CreateTripWizard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { request, setRequest, generateTrip, setCurrentTrip, noteAiError } = useTrip();
@@ -1260,12 +1275,6 @@ export default function CreateTripPage() {
               </p>
             </section>
 
-            {isDemo && (
-              <p role="status" className="rounded-[8px] border border-border-soft bg-white p-4 text-body-md text-text-muted">
-                Phiên demo chỉ xem được gợi ý. Hãy đăng nhập hoặc đăng ký tài khoản để tạo và lưu lịch trình.
-              </p>
-            )}
-
             {prefill && (
               <div className="space-y-3 rounded-[8px] border border-primary/20 bg-primary/5 p-4 text-body-md sm:p-5">
                 <p className="font-semibold text-primary">Thay đổi so với lịch cũ</p>
@@ -1374,15 +1383,6 @@ export default function CreateTripPage() {
             <span aria-hidden="true" className="material-symbols-outlined ml-2 hidden min-[360px]:inline">
               chevron_right
             </span>
-          </button>
-        ) : isDemo ? (
-          <button
-            type="button"
-            onClick={() => navigate("/login")}
-            className="flex min-h-12 shrink-0 items-center whitespace-nowrap rounded-[8px] bg-primary px-4 py-3 text-body-md font-semibold text-on-primary transition-colors hover:bg-navy-dark motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-6"
-          >
-            Đăng nhập để tạo
-            <span aria-hidden="true" className="material-symbols-outlined ml-2 hidden min-[360px]:inline">login</span>
           </button>
         ) : (
           <button
