@@ -10,6 +10,8 @@ import { publicStatsService } from "../../services/publicStatsService";
 import { publicReviewService } from "../../services/publicReviewService";
 import { useSubscription } from "../../context/SubscriptionContext";
 import RatingStars from "../../components/ui/RatingStars";
+import { LandingProblems, LandingTeam } from "../../components/landing/LandingStorySections";
+import LandingHeader from "../../components/landing/LandingHeader";
 import {
   PLAN_CODES,
   formatPlanPrice,
@@ -81,13 +83,6 @@ function countByCategory(places) {
     .map((code) => ({ code, count: places.filter((pl) => pl.category === code).length }))
     .filter((item) => item.count > 0);
 }
-
-const NAV_LINKS = [
-  { id: "tinh-nang", label: "Tính năng AI" },
-  { id: "14-ga-metro", label: "14 Ga Tuyến 1" },
-  { id: "lich-trinh-mau", label: "Lịch trình mẫu" },
-  { id: "bang-gia", label: "Gói dịch vụ" },
-];
 
 // Số thẻ đánh giá ở trang đích. API trả ít hơn thì các ô còn lại hiện ô giữ chỗ
 const REVIEW_LIMIT = 3;
@@ -617,67 +612,13 @@ export default function WelcomePage() {
 
   return (
     <div className="min-h-screen w-full bg-background text-on-surface">
-      {/* Header: nền trắng cố định, nằm trên video chứ không đè lên */}
-      <header className="sticky top-0 z-50 border-b border-outline-variant/30 bg-white/95 backdrop-blur-md">
-        <div className={`${WIDE_CONTAINER} flex h-20 items-center justify-between`}>
-          <button
-            type="button"
-            onClick={() => scrollToTop()}
-            aria-label="LocalMate AI, lên đầu trang"
-            className="flex shrink-0 items-center gap-3 text-left"
-          >
-            <img
-              src={logo}
-              alt="LocalMate AI"
-              className="w-11 h-11 rounded-2xl object-cover shadow-md"
-            />
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xl font-extrabold tracking-tight text-navy-dark">
-                  LocalMate
-                </span>
-                <span className="rounded-md bg-navy px-1.5 py-0.5 text-[11px] font-extrabold text-white">
-                  AI
-                </span>
-              </div>
-              <p className="mt-px text-[11px] text-text-muted">Metro-friendly planner</p>
-            </div>
-          </button>
-
-          <nav className="hidden lg:flex items-center gap-5 xl:gap-8 whitespace-nowrap text-sm font-semibold text-text-muted">
-            {NAV_LINKS.map((link) => (
-              <button
-                key={link.id}
-                type="button"
-                onClick={() => scrollToSection(link.id)}
-                className="transition-colors hover:text-navy"
-              >
-                {link.label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="flex shrink-0 items-center gap-3 sm:gap-4">
-            {!isLoggedIn && (
-              <button
-                onClick={() => navigate("/login")}
-                className="hidden sm:inline-flex text-sm font-semibold text-text-muted hover:text-navy px-3 py-2 transition-colors"
-              >
-                Đăng nhập
-              </button>
-            )}
-            <button
-              onClick={() => navigate(isLoggedIn ? "/home" : "/login")}
-              className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-navy-darkest hover:bg-slate-900 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all active:scale-95"
-            >
-              <span>{isLoggedIn ? "Vào ứng dụng" : "Tạo lịch trình"}</span>
-              <span className="material-symbols-outlined hidden text-[18px] ml-1.5 sm:inline-block">
-                arrow_forward
-              </span>
-            </button>
-          </div>
-        </div>
-      </header>
+      <LandingHeader
+        isLoggedIn={isLoggedIn}
+        contentReady={publicDataLoaded && !plansLoading}
+        onNavigate={navigate}
+        onSectionSelect={scrollToSection}
+        onBackToTop={scrollToTop}
+      />
 
       <main>
         {/* Mở đầu: video hiện sạch (đã có chữ riêng), bấm vào là tới trang tạo lịch trình */}
@@ -776,13 +717,16 @@ export default function WelcomePage() {
           </div>
         </section>
 
+        <LandingProblems onStart={() => navigate(createPath)} />
+
         {/* Ba bước + tính năng */}
         <section id="tinh-nang" className="scroll-mt-24 bg-white py-16 sm:py-20">
           <div className={CONTAINER}>
             <SectionHeading
-              title="Ba bước là có lịch trình"
-              desc="Không cần chuẩn bị trước, mọi thứ được xếp vừa theo từng ga của tuyến Metro số 1."
+              title="Tính năng chính"
+              desc="Từ ý tưởng đi chơi đến lịch trình có thể chỉnh sửa, với thông tin di chuyển ngay trong từng chặng."
             />
+            <h3 className="mb-6 text-center text-lg font-bold text-navy-darkest">Ba bước là có lịch trình</h3>
             <Reveal className="grid grid-cols-1 gap-6 md:grid-cols-3">
               {STEPS.map((step) => (
                 <div key={step.title} className="rounded-3xl bg-background p-6">
@@ -1005,19 +949,26 @@ export default function WelcomePage() {
           </div>
         </section>
 
+        <LandingTeam />
+
         {/* Lời kêu gọi */}
         <section className="bg-navy-darkest py-16 text-center">
           <div className={CONTAINER}>
             <h2 className="mx-auto max-w-2xl text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl">
               Lên lịch cho buổi đi Metro của bạn
             </h2>
-            <button
-              type="button"
-              onClick={() => navigate(signupPath)}
-              className={`${PRIMARY_BUTTON} mt-8`}
-            >
-              {isLoggedIn ? "Tạo lịch trình" : "Tạo lịch trình miễn phí"}
-            </button>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-primary-fixed sm:text-base">
+              Chọn ga xuất phát, chia sẻ sở thích và bắt đầu khám phá. Tạo lịch trình theo thời gian và ngân sách của riêng bạn.
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <button type="button" onClick={() => navigate(signupPath)} className={PRIMARY_BUTTON}>
+                {isLoggedIn ? "Tạo lịch trình" : "Đăng ký miễn phí"}
+              </button>
+              <a href="mailto:localmateai@gmail.com" className="inline-flex items-center justify-center gap-2 rounded-full border border-white/30 px-7 py-3.5 text-sm font-bold text-white transition hover:bg-white/10">
+                <span aria-hidden="true" className="material-symbols-outlined text-lg">mail</span>
+                Liên hệ tư vấn
+              </a>
+            </div>
           </div>
         </section>
       </main>
@@ -1083,9 +1034,15 @@ export default function WelcomePage() {
                   </a>
                 </li>
                 <li>
-                  <a className="hover:text-white transition-colors" href="#">
+                  <a className="hover:text-white transition-colors" href="mailto:localmateai@gmail.com">
                     Gửi đề xuất quán mới
                   </a>
+                </li>
+                <li>
+                  <a className="hover:text-white transition-colors" href="#van-de-giai-phap">Vấn đề &amp; giải pháp</a>
+                </li>
+                <li>
+                  <a className="hover:text-white transition-colors" href="#doi-ngu">Đội ngũ LocalMate AI</a>
                 </li>
               </ul>
             </div>
