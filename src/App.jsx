@@ -64,20 +64,22 @@ import AdminPlaceDetailPage from "./pages/admin/AdminPlaceDetailPage";
 import ImportStepperPage from "./pages/admin/ImportStepperPage";
 
 export default function App() {
-  const { pathname } = useLocation();
+  const { pathname, search, hash } = useLocation();
   const { isLoggedIn, initializing } = useAuth();
   const showAppNav = !pathname.startsWith("/admin") && !["/", "/about", "/login", "/register", "/forgot-password", "/loading", "/payment/success", "/payment/cancel"].includes(
     pathname,
   ) && isLoggedIn;
   const showBottomNav = ["/home", "/trips", "/metro", "/explore", "/profile", "/subscription"].includes(pathname);
+  // Mọi lần tự chuyển trang đều giữ query (utm_*, gclid...) để GA4/GTM vẫn đọc được nguồn chiến dịch
+  const redirectTo = (target) => <Navigate to={{ pathname: target, search, hash }} replace />;
   const requireAuth = (element) => {
     if (initializing) return null;
-    return isLoggedIn ? element : <Navigate to="/login" replace />;
+    return isLoggedIn ? element : redirectTo("/login");
   };
   // Trang đích: đã đăng nhập thì vào thẳng app, không dựng landing (tránh nháy và gọi API thừa)
   const landingOrHome = () => {
     if (initializing) return null;
-    return isLoggedIn ? <Navigate to="/home" replace /> : <WelcomePage />;
+    return isLoggedIn ? redirectTo("/home") : <WelcomePage />;
   };
 
   return (
@@ -191,10 +193,10 @@ export default function App() {
               </AdminRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/admin" replace />} />
+          <Route path="*" element={redirectTo("/admin")} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={redirectTo("/")} />
       </Routes>
       {showAppNav && showBottomNav && <BottomNavigation />}
     </>
